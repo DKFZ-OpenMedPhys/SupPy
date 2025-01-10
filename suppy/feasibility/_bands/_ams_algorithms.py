@@ -56,9 +56,10 @@ class HyperslabAMSAlgorithm(HyperslabFeasibility, ABC):
         self.A_norm = LinearMapping(self.A.normalize_rows(2, 2))
 
 
-class SequentialAMS(HyperslabAMSAlgorithm):
+class SequentialAMSHyperslab(HyperslabAMSAlgorithm):
     """
-    SequentialAMS class for sequentially applying the AMS algorithm.
+    SequentialAMSHyperslab class for sequentially applying the AMS algorithm
+    on hyperslabs.
 
     Parameters
     ----------
@@ -128,7 +129,7 @@ class SequentialAMS(HyperslabAMSAlgorithm):
         return x
 
 
-class SequentialWeightedAMS(SequentialAMS):
+class SequentialWeightedAMSHyperslab(SequentialAMSHyperslab):
     """
     Parameters
     ----------
@@ -229,11 +230,10 @@ class SequentialWeightedAMS(SequentialAMS):
         return x
 
 
-class SimultaneousAMS(HyperslabAMSAlgorithm):
+class SimultaneousAMSHyperslab(HyperslabAMSAlgorithm):
     """
-    SimultaneousAMS is an implementation of the AMS (Alternating
-    Minimization Scheme) algorithm
-    that performs simultaneous projections and proximity calculations.
+    SimultaneousAMSHyperslab class for simultaneous application of the AMS
+    algorithm on hyperslabs.
 
     Parameters
     ----------
@@ -300,7 +300,7 @@ class SimultaneousAMS(HyperslabAMSAlgorithm):
         ).sum()
 
 
-class ExtrapolatedLandweber(SimultaneousAMS):
+class ExtrapolatedLandweber(SimultaneousAMSHyperslab):
     def __init__(
         self, A, lb, ub, algorithmic_relaxation=1, relaxation=1, weights=None, proximity_flag=True
     ):
@@ -331,12 +331,9 @@ class ExtrapolatedLandweber(SimultaneousAMS):
         return x
 
 
-class BlockIterativeAMS(HyperslabAMSAlgorithm):
+class BlockIterativeAMSHyperslab(HyperslabAMSAlgorithm):
     """
-    Block Iterative AMS Algorithm.
-    This class implements a block iterative version of the AMS (Alternating
-    Minimization Scheme) algorithm.
-    It is designed to handle constraints and weights in a block-wise manner.
+    Block Iterative AMS Algorithm for hyperslabs.
 
     Parameters
     ----------
@@ -422,11 +419,10 @@ class BlockIterativeAMS(HyperslabAMSAlgorithm):
         ).sum()
 
 
-class StringAveragedAMS(HyperslabAMSAlgorithm):
+class StringAveragedAMSHyperslab(HyperslabAMSAlgorithm):
     """
-    StringAveragedAMS is an implementation of the HyperslabAMSAlgorithm that
-    performs
-    string averaged projections.
+    StringAveragedAMSHyperslab is a string averaged implementation of the
+    AMS algorithm.
 
     Parameters
     ----------

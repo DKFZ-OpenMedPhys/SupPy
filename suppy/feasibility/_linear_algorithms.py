@@ -5,7 +5,6 @@ import numpy.typing as npt
 
 from scipy import sparse
 
-import suppy.projections as pr
 from suppy.utils import Bounds
 from suppy.utils import LinearMapping
 from suppy.utils import ensure_float_array

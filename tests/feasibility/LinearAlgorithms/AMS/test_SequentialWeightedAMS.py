@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 import scipy.sparse as sparse
-from suppy.feasibility import SequentialWeightedAMS
+from suppy.feasibility import SequentialWeightedAMSHyperslab
 from suppy.utils import LinearMapping
 
 
@@ -22,27 +22,28 @@ def get_sparse_variables():
 
 
 @pytest.fixture
-def get_SequentialWeightedAMS_input(get_full_variables):
+def get_SequentialWeightedAMSHyperslab_input(get_full_variables):
     A, lb, ub = get_full_variables
-    return SequentialWeightedAMS(A, lb, ub, algorithmic_relaxation=1.5), A, lb, ub
+    return SequentialWeightedAMSHyperslab(A, lb, ub, algorithmic_relaxation=1.5), A, lb, ub
 
 
 @pytest.fixture
-def get_SequentialWeightedAMS_input_sparse(get_sparse_variables):
+def get_SequentialWeightedAMSHyperslab_input_sparse(get_sparse_variables):
     A, lb, ub = get_sparse_variables
-    return SequentialWeightedAMS(A, lb, ub, algorithmic_relaxation=1.5), A, lb, ub
+    return SequentialWeightedAMSHyperslab(A, lb, ub, algorithmic_relaxation=1.5), A, lb, ub
 
 
-def test_SequentialWeightedAMS_constructor_no_weights_full(
-    get_SequentialWeightedAMS_input,
+def test_SequentialWeightedAMSHyperslab_constructor_no_weights_full(
+    get_SequentialWeightedAMSHyperslab_input,
 ):
     """
-    Test the SequentialWeightedAMS constructor with no weights and full
+    Test the SequentialWeightedAMSHyperslab constructor with no weights and
+    full
     matrix.
     """
-    alg, A, lb, ub = get_SequentialWeightedAMS_input
+    alg, A, lb, ub = get_SequentialWeightedAMSHyperslab_input
 
-    alg = SequentialWeightedAMS(A, lb, ub, algorithmic_relaxation=1.5)
+    alg = SequentialWeightedAMSHyperslab(A, lb, ub, algorithmic_relaxation=1.5)
     assert np.array_equal(alg.A, A)
     assert np.array_equal(alg.Bounds.l, lb)
     assert np.array_equal(alg.Bounds.u, ub)
@@ -52,16 +53,17 @@ def test_SequentialWeightedAMS_constructor_no_weights_full(
     assert np.all(alg.weights == np.ones(len(A)))
 
 
-def test_SequentialWeightedAMS_constructor_no_weights_sparse(
-    get_SequentialWeightedAMS_input_sparse,
+def test_SequentialWeightedAMSHyperslab_constructor_no_weights_sparse(
+    get_SequentialWeightedAMSHyperslab_input_sparse,
 ):
     """
-    Test the SequentialWeightedAMS constructor with no weights and sparse
+    Test the SequentialWeightedAMSHyperslab constructor with no weights and
+    sparse
     matrix.
     """
-    alg, A, lb, ub = get_SequentialWeightedAMS_input_sparse
+    alg, A, lb, ub = get_SequentialWeightedAMSHyperslab_input_sparse
 
-    alg = SequentialWeightedAMS(A, lb, ub, algorithmic_relaxation=1.5)
+    alg = SequentialWeightedAMSHyperslab(A, lb, ub, algorithmic_relaxation=1.5)
 
     assert isinstance(alg.A, LinearMapping)
     assert np.array_equal(alg.A.todense(), A.todense())
@@ -73,10 +75,12 @@ def test_SequentialWeightedAMS_constructor_no_weights_sparse(
     assert np.all(alg.weights == np.ones(A.shape[0]))
 
 
-def test_SequentialWeightedAMS_constructor_custom_weights(get_full_variables):
-    """Test the SequentialWeightedAMS constructor with custom weights."""
+def test_SequentialWeightedAMSHyperslab_constructor_custom_weights(get_full_variables):
+    """Test the SequentialWeightedAMSHyperslab constructor with custom weights."""
     A, lb, ub = get_full_variables
-    alg = SequentialWeightedAMS(A, lb, ub, algorithmic_relaxation=1.5, weights=np.ones(len(A)))
+    alg = SequentialWeightedAMSHyperslab(
+        A, lb, ub, algorithmic_relaxation=1.5, weights=np.ones(len(A))
+    )
 
     assert isinstance(alg.A, LinearMapping)
     assert np.array_equal(alg.A, A)
@@ -91,10 +95,10 @@ def test_SequentialWeightedAMS_constructor_custom_weights(get_full_variables):
     # does weight decay work?
 
 
-def test_SequentialWeightedAMS_weight_decay_full(get_full_variables):
-    """Test the weight decay of the SequentialWeightedAMS class."""
+def test_SequentialWeightedAMSHyperslab_weight_decay_full(get_full_variables):
+    """Test the weight decay of the SequentialWeightedAMSHyperslab class."""
     A, lb, ub = get_full_variables
-    alg = SequentialWeightedAMS(A, lb, ub, weights=np.ones(len(A)), weight_decay=0.5)
+    alg = SequentialWeightedAMSHyperslab(A, lb, ub, weights=np.ones(len(A)), weight_decay=0.5)
 
     x_1 = np.array([2.0, 2.0])
     x_n = alg.step(x_1)
@@ -103,10 +107,10 @@ def test_SequentialWeightedAMS_weight_decay_full(get_full_variables):
     assert alg.temp_weight_decay == 0.5
 
 
-def test_SequentialWeightedAMS_weight_decay_sparse(get_sparse_variables):
-    """Test the weight decay of the SequentialWeightedAMS class."""
+def test_SequentialWeightedAMSHyperslab_weight_decay_sparse(get_sparse_variables):
+    """Test the weight decay of the SequentialWeightedAMSHyperslab class."""
     A, lb, ub = get_sparse_variables
-    alg = SequentialWeightedAMS(A, lb, ub, weights=np.ones(A.shape[0]), weight_decay=0.5)
+    alg = SequentialWeightedAMSHyperslab(A, lb, ub, weights=np.ones(A.shape[0]), weight_decay=0.5)
 
     x_1 = np.array([2.0, 2.0])
     x_n = alg.step(x_1)
@@ -115,10 +119,12 @@ def test_SequentialWeightedAMS_weight_decay_sparse(get_sparse_variables):
     assert alg.temp_weight_decay == 0.5
 
 
-def test_SequentialWeightedAMS_weight_decay_step_full(get_full_variables):
-    """Test the weight decay of the SequentialWeightedAMS class."""
+def test_SequentialWeightedAMSHyperslab_weight_decay_step_full(get_full_variables):
+    """Test the weight decay of the SequentialWeightedAMSHyperslab class."""
     A, lb, ub = get_full_variables
-    alg = SequentialWeightedAMS(A, lb, ub, algorithmic_relaxation=1.5, weights=np.ones(len(A)))
+    alg = SequentialWeightedAMSHyperslab(
+        A, lb, ub, algorithmic_relaxation=1.5, weights=np.ones(len(A))
+    )
     alg.temp_weight_decay = 2 / 3
     assert alg.temp_weight_decay == 2 / 3
 
@@ -156,10 +162,12 @@ def test_SequentialWeightedAMS_weight_decay_step_full(get_full_variables):
     assert np.array_equal(x_n, x_5)
 
 
-def test_SequentialWeightedAMS_weight_decay_step_sparse(get_sparse_variables):
-    """Test the weight decay of the SequentialWeightedAMS class."""
+def test_SequentialWeightedAMSHyperslab_weight_decay_step_sparse(get_sparse_variables):
+    """Test the weight decay of the SequentialWeightedAMSHyperslab class."""
     A, lb, ub = get_sparse_variables
-    alg = SequentialWeightedAMS(A, lb, ub, algorithmic_relaxation=1.5, weights=np.ones(A.shape[0]))
+    alg = SequentialWeightedAMSHyperslab(
+        A, lb, ub, algorithmic_relaxation=1.5, weights=np.ones(A.shape[0])
+    )
     alg.temp_weight_decay = 2 / 3
     assert alg.temp_weight_decay == 2 / 3
 

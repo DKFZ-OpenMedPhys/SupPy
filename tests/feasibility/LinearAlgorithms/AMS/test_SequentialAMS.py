@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 import scipy.sparse as sparse
-from suppy.feasibility import SequentialAMS
+from suppy.feasibility import SequentialAMSHyperslab
 from suppy.utils import LinearMapping
 
 
@@ -22,23 +22,26 @@ def get_sparse_variables():
 
 
 @pytest.fixture
-def get_SequentialAMS_input_full(get_full_variables):
+def get_SequentialAMSHyperslab_input_full(get_full_variables):
     A, lb, ub = get_full_variables
-    return SequentialAMS(A, lb, ub), A, lb, ub
+    return SequentialAMSHyperslab(A, lb, ub), A, lb, ub
 
 
 @pytest.fixture
-def get_SequentialAMS_input_sparse(get_sparse_variables):
+def get_SequentialAMSHyperslab_input_sparse(get_sparse_variables):
     A, lb, ub = get_sparse_variables
-    return SequentialAMS(A, lb, ub), A, lb, ub
+    return SequentialAMSHyperslab(A, lb, ub), A, lb, ub
 
 
-def test_SequentialAMS_no_relaxation_constructor_full(get_SequentialAMS_input_full):
+def test_SequentialAMSHyperslab_no_relaxation_constructor_full(
+    get_SequentialAMSHyperslab_input_full,
+):
     """
-    Test the SequentialAMS constructor with no relaxation and a full
+    Test the SequentialAMSHyperslab constructor with no relaxation and a
+    full
     matrix.
     """
-    alg, A, lb, ub = get_SequentialAMS_input_full
+    alg, A, lb, ub = get_SequentialAMSHyperslab_input_full
 
     assert isinstance(alg.A, LinearMapping)
     assert np.array_equal(alg.A, A)
@@ -49,12 +52,15 @@ def test_SequentialAMS_no_relaxation_constructor_full(get_SequentialAMS_input_fu
     assert alg.relaxation == 1.0
 
 
-def test_SequentialAMS_no_relaxation_constructor_sparse(get_SequentialAMS_input_sparse):
+def test_SequentialAMSHyperslab_no_relaxation_constructor_sparse(
+    get_SequentialAMSHyperslab_input_sparse,
+):
     """
-    Test the SequentialAMS constructor with no relaxation and a sparse
+    Test the SequentialAMSHyperslab constructor with no relaxation and a
+    sparse
     matrix.
     """
-    alg, A, lb, ub = get_SequentialAMS_input_sparse
+    alg, A, lb, ub = get_SequentialAMSHyperslab_input_sparse
 
     assert isinstance(alg.A, LinearMapping)
     assert np.array_equal(alg.A.todense(), A.todense())
@@ -65,18 +71,22 @@ def test_SequentialAMS_no_relaxation_constructor_sparse(get_SequentialAMS_input_
     assert alg.relaxation == 1.0
 
 
-def test_SequentialAMS_map_full(get_SequentialAMS_input_full):
-    """Test the map function of the SequentialAMS class with full matrix."""
-    alg, _, _, _ = get_SequentialAMS_input_full
+def test_SequentialAMSHyperslab_map_full(get_SequentialAMSHyperslab_input_full):
+    """Test the map function of the SequentialAMSHyperslab class with full
+    matrix.
+    """
+    alg, _, _, _ = get_SequentialAMSHyperslab_input_full
 
     # test map function(s)
     x_map = np.array([1, 1])
     assert np.array_equal(alg.map(x_map), np.array([2, 0, 1, 1]))
 
 
-def test_SequentialAMS_map_sparse(get_SequentialAMS_input_sparse):
-    """Test the map function of the SequentialAMS class with sparse matrix."""
-    alg, _, _, _ = get_SequentialAMS_input_sparse
+def test_SequentialAMSHyperslab_map_sparse(get_SequentialAMSHyperslab_input_sparse):
+    """Test the map function of the SequentialAMSHyperslab class with sparse
+    matrix.
+    """
+    alg, _, _, _ = get_SequentialAMSHyperslab_input_sparse
 
     # test map function(s)
     x_map = np.array([1, 1])
@@ -84,33 +94,37 @@ def test_SequentialAMS_map_sparse(get_SequentialAMS_input_sparse):
     assert np.array_equal(alg.map(x_map), np.array([2, 0, 1, 1]))
 
 
-def test_SequentialAMS_indexed_map_full(get_SequentialAMS_input_full):
+def test_SequentialAMSHyperslab_indexed_map_full(get_SequentialAMSHyperslab_input_full):
     """
-    Test the indexed_map function of the SequentialAMS class with full
+    Test the indexed_map function of the SequentialAMSHyperslab class with
+    full
     matrix.
     """
-    alg, _, _, _ = get_SequentialAMS_input_full
+    alg, _, _, _ = get_SequentialAMSHyperslab_input_full
     idx = [0, 1]
     # test map function(s)
     x_map = np.array([1, 1])
     assert np.array_equal(alg.indexed_map(x_map, idx), np.array([2, 0]))
 
 
-def test_SequentialAMS_indexed_map_sparse(get_SequentialAMS_input_sparse):
+def test_SequentialAMSHyperslab_indexed_map_sparse(get_SequentialAMSHyperslab_input_sparse):
     """
-    Test the indexed_map function of the SequentialAMS class with sparse
+    Test the indexed_map function of the SequentialAMSHyperslab class with
+    sparse
     matrix.
     """
-    alg, _, _, _ = get_SequentialAMS_input_sparse
+    alg, _, _, _ = get_SequentialAMSHyperslab_input_sparse
     idx = [0, 1]
     # test map function(s)
     x_map = np.array([1, 1])
     assert np.array_equal(alg.indexed_map(x_map, idx), np.array([2, 0]))
 
 
-def test_SequentialAMS_step_full(get_SequentialAMS_input_full):
-    """Test the step function of the SequentialAMS class with full matrix."""
-    alg, _, _, _ = get_SequentialAMS_input_full
+def test_SequentialAMSHyperslab_step_full(get_SequentialAMSHyperslab_input_full):
+    """Test the step function of the SequentialAMSHyperslab class with full
+    matrix.
+    """
+    alg, _, _, _ = get_SequentialAMSHyperslab_input_full
 
     x_1 = np.array([2.0, 2.0])
     x_2 = np.array([1.0, 3.0])
@@ -146,9 +160,11 @@ def test_SequentialAMS_step_full(get_SequentialAMS_input_full):
     assert np.array_equal(x_n, x_5)
 
 
-def test_SequentialAMS_step_sparse(get_SequentialAMS_input_sparse):
-    """Test the step function of the SequentialAMS class with sparse."""
-    alg, _, _, _ = get_SequentialAMS_input_sparse
+def test_SequentialAMSHyperslab_step_sparse(get_SequentialAMSHyperslab_input_sparse):
+    """Test the step function of the SequentialAMSHyperslab class with
+    sparse.
+    """
+    alg, _, _, _ = get_SequentialAMSHyperslab_input_sparse
 
     x_1 = np.array([2.0, 2.0])
     x_2 = np.array([1.0, 3.0])
@@ -184,11 +200,13 @@ def test_SequentialAMS_step_sparse(get_SequentialAMS_input_sparse):
     assert np.array_equal(x_n, x_5)
 
 
-def test_SequentialAMS_step_full_algoritimic_relaxation(get_full_variables):
-    """Test the step function of the SequentialAMS class with relaxation."""
+def test_SequentialAMSHyperslab_step_full_algoritimic_relaxation(get_full_variables):
+    """Test the step function of the SequentialAMSHyperslab class with
+    relaxation.
+    """
     A, lb, ub = get_full_variables
     # test with relaxation
-    alg = SequentialAMS(A, lb, ub, algorithmic_relaxation=1.5)
+    alg = SequentialAMSHyperslab(A, lb, ub, algorithmic_relaxation=1.5)
     assert alg.algorithmic_relaxation == 1.5
     assert alg.relaxation == 1.0
 
@@ -198,11 +216,13 @@ def test_SequentialAMS_step_full_algoritimic_relaxation(get_full_variables):
     assert np.array_equal(x_n, x_1)
 
 
-def test_SequentialAMS_step_sparse_algoritimic_relaxation(get_sparse_variables):
-    """Test the step function of the SequentialAMS class with relaxation."""
+def test_SequentialAMSHyperslab_step_sparse_algoritimic_relaxation(get_sparse_variables):
+    """Test the step function of the SequentialAMSHyperslab class with
+    relaxation.
+    """
     A, lb, ub = get_sparse_variables
     # test with relaxation
-    alg = SequentialAMS(A, lb, ub, algorithmic_relaxation=1.5)
+    alg = SequentialAMSHyperslab(A, lb, ub, algorithmic_relaxation=1.5)
     assert alg.algorithmic_relaxation == 1.5
     assert alg.relaxation == 1.0
 
@@ -212,11 +232,13 @@ def test_SequentialAMS_step_sparse_algoritimic_relaxation(get_sparse_variables):
     assert np.array_equal(x_n, x_1)
 
 
-def test_SequentialAMS_step_full_relaxation(get_full_variables):
-    """Test the step function of the SequentialAMS class with relaxation."""
+def test_SequentialAMSHyperslab_step_full_relaxation(get_full_variables):
+    """Test the step function of the SequentialAMSHyperslab class with
+    relaxation.
+    """
     A, lb, ub = get_full_variables
     # test with relaxation
-    alg = SequentialAMS(A, lb, ub, relaxation=1.5)
+    alg = SequentialAMSHyperslab(A, lb, ub, relaxation=1.5)
     assert alg.relaxation == 1.5
     assert alg.algorithmic_relaxation == 1.0
 
@@ -225,11 +247,13 @@ def test_SequentialAMS_step_full_relaxation(get_full_variables):
     assert np.all(np.abs(x_n - np.array([0.5, 0.5])) < 1e-10)
 
 
-def test_SequentialAMS_step_sparse_relaxation(get_sparse_variables):
-    """Test the step function of the SequentialAMS class with relaxation."""
+def test_SequentialAMSHyperslab_step_sparse_relaxation(get_sparse_variables):
+    """Test the step function of the SequentialAMSHyperslab class with
+    relaxation.
+    """
     A, lb, ub = get_sparse_variables
     # test with relaxation
-    alg = SequentialAMS(A, lb, ub, relaxation=1.5)
+    alg = SequentialAMSHyperslab(A, lb, ub, relaxation=1.5)
     assert alg.relaxation == 1.5
     assert alg.algorithmic_relaxation == 1.0
 
@@ -238,12 +262,14 @@ def test_SequentialAMS_step_sparse_relaxation(get_sparse_variables):
     assert np.all(np.abs(x_n - np.array([0.5, 0.5])) < 1e-10)
 
 
-def test_SequentialAMS_custom_cs(get_SequentialAMS_input_full):
-    """Test the step function of the SequentialAMS class with custom."""
-    _, A, lb, ub = get_SequentialAMS_input_full
+def test_SequentialAMSHyperslab_custom_cs(get_SequentialAMSHyperslab_input_full):
+    """Test the step function of the SequentialAMSHyperslab class with
+    custom.
+    """
+    _, A, lb, ub = get_SequentialAMSHyperslab_input_full
 
     # test with custom cs
-    alg3 = SequentialAMS(A, lb, ub, cs=[3, 2, 1, 0])
+    alg3 = SequentialAMSHyperslab(A, lb, ub, cs=[3, 2, 1, 0])
 
     x_1 = np.array([2.0, 2.0])
     x_2 = np.array([1.0, 3.0])
@@ -272,16 +298,17 @@ def test_SequentialAMS_custom_cs(get_SequentialAMS_input_full):
     assert np.array_equal(x_n, x_5)
 
 
-def test_SequentialAMS_infinity_bounds(get_SequentialAMS_input_full):
+def test_SequentialAMSHyperslab_infinity_bounds(get_SequentialAMSHyperslab_input_full):
     """
-    Test the step function of the SequentialAMS class with infinity in
+    Test the step function of the SequentialAMSHyperslab class with infinity
+    in
     bounds.
     """
-    _, A, lb, _ = get_SequentialAMS_input_full
+    _, A, lb, _ = get_SequentialAMSHyperslab_input_full
 
     # test with infinity in bounds
     ub2 = np.array([np.inf, 2, 3 / 2, 3 / 2])
-    alg4 = SequentialAMS(A, lb, ub2)
+    alg4 = SequentialAMSHyperslab(A, lb, ub2)
 
     x_1 = np.array([2.0, 2.0])
     x_2 = np.array([1.0, 3.0])
@@ -310,9 +337,9 @@ def test_SequentialAMS_infinity_bounds(get_SequentialAMS_input_full):
     assert np.array_equal(x_n, x_5)
 
 
-def test_SequentialAMS_proximity(get_SequentialAMS_input_full):
-    """Test the proximity function of the SequentialAMS class."""
-    alg, _, _, _ = get_SequentialAMS_input_full
+def test_SequentialAMSHyperslab_proximity(get_SequentialAMSHyperslab_input_full):
+    """Test the proximity function of the SequentialAMSHyperslab class."""
+    alg, _, _, _ = get_SequentialAMSHyperslab_input_full
 
     x_1 = np.array([1.2, 1.2])
     x_2 = np.array([2.0, 2.0])

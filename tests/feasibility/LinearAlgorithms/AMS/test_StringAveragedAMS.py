@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 import scipy.sparse as sparse
-from suppy.feasibility import StringAveragedAMS
+from suppy.feasibility import StringAveragedAMSHyperslab
 from suppy.utils import LinearMapping
 
 
@@ -21,10 +21,10 @@ def get_sparse_variables():
     return A, lb, ub
 
 
-def test_StringAveragedAMS_constructor_full(get_full_variables):
-    """Test the StringAveragedAMS constructor."""
+def test_StringAveragedAMSHyperslab_constructor_full(get_full_variables):
+    """Test the StringAveragedAMSHyperslab constructor."""
     A, lb, ub = get_full_variables
-    alg = StringAveragedAMS(A, lb, ub, strings=[[0, 1, 2, 3]])  # sequential like
+    alg = StringAveragedAMSHyperslab(A, lb, ub, strings=[[0, 1, 2, 3]])  # sequential like
 
     assert isinstance(alg.A, LinearMapping)
     assert np.array_equal(alg.A, A)
@@ -35,15 +35,15 @@ def test_StringAveragedAMS_constructor_full(get_full_variables):
     assert alg.relaxation == 1.0
     assert alg.algorithmic_relaxation == 1.0
 
-    alg = StringAveragedAMS(A, lb, ub, strings=[[0], [1], [2], [3]])  # simultaneous like
+    alg = StringAveragedAMSHyperslab(A, lb, ub, strings=[[0], [1], [2], [3]])  # simultaneous like
     assert alg.strings == [[0], [1], [2], [3]]
     assert np.array_equal(alg.weights, np.ones(4) / 4)
 
 
-def test_StringAveragedAMS_constructor_sparse(get_sparse_variables):
-    """Test the StringAveragedAMS constructor."""
+def test_StringAveragedAMSHyperslab_constructor_sparse(get_sparse_variables):
+    """Test the StringAveragedAMSHyperslab constructor."""
     A, lb, ub = get_sparse_variables
-    alg = StringAveragedAMS(A, lb, ub, strings=[[0, 1, 2, 3]])  # sequential like
+    alg = StringAveragedAMSHyperslab(A, lb, ub, strings=[[0, 1, 2, 3]])  # sequential like
 
     assert isinstance(alg.A, LinearMapping)
     assert np.array_equal(alg.A.todense(), A.todense())
@@ -54,19 +54,20 @@ def test_StringAveragedAMS_constructor_sparse(get_sparse_variables):
     assert alg.relaxation == 1.0
     assert alg.algorithmic_relaxation == 1.0
 
-    alg = StringAveragedAMS(A, lb, ub, strings=[[0], [1], [2], [3]])  # simultaneous like
+    alg = StringAveragedAMSHyperslab(A, lb, ub, strings=[[0], [1], [2], [3]])  # simultaneous like
     assert alg.strings == [[0], [1], [2], [3]]
     assert np.array_equal(alg.weights, np.ones(4) / 4)
 
 
-def test_StringAveragedAMS_step_full_sequential_like(get_full_variables):
+def test_StringAveragedAMSHyperslab_step_full_sequential_like(get_full_variables):
     """
-    Test the step function of the StringAveragedAMS class for sequential
+    Test the step function of the StringAveragedAMSHyperslab class for
+    sequential
     like strings.
     """
 
     A, lb, ub = get_full_variables
-    alg = StringAveragedAMS(A, lb, ub, strings=[[0, 1, 2, 3]])  # sequential like
+    alg = StringAveragedAMSHyperslab(A, lb, ub, strings=[[0, 1, 2, 3]])  # sequential like
 
     x_1 = np.array([2.0, 2.0])
     x_2 = np.array([1.0, 3.0])
@@ -102,13 +103,14 @@ def test_StringAveragedAMS_step_full_sequential_like(get_full_variables):
     assert np.array_equal(x_n, x_5)
 
 
-def test_StringAveragedAMS_step_sparse_sequential_like(get_sparse_variables):
+def test_StringAveragedAMSHyperslab_step_sparse_sequential_like(get_sparse_variables):
     """
-    Test the step function of the StringAveragedAMS class for sequential
+    Test the step function of the StringAveragedAMSHyperslab class for
+    sequential
     like strings.
     """
     A, lb, ub = get_sparse_variables
-    alg = StringAveragedAMS(A, lb, ub, strings=[[0, 1, 2, 3]])  # sequential like
+    alg = StringAveragedAMSHyperslab(A, lb, ub, strings=[[0, 1, 2, 3]])  # sequential like
 
     x_1 = np.array([2.0, 2.0])
     x_2 = np.array([1.0, 3.0])
@@ -144,13 +146,14 @@ def test_StringAveragedAMS_step_sparse_sequential_like(get_sparse_variables):
     assert np.array_equal(x_n, x_5)
 
 
-def test_StringAveragedAMS_step_full_simultaneous_like(get_sparse_variables):
+def test_StringAveragedAMSHyperslab_step_full_simultaneous_like(get_sparse_variables):
     """
-    Test the step function of the StringAveragedAMS class for simultaneous
+    Test the step function of the StringAveragedAMSHyperslab class for
+    simultaneous
     like strings.
     """
     A, lb, ub = get_sparse_variables
-    alg = StringAveragedAMS(A, lb, ub, strings=[[0], [1], [2], [3]])  # simultaneous like
+    alg = StringAveragedAMSHyperslab(A, lb, ub, strings=[[0], [1], [2], [3]])  # simultaneous like
 
     x_1 = np.array([1.2, 1.2])
     x_2 = np.array([2.0, 2.0])
@@ -186,13 +189,14 @@ def test_StringAveragedAMS_step_full_simultaneous_like(get_sparse_variables):
     assert np.array_equal(x_n, x_5)
 
 
-def test_StringAveragedAMS_step_sparse_simultaneous_like(get_sparse_variables):
+def test_StringAveragedAMSHyperslab_step_sparse_simultaneous_like(get_sparse_variables):
     """
-    Test the step function of the StringAveragedAMS class for simultaneous
+    Test the step function of the StringAveragedAMSHyperslab class for
+    simultaneous
     like strings.
     """
     A, lb, ub = get_sparse_variables
-    alg = StringAveragedAMS(A, lb, ub, strings=[[0], [1], [2], [3]])  # simultaneous like
+    alg = StringAveragedAMSHyperslab(A, lb, ub, strings=[[0], [1], [2], [3]])  # simultaneous like
 
     x_1 = np.array([1.2, 1.2])
     x_2 = np.array([2.0, 2.0])

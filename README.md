@@ -72,11 +72,11 @@ For linear problems $Ax\leq b$ dedicated implementations are available (right no
 
 ```
 import numpy as np
-from suppy.feasibility import SequentialAMS
+from suppy.feasibility import SequentialAMSHyperslab
 A = np.array([[1,1],[1,0]])
 lb = np.array([-2,-2])
 ub = np.array([2,2])
-alg = SequentialAMS(A,lb,ub)
+alg = SequentialAMSHyperslab(A,lb,ub)
 alg.solve(np.array([5.,5.]),max_iter = 100)
 ```
 

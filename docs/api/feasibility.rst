@@ -6,28 +6,28 @@ Linear algorithms
 =========================
 
 
-AMS algorithms
+Hyperslab AMS algorithms
 -------------------------
 
-.. autoclass:: suppy.feasibility.SequentialAMS
+.. autoclass:: suppy.feasibility.SequentialAMSHyperslab
    :members:
    :inherited-members:
    :undoc-members:
    :show-inheritance:
 
-.. autoclass:: suppy.feasibility.SimultaneousAMS
+.. autoclass:: suppy.feasibility.SimultaneousAMSHyperslab
    :members:
    :inherited-members:
    :undoc-members:
    :show-inheritance:
 
-.. autoclass:: suppy.feasibility.StringAveragedAMS
+.. autoclass:: suppy.feasibility.StringAveragedAMSHyperslab
    :members:
    :inherited-members:
    :undoc-members:
    :show-inheritance:
 
-.. autoclass:: suppy.feasibility.BlockIterativeAMS
+.. autoclass:: suppy.feasibility.BlockIterativeAMSHyperslab
    :members:
    :inherited-members:
    :undoc-members:

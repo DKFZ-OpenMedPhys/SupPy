@@ -251,8 +251,7 @@ class HalfspaceFeasibility(LinearFeasibility, ABC):
         relaxation: float = 1.0,
         proximity_flag: bool = True,
     ):
-        _, _use_gpu = LinearMapping.get_flags(A)
-        super().__init__(A, algorithmic_relaxation, relaxation, proximity_flag, _use_gpu)
+        super().__init__(A, algorithmic_relaxation, relaxation, proximity_flag)
         self.b = b
 
     def _proximity(self, x: npt.ArrayLike) -> float:

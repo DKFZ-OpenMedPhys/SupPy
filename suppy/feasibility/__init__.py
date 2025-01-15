@@ -17,6 +17,14 @@ from ._halfspaces._ams_algorithms import (
     BlockIterativeAMSHalfspace,
 )
 
+from ._hyperplanes._ams_algorithms import (
+    SequentialAMSHyperplane,
+    SequentialWeightedAMSHyperplane,
+    SimultaneousAMSHyperplane,
+    StringAveragedAMSHyperplane,
+    BlockIterativeAMSHyperplane,
+)
+
 from ._split_algorithms import CQAlgorithm, ProductSpaceAlgorithm
 
 __all__ = [
@@ -30,6 +38,11 @@ __all__ = [
     "SimultaneousAMSHalfspace",
     "StringAveragedAMSHalfspace",
     "BlockIterativeAMSHalfspace",
+    "SequentialAMSHyperplane",
+    "SequentialWeightedAMSHyperplane",
+    "SimultaneousAMSHyperplane",
+    "StringAveragedAMSHyperplane",
+    "BlockIterativeAMSHyperplane",
     "SequentialARM",
     "SimultaneousARM",
     "StringAveragedARM",

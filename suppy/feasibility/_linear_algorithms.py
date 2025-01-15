@@ -210,6 +210,70 @@ class LinearFeasibility(Feasibility, ABC):
     #
 
 
+class HyperplaneFeasibility(LinearFeasibility, ABC):
+    """
+    HyperplaneFeasibility class for solving halfspace feasibility problems.
+
+    Parameters
+    ----------
+    A : npt.ArrayLike or sparse.sparray
+        Matrix for linear inequalities
+    b : npt.ArrayLike
+        Bound for linear inequalities
+    algorithmic_relaxation : npt.ArrayLike or float, optional
+        The relaxation parameter for the algorithm, by default 1.0.
+    relaxation : float, optional
+        The relaxation parameter, by default 1.0.
+    proximity_flag : bool, optional
+        Flag indicating whether to use proximity, by default True.
+
+    Attributes
+    ----------
+    A : LinearMapping
+        Matrix for linear system (stored in internal LinearMapping object).
+    b : npt.ArrayLike
+        Bound for linear inequalities
+    algorithmic_relaxation : npt.ArrayLike or float, optional
+        The relaxation parameter for the algorithm, by default 1.0.
+    relaxation : float, optional
+        The relaxation parameter for the projection, by default 1.0.
+    proximity_flag : bool, optional
+        Flag to indicate whether to calculate proximity, by default True.
+    _use_gpu : bool, optional
+        Flag to indicate whether to use GPU for computations, by default False.
+    """
+
+    def __init__(
+        self,
+        A: npt.ArrayLike | sparse.sparray,
+        b: npt.ArrayLike,
+        algorithmic_relaxation: npt.ArrayLike | float = 1.0,
+        relaxation: float = 1.0,
+        proximity_flag: bool = True,
+    ):
+        super().__init__(A, algorithmic_relaxation, relaxation, proximity_flag)
+        self.b = b
+
+    def _proximity(self, x: npt.ArrayLike) -> float:
+        """
+        Calculate the proximity of point `x` to the hyperslabs.
+
+        Parameters
+        ----------
+        x : npt.ArrayLike
+            Input array for which the proximity measure is to be calculated.
+
+        Returns
+        -------
+        float
+            The proximity measure of the input array `x`.
+        """
+        p = self.map(x)
+        # residuals are positive  if constraints are met
+        res = self.b - p
+        return 1 / len(p) * ((res**2).sum())
+
+
 class HalfspaceFeasibility(LinearFeasibility, ABC):
     """
     HalfspaceFeasibility class for solving halfspace feasibility problems.

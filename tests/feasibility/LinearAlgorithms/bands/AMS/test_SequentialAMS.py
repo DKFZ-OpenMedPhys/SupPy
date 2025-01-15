@@ -90,7 +90,6 @@ def test_SequentialAMSHyperslab_map_sparse(get_SequentialAMSHyperslab_input_spar
 
     # test map function(s)
     x_map = np.array([1, 1])
-    print(alg)
     assert np.array_equal(alg.map(x_map), np.array([2, 0, 1, 1]))
 
 

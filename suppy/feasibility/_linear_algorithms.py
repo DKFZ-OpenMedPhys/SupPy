@@ -253,6 +253,16 @@ class HyperplaneFeasibility(LinearFeasibility, ABC):
         proximity_flag: bool = True,
     ):
         super().__init__(A, algorithmic_relaxation, relaxation, proximity_flag)
+        try:
+            len(b)
+            if A.shape[0] != len(b):
+                raise ValueError("Matrix A and vector b must have the same number of rows.")
+        except TypeError:
+            # create an array for b if it is a scalar
+            if self.A.flag == "numpy" or self.A.flag == "scipy_sparse":
+                b = np.ones(A.shape[0]) * b
+            elif self.A.flag == "cupy_full" or self.A.flag == "cupy_sparse":
+                b = cp.ones(A.shape[0]) * b
         self.b = b
 
     def _proximity(self, x: npt.ArrayLike) -> float:
@@ -317,6 +327,16 @@ class HalfspaceFeasibility(LinearFeasibility, ABC):
         proximity_flag: bool = True,
     ):
         super().__init__(A, algorithmic_relaxation, relaxation, proximity_flag)
+        try:
+            len(b)
+            if A.shape[0] != len(b):
+                raise ValueError("Matrix A and vector b must have the same number of rows.")
+        except TypeError:
+            # create an array for b if it is a scalar
+            if self.A.flag == "numpy" or self.A.flag == "scipy_sparse":
+                b = np.ones(A.shape[0]) * b
+            elif self.A.flag == "cupy_full" or self.A.flag == "cupy_sparse":
+                b = cp.ones(A.shape[0]) * b
         self.b = b
 
     def _proximity(self, x: npt.ArrayLike) -> float:
@@ -386,6 +406,8 @@ class HyperslabFeasibility(LinearFeasibility, ABC):
     ):
         super().__init__(A, algorithmic_relaxation, relaxation, proximity_flag)
         self.Bounds = Bounds(lb, ub)
+        if self.A.shape[0] != len(self.Bounds.l):
+            raise ValueError("Matrix A and bound vector must have the same number of rows.")
 
     def _proximity(self, x: npt.ArrayLike) -> float:
         """

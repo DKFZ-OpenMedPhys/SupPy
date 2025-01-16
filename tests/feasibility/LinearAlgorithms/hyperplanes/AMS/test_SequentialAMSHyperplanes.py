@@ -68,6 +68,23 @@ def test_SequentialAMSHyperplane_no_relaxation_constructor_sparse(
     assert alg.relaxation == 1.0
 
 
+def test_SequentialAMSHyperplane_constructor_wrong_bounds_shape(get_full_variables):
+    """Test the SequentialAMSHyperslab constructor with wrong bounds shape."""
+    A, _ = get_full_variables
+    ub = np.array([1, 2])
+    with pytest.raises(ValueError):
+        SequentialAMSHyperplane(A, ub)
+
+
+def test_SequentialAMSHyperplane_constructor_scalar_bounds(get_full_variables):
+    """Test the SequentialAMSHyperslab constructor with scalar bounds."""
+    A, _ = get_full_variables
+    b = 1
+    alg = SequentialAMSHyperplane(A, b)
+    print(alg.b)
+    assert (alg.b == np.array([1, 1, 1])).all()
+
+
 def test_SequentialAMSHyperplane_map_full(get_SequentialAMSHyperplane_input_full):
     """Test the map function of the SequentialAMSHyperplane class with full
     matrix.

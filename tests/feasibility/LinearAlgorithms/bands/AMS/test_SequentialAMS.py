@@ -71,6 +71,18 @@ def test_SequentialAMSHyperslab_no_relaxation_constructor_sparse(
     assert alg.relaxation == 1.0
 
 
+def test_SequentialAMSHyperslab_constructor_wrong_bounds_shape(get_full_variables):
+    """Test the SequentialAMSHyperslab constructor with wrong bounds shape."""
+    A, lb, _ = get_full_variables
+    ub = np.array([1, 2, 3])
+    with pytest.raises(ValueError):
+        SequentialAMSHyperslab(A, lb, ub)
+
+    lb = np.array([1, 2, 3])
+    with pytest.raises(ValueError):
+        SequentialAMSHyperslab(A, lb, ub)
+
+
 def test_SequentialAMSHyperslab_map_full(get_SequentialAMSHyperslab_input_full):
     """Test the map function of the SequentialAMSHyperslab class with full
     matrix.

@@ -33,11 +33,6 @@ class HalfspaceAMSAlgorithm(HalfspaceFeasibility, ABC):
         The relaxation parameter for the feasibility problem, by default 1.
     proximity_flag : bool, optional
         A flag indicating whether to use proximity in the algorithm, by default True.
-
-    Attributes
-    ----------
-    A_norm : LinearMapping
-        Internal representation of the matrix normalized with respect to the row norms.
     """
 
     def __init__(
@@ -49,7 +44,6 @@ class HalfspaceAMSAlgorithm(HalfspaceFeasibility, ABC):
         proximity_flag: bool = True,
     ):
         super().__init__(A, b, algorithmic_relaxation, relaxation, proximity_flag)
-        self.A_norm = LinearMapping(self.A.normalize_rows(2, 2))
 
 
 class SequentialAMSHalfspace(HalfspaceAMSAlgorithm):
@@ -112,7 +106,9 @@ class SequentialAMSHalfspace(HalfspaceAMSAlgorithm):
             p_i = self.single_map(x, i)
             res = self.b[i] - p_i
             if res < 0:
-                self.A_norm.update_step(x, self.algorithmic_relaxation * res, i)
+                self.A.update_step(
+                    x, self.algorithmic_relaxation * self.inverse_row_norm[i] * res, i
+                )
         return x
 
 
@@ -202,7 +198,9 @@ class SequentialWeightedAMSHalfspace(SequentialAMSHalfspace):
             p_i = self.single_map(x, i)
             res = self.b[i] - p_i
             if res < 0:
-                self.A_norm.update_step(x, weighted_relaxation * self.weights[i] * res, i)
+                self.A.update_step(
+                    x, weighted_relaxation * self.weights[i] * self.inverse_row_norm[i] * res, i
+                )
 
         self.temp_weight_decay *= self.weight_decay
         return x
@@ -257,7 +255,9 @@ class SimultaneousAMSHalfspace(HalfspaceAMSAlgorithm):
         p = self.map(x)
         res = self.b - p
         idx = res < 0
-        x += self.algorithmic_relaxation * (self.weights[idx] * res[idx] @ self.A_norm[idx, :])
+        x += self.algorithmic_relaxation * (
+            self.weights[idx] * self.inverse_row_norm[idx] * res[idx] @ self.A[idx, :]
+        )
         return x
 
     def _proximity(self, x: npt.ArrayLike) -> float:
@@ -362,7 +362,7 @@ class BlockIterativeAMSHalfspace(HalfspaceAMSAlgorithm):
             full_idx[idx] = res_idx
 
             x += self.algorithmic_relaxation * (
-                el[res_idx] * res[res_idx] @ self.A_norm[full_idx, :]
+                el[res_idx] * self.inverse_row_norm[full_idx] * res[res_idx] @ self.A[full_idx, :]
             )
 
         return x
@@ -436,6 +436,8 @@ class StringAveragedAMSHalfspace(HalfspaceAMSAlgorithm):
                 p_i = self.single_map(x_s, i)
                 res_i = self.b[i] - p_i
                 if res_i < 0:
-                    self.A_norm.update_step(x_s, self.algorithmic_relaxation * res_i, i)
+                    self.A.update_step(
+                        x_s, self.algorithmic_relaxation * self.inverse_row_norm[i] * res_i, i
+                    )
             x += weight * x_s
         return x

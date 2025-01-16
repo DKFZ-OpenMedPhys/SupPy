@@ -149,6 +149,7 @@ class LinearFeasibility(Feasibility, ABC):
         _, _use_gpu = LinearMapping.get_flags(A)
         super().__init__(algorithmic_relaxation, relaxation, proximity_flag, _use_gpu)
         self.A = LinearMapping(A)
+        self.inverse_row_norm = 1 / self.A.row_norm(2, 2)
 
     def map(self, x: npt.ArrayLike) -> npt.ArrayLike:
         """

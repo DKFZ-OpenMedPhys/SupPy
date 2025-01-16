@@ -154,27 +154,27 @@ class LinearMapping:
         elif self._flag == "cupy_sparse":
             return csparse.linalg.norm(self.A, ord=order) ** power
 
-    def normalize_rows(self, order=None, power=1):
-        """Normalize the rows of the matrix with the "norm" norm of power."""
-        if self._flag == "numpy":
-            return self.A / (np.linalg.norm(self.A, axis=1, ord=order) ** power)[:, None]
+    # def normalize_rows(self, order=None, power=1):
+    #     """Normalize the rows of the matrix with the "norm" norm of power."""
+    #     if self._flag == "numpy":
+    #         return self.A / (np.linalg.norm(self.A, axis=1, ord=order) ** power)[:, None]
 
-        elif self._flag == "scipy_sparse":
-            return (
-                sparse.diags_array(1 / (sparse.linalg.norm(self.A, axis=1, ord=order) ** power))
-                @ self.A
-            )
+    #     elif self._flag == "scipy_sparse":
+    #         return (
+    #             sparse.diags_array(1 / (sparse.linalg.norm(self.A, axis=1, ord=order) ** power))
+    #             @ self.A
+    #         )
 
-        elif self._flag == "cupy_full":
-            return self.A / (cp.linalg.norm(self.A, axis=1, order=order) ** power)[:, None]
+    #     elif self._flag == "cupy_full":
+    #         return self.A / (cp.linalg.norm(self.A, axis=1, order=order) ** power)[:, None]
 
-        elif self._flag == "cupy_sparse":
-            return (
-                csparse.diags(
-                    (1 / (csparse.linalg.norm(self.A, axis=1, ord=order) ** power)).ravel()
-                )
-                @ self.A
-            )
+    #     elif self._flag == "cupy_sparse":
+    #         return (
+    #             csparse.diags(
+    #                 (1 / (csparse.linalg.norm(self.A, axis=1, ord=order) ** power)).ravel()
+    #             )
+    #             @ self.A
+    #         )
 
     def row_norm(self, order=None, power=1):
         """Get the row norms of the matrix."""

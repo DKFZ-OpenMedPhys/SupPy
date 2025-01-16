@@ -34,11 +34,6 @@ class HyperplaneAMSAlgorithm(HyperplaneFeasibility, ABC):
         The relaxation parameter for the feasibility problem, by default 1.
     proximity_flag : bool, optional
         A flag indicating whether to use proximity in the algorithm, by default True.
-
-    Attributes
-    ----------
-    A_norm : LinearMapping
-        Internal representation of the matrix normalized with respect to the row norms.
     """
 
     def __init__(
@@ -50,7 +45,6 @@ class HyperplaneAMSAlgorithm(HyperplaneFeasibility, ABC):
         proximity_flag: bool = True,
     ):
         super().__init__(A, b, algorithmic_relaxation, relaxation, proximity_flag)
-        self.A_norm = LinearMapping(self.A.normalize_rows(2, 2))
 
 
 class SequentialAMSHyperplane(HyperplaneAMSAlgorithm):
@@ -112,7 +106,7 @@ class SequentialAMSHyperplane(HyperplaneAMSAlgorithm):
         for i in self.cs:
             p_i = self.single_map(x, i)
             res = self.b[i] - p_i
-            self.A_norm.update_step(x, self.algorithmic_relaxation * res, i)
+            self.A.update_step(x, self.algorithmic_relaxation * self.inverse_row_norm[i] * res, i)
         return x
 
 
@@ -201,7 +195,9 @@ class SequentialWeightedAMSHyperplane(SequentialAMSHyperplane):
         for i in self.cs:
             p_i = self.single_map(x, i)
             res = self.b[i] - p_i
-            self.A_norm.update_step(x, weighted_relaxation * self.weights[i] * res, i)
+            self.A.update_step(
+                x, weighted_relaxation * self.weights[i] * self.inverse_row_norm[i] * res, i
+            )
 
         self.temp_weight_decay *= self.weight_decay
         return x
@@ -255,7 +251,7 @@ class SimultaneousAMSHyperplane(HyperplaneAMSAlgorithm):
         # simultaneous projection
         p = self.map(x)
         res = self.b - p
-        x += self.algorithmic_relaxation * (self.weights * res @ self.A_norm)
+        x += self.algorithmic_relaxation * (self.weights * self.inverse_row_norm * res @ self.A)
         return x
 
     def _proximity(self, x: npt.ArrayLike) -> float:
@@ -353,7 +349,9 @@ class BlockIterativeAMSHyperplane(HyperplaneAMSAlgorithm):
             p = self.indexed_map(x, idx)
             res = self.b[idx] - p
 
-            x += self.algorithmic_relaxation * (el * res @ self.A_norm[idx, :])
+            x += self.algorithmic_relaxation * (
+                el * self.inverse_row_norm[idx] * res @ self.A[idx, :]
+            )
 
         return x
 
@@ -426,6 +424,8 @@ class StringAveragedAMSHyperplane(HyperplaneAMSAlgorithm):
             for i in string:
                 p_i = self.single_map(x_s, i)
                 res_i = self.b[i] - p_i
-                self.A_norm.update_step(x_s, self.algorithmic_relaxation * res_i, i)
+                self.A.update_step(
+                    x_s, self.algorithmic_relaxation * self.inverse_row_norm[i] * res_i, i
+                )
             x += weight * x_s
         return x

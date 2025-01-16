@@ -34,11 +34,6 @@ class ARMAlgorithm(HyperslabFeasibility, ABC):
         The general relaxation parameter, by default 1.
     proximity_flag : bool, optional
         Flag to indicate if proximity constraints should be considered, by default True.
-
-    Attributes
-    ----------
-    A_norm : LinearMapping
-        Normalized linear mapping of the matrix A.
     """
 
     def __init__(
@@ -52,7 +47,6 @@ class ARMAlgorithm(HyperslabFeasibility, ABC):
     ):
 
         super().__init__(A, lb, ub, algorithmic_relaxation, relaxation, proximity_flag)
-        self.A_norm = LinearMapping(self.A.normalize_rows(2, 2))
 
 
 class SequentialARM(ARMAlgorithm):
@@ -76,12 +70,6 @@ class SequentialARM(ARMAlgorithm):
         The list of indices for the constraints, by default None.
     proximity_flag : bool, optional
         Flag to indicate if proximity should be considered, by default True.
-
-    Methods
-    -------
-    _project(x: npt.ArrayLike) -> npt.ArrayLike
-        Projects the input array x onto the feasible region defined by the
-        constraints.
     """
 
     def __init__(
@@ -111,9 +99,13 @@ class SequentialARM(ARMAlgorithm):
             d = p_i - self.Bounds.center[i]
             psi = (self.Bounds.u[i] - self.Bounds.l[i]) / 2
             if xp.abs(d) > psi:
-                self.A_norm.update_step(
+                self.A.update_step(
                     x,
-                    -1 * self.algorithmic_relaxation**self._k / 2 * ((d**2 - psi**2) / d),
+                    -1
+                    * self.algorithmic_relaxation**self._k
+                    / 2
+                    * self.inverse_row_norm[i]
+                    * ((d**2 - psi**2) / d),
                     i,
                 )
         return x
@@ -183,8 +175,12 @@ class SimultaneousARM(ARMAlgorithm):
         x -= (
             self.algorithmic_relaxation**self._k
             / 2
-            * (self.weights[d_idx] * (d[d_idx] - (psi[d_idx] ** 2) / d[d_idx]))
-            @ self.A_norm[d_idx, :]
+            * (
+                self.weights[d_idx]
+                * self.inverse_row_norm[d_idx]
+                * (d[d_idx] - (psi[d_idx] ** 2) / d[d_idx])
+            )
+            @ self.A[d_idx, :]
         )
 
         self._k += 1
@@ -265,8 +261,12 @@ class BIPARM(ARMAlgorithm):
         x -= (
             self.algorithmic_relaxation**self._k
             / 2
-            * (self.weights[d_idx] * (d[d_idx] - (psi[d_idx] ** 2) / d[d_idx]))
-            @ self.A_norm[d_idx, :]
+            * (
+                self.weights[d_idx]
+                * self.inverse_row_norm[d_idx]
+                * (d[d_idx] - (psi[d_idx] ** 2) / d[d_idx])
+            )
+            @ self.A[d_idx, :]
         )
 
         self._k += 1
@@ -359,12 +359,13 @@ class StringAveragedARM(ARMAlgorithm):
                 d = p_i - self.Bounds.center[i]
                 psi = (self.Bounds.u[i] - self.Bounds.l[i]) / 2
                 if xp.abs(d) > psi:
-                    self.A_norm.update_step(
+                    self.A.update_step(
                         x_s,
                         -1
                         * self.algorithmic_relaxation**self._k
                         / 2
-                        * ((d**2 - psi**2) / d),
+                        * ((d**2 - psi**2) / d)
+                        * self.inverse_row_norm[i],
                         i,
                     )
             x += weight * x_s

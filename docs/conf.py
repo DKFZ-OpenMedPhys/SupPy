@@ -21,6 +21,7 @@ release = "0.1.0"
 
 extensions = [
     "sphinx.ext.autodoc",
+    "sphinx.ext.coverage",
     "sphinx.ext.viewcode",
     "sphinx.ext.napoleon",
     "numpydoc",
@@ -53,20 +54,14 @@ autodoc_inherit_docstrings = True
 numpydoc_class_members_toctree = False
 # autosummary_generate = False
 
-
-html_sidebars = {
-    "api/**": [
-        "localtoc.html",  # Local table of contents for the API section
-        "relations.html",  # Links to next/previous documents
-        "searchbox.html",  # Search box
-    ],
-    "user_guide/**": [
-        "localtoc.html",  # Local table of contents for the User Guide
-        "globaltoc.html",  # Global TOC (if desired)
-        "searchbox.html",  # Search box
-    ],
-    "index": [
-        "globaltoc.html",  # Global TOC on the home page
-        "searchbox.html",
-    ],
-}
+coverage_modules = [
+    "suppy.feasibility",
+    "suppy.feasibility._bands",
+    "suppy.feasibility._halfspaces",
+    "suppy.feasibility._hyperplanes",
+    "suppy.projections",
+    "suppy.superiorization",
+    "suppy.perturbations",
+    "suppy.algorithms",
+    "suppy.utils",
+]

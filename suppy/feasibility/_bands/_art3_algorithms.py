@@ -35,11 +35,6 @@ class ART3plusAlgorithm(HyperslabFeasibility, ABC):
         The relaxation parameter for the feasibility problem, by default 1.
     proximity_flag : bool, optional
         Flag to indicate whether to use proximity in the algorithm, by default True.
-
-    Attributes
-    ----------
-    A_norm : LinearMapping
-        Normalized version of matrix A.
     """
 
     def __init__(
@@ -52,7 +47,6 @@ class ART3plusAlgorithm(HyperslabFeasibility, ABC):
         proximity_flag=True,
     ):
         super().__init__(A, lb, ub, algorithmic_relaxation, relaxation, proximity_flag)
-        self.A_norm = LinearMapping(self.A.normalize_rows(2, 2))
 
 
 class SequentialART3plus(ART3plusAlgorithm):
@@ -117,20 +111,26 @@ class SequentialART3plus(ART3plusAlgorithm):
             if (
                 3 / 2 * self.Bounds.l[i] - 1 / 2 * self.Bounds.u[i] <= p_i < self.Bounds.l[i]
             ):  # lowe bound reflection
-                self.A_norm.update_step(x, 2 * (self.Bounds.l[i] - p_i), i)  # reflection
+                self.A.update_step(
+                    x, 2 * self.inverse_row_norm[i] * (self.Bounds.l[i] - p_i), i
+                )  # reflection
                 self._feasible = False
 
             elif (
                 self.Bounds.u[i] < p_i <= 3 / 2 * self.Bounds.u[i] - 1 / 2 * self.Bounds.l[i]
             ):  # upper bound reflection
-                self.A_norm.update_step(x, 2 * (self.Bounds.u[i] - p_i), i)  # reflection
+                self.A.update_step(
+                    x, 2 * self.inverse_row_norm[i] * (self.Bounds.u[i] - p_i), i
+                )  # reflection
                 self._feasible = False
 
             elif self.Bounds.u[i] - self.Bounds.l[i] < np.abs(
                 p_i - (self.Bounds.l[i] + self.Bounds.u[i]) / 2
             ):
-                self.A_norm.update_step(
-                    x, (self.Bounds.l[i] + self.Bounds.u[i]) / 2 - p_i, i
+                self.A.update_step(
+                    x,
+                    self.inverse_row_norm[i] * (self.Bounds.l[i] + self.Bounds.u[i]) / 2 - p_i,
+                    i,
                 )  # projection onto center of hyperslab
                 self._feasible = False
 
@@ -249,18 +249,21 @@ class SimultaneousART3plus(ART3plusAlgorithm):
         # there should be no overlap between the different regions here!
         x += (
             self.weights[self._not_met][set_1]
+            * self.inverse_row_norm[self._not_met][set_1]
             * (2 * (l_redux - p))[set_1]
-            @ self.A_norm[self._not_met][set_1, :]
+            @ self.A[self._not_met][set_1, :]
         )
         x += (
             self.weights[self._not_met][set_2]
+            * self.inverse_row_norm[self._not_met][set_2]
             * (2 * (u_redux - p))[set_2]
-            @ self.A_norm[self._not_met][set_2, :]
+            @ self.A[self._not_met][set_2, :]
         )
         x += (
             self.weights[self._not_met][set_3]
+            * self.inverse_row_norm[self._not_met][set_3]
             * ((l_redux + u_redux) / 2 - p)[set_3]
-            @ self.A_norm[self._not_met][set_3, :]
+            @ self.A[self._not_met][set_3, :]
         )
 
         # remove constraints that were already met before

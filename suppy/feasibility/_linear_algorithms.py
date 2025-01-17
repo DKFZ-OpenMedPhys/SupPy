@@ -5,7 +5,6 @@ import numpy.typing as npt
 
 from scipy import sparse
 
-import suppy.projections as pr
 from suppy.utils import Bounds
 from suppy.utils import LinearMapping
 from suppy.utils import ensure_float_array
@@ -150,6 +149,7 @@ class LinearFeasibility(Feasibility, ABC):
         _, _use_gpu = LinearMapping.get_flags(A)
         super().__init__(algorithmic_relaxation, relaxation, proximity_flag, _use_gpu)
         self.A = LinearMapping(A)
+        self.inverse_row_norm = 1 / self.A.row_norm(2, 2)
 
     def map(self, x: npt.ArrayLike) -> npt.ArrayLike:
         """
@@ -211,6 +211,80 @@ class LinearFeasibility(Feasibility, ABC):
     #
 
 
+class HyperplaneFeasibility(LinearFeasibility, ABC):
+    """
+    HyperplaneFeasibility class for solving halfspace feasibility problems.
+
+    Parameters
+    ----------
+    A : npt.ArrayLike or sparse.sparray
+        Matrix for linear inequalities
+    b : npt.ArrayLike
+        Bound for linear inequalities
+    algorithmic_relaxation : npt.ArrayLike or float, optional
+        The relaxation parameter for the algorithm, by default 1.0.
+    relaxation : float, optional
+        The relaxation parameter, by default 1.0.
+    proximity_flag : bool, optional
+        Flag indicating whether to use proximity, by default True.
+
+    Attributes
+    ----------
+    A : LinearMapping
+        Matrix for linear system (stored in internal LinearMapping object).
+    b : npt.ArrayLike
+        Bound for linear inequalities
+    algorithmic_relaxation : npt.ArrayLike or float, optional
+        The relaxation parameter for the algorithm, by default 1.0.
+    relaxation : float, optional
+        The relaxation parameter for the projection, by default 1.0.
+    proximity_flag : bool, optional
+        Flag to indicate whether to calculate proximity, by default True.
+    _use_gpu : bool, optional
+        Flag to indicate whether to use GPU for computations, by default False.
+    """
+
+    def __init__(
+        self,
+        A: npt.ArrayLike | sparse.sparray,
+        b: npt.ArrayLike,
+        algorithmic_relaxation: npt.ArrayLike | float = 1.0,
+        relaxation: float = 1.0,
+        proximity_flag: bool = True,
+    ):
+        super().__init__(A, algorithmic_relaxation, relaxation, proximity_flag)
+        try:
+            len(b)
+            if A.shape[0] != len(b):
+                raise ValueError("Matrix A and vector b must have the same number of rows.")
+        except TypeError:
+            # create an array for b if it is a scalar
+            if self.A.flag == "numpy" or self.A.flag == "scipy_sparse":
+                b = np.ones(A.shape[0]) * b
+            elif self.A.flag == "cupy_full" or self.A.flag == "cupy_sparse":
+                b = cp.ones(A.shape[0]) * b
+        self.b = b
+
+    def _proximity(self, x: npt.ArrayLike) -> float:
+        """
+        Calculate the proximity of point `x` to the hyperslabs.
+
+        Parameters
+        ----------
+        x : npt.ArrayLike
+            Input array for which the proximity measure is to be calculated.
+
+        Returns
+        -------
+        float
+            The proximity measure of the input array `x`.
+        """
+        p = self.map(x)
+        # residuals are positive  if constraints are met
+        res = self.b - p
+        return 1 / len(p) * ((res**2).sum())
+
+
 class HalfspaceFeasibility(LinearFeasibility, ABC):
     """
     HalfspaceFeasibility class for solving halfspace feasibility problems.
@@ -252,8 +326,17 @@ class HalfspaceFeasibility(LinearFeasibility, ABC):
         relaxation: float = 1.0,
         proximity_flag: bool = True,
     ):
-        _, _use_gpu = LinearMapping.get_flags(A)
-        super().__init__(A, algorithmic_relaxation, relaxation, proximity_flag, _use_gpu)
+        super().__init__(A, algorithmic_relaxation, relaxation, proximity_flag)
+        try:
+            len(b)
+            if A.shape[0] != len(b):
+                raise ValueError("Matrix A and vector b must have the same number of rows.")
+        except TypeError:
+            # create an array for b if it is a scalar
+            if self.A.flag == "numpy" or self.A.flag == "scipy_sparse":
+                b = np.ones(A.shape[0]) * b
+            elif self.A.flag == "cupy_full" or self.A.flag == "cupy_sparse":
+                b = cp.ones(A.shape[0]) * b
         self.b = b
 
     def _proximity(self, x: npt.ArrayLike) -> float:
@@ -323,6 +406,8 @@ class HyperslabFeasibility(LinearFeasibility, ABC):
     ):
         super().__init__(A, algorithmic_relaxation, relaxation, proximity_flag)
         self.Bounds = Bounds(lb, ub)
+        if self.A.shape[0] != len(self.Bounds.l):
+            raise ValueError("Matrix A and bound vector must have the same number of rows.")
 
     def _proximity(self, x: npt.ArrayLike) -> float:
         """

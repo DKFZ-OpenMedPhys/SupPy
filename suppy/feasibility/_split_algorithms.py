@@ -386,12 +386,9 @@ class ProductSpaceAlgorithm(SplitFeasibility):
             y = self.map(x)
         for el in self.C_projections:
             x = el.project(x)
-            print("x", x)
         for el in self.Q_projections:
             y = el.project(y)
-            print("y", y)
         xy = self.Pv @ np.concatenate([x, y])
-        print("Hi", xy)
         self.xs.append(xy[: len(x)].copy())
         self.ys.append(xy[len(x) :].copy())
         return xy[: len(x)]  # ,xy[len(x):]

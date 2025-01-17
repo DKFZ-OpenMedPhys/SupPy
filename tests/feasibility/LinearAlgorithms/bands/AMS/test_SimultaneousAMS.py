@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 import scipy.sparse as sparse
-from suppy.feasibility import SimultaneousAMS
+from suppy.feasibility import SimultaneousAMSHyperslab
 from suppy.utils import LinearMapping
 
 
@@ -21,13 +21,14 @@ def get_sparse_variables():
     return A, lb, ub
 
 
-def test_SimultaneousAMS_no_relaxation_no_weights_constructor_full(get_full_variables):
+def test_SimultaneousAMSHyperslab_no_relaxation_no_weights_constructor_full(get_full_variables):
     """
-    Test the SimultaneousAMS constructor with no relaxation and a full
+    Test the SimultaneousAMSHyperslab constructor with no relaxation and a
+    full
     matrix.
     """
     A, lb, ub = get_full_variables
-    alg = SimultaneousAMS(A, lb, ub)
+    alg = SimultaneousAMSHyperslab(A, lb, ub)
 
     assert isinstance(alg.A, LinearMapping)
     assert np.array_equal(alg.A, A)
@@ -38,15 +39,16 @@ def test_SimultaneousAMS_no_relaxation_no_weights_constructor_full(get_full_vari
     assert alg.algorithmic_relaxation == 1.0
 
 
-def test_SimultaneousAMS_no_relaxation_no_weights_constructor_sparse(
+def test_SimultaneousAMSHyperslab_no_relaxation_no_weights_constructor_sparse(
     get_sparse_variables,
 ):
     """
-    Test the SimultaneousAMS constructor with no relaxation and a sparse
+    Test the SimultaneousAMSHyperslab constructor with no relaxation and a
+    sparse
     matrix.
     """
     A, lb, ub = get_sparse_variables
-    alg = SimultaneousAMS(A, lb, ub)
+    alg = SimultaneousAMSHyperslab(A, lb, ub)
 
     assert isinstance(alg.A, LinearMapping)
     assert np.array_equal(alg.A.todense(), A.todense())
@@ -57,13 +59,13 @@ def test_SimultaneousAMS_no_relaxation_no_weights_constructor_sparse(
     assert alg.algorithmic_relaxation == 1.0
 
 
-def testSimultaneousAMS_relaxation_weights_constructor_full(get_full_variables):
+def testSimultaneousAMSHyperslab_relaxation_weights_constructor_full(get_full_variables):
     """
-    Test the SimultaneousAMS constructor with relaxation and custom
+    Test the SimultaneousAMSHyperslab constructor with relaxation and custom
     weights.
     """
     A, lb, ub = get_full_variables
-    alg = SimultaneousAMS(
+    alg = SimultaneousAMSHyperslab(
         A, lb, ub, algorithmic_relaxation=1.5, relaxation=1.5, weights=np.ones(len(A))
     )
 
@@ -76,13 +78,13 @@ def testSimultaneousAMS_relaxation_weights_constructor_full(get_full_variables):
     assert alg.relaxation == 1.5
 
 
-def testSimultaneousAMS_relaxation_weights_constructor_sparse(get_sparse_variables):
+def testSimultaneousAMSHyperslab_relaxation_weights_constructor_sparse(get_sparse_variables):
     """
-    Test the SimultaneousAMS constructor with relaxation and custom
+    Test the SimultaneousAMSHyperslab constructor with relaxation and custom
     weights.
     """
     A, lb, ub = get_sparse_variables
-    alg = SimultaneousAMS(
+    alg = SimultaneousAMSHyperslab(
         A,
         lb,
         ub,
@@ -100,10 +102,10 @@ def testSimultaneousAMS_relaxation_weights_constructor_sparse(get_sparse_variabl
     assert alg.relaxation == 1.5
 
 
-def test_SimultaneousAMS_step_full(get_full_variables):
-    """Test the step function of the SimultaneousAMS class."""
+def test_SimultaneousAMSHyperslab_step_full(get_full_variables):
+    """Test the step function of the SimultaneousAMSHyperslab class."""
     A, lb, ub = get_full_variables
-    alg = SimultaneousAMS(A, lb, ub, weights=np.ones(len(A)) / A.shape[0])
+    alg = SimultaneousAMSHyperslab(A, lb, ub, weights=np.ones(len(A)) / A.shape[0])
 
     x_1 = np.array([1.2, 1.2])
     x_2 = np.array([2.0, 2.0])
@@ -139,11 +141,11 @@ def test_SimultaneousAMS_step_full(get_full_variables):
     assert np.array_equal(x_n, x_5)
 
 
-def test_SimultaneousAMS_step_sparse(get_sparse_variables):
-    """Test the step function of the SimultaneousAMS class."""
+def test_SimultaneousAMSHyperslab_step_sparse(get_sparse_variables):
+    """Test the step function of the SimultaneousAMSHyperslab class."""
     A, lb, ub = get_sparse_variables
 
-    alg = SimultaneousAMS(A, lb, ub, weights=np.ones(A.shape[0]))
+    alg = SimultaneousAMSHyperslab(A, lb, ub, weights=np.ones(A.shape[0]))
 
     x_1 = np.array([1.2, 1.2])
     x_2 = np.array([2.0, 2.0])
@@ -179,11 +181,15 @@ def test_SimultaneousAMS_step_sparse(get_sparse_variables):
     assert np.array_equal(x_n, x_5)
 
 
-def test_SimultaneousAMS_algorithmic_relaxation_step(get_sparse_variables):
-    """Test the step function with relaxation of the SimultaneousAMS class."""
+def test_SimultaneousAMSHyperslab_algorithmic_relaxation_step(get_sparse_variables):
+    """Test the step function with relaxation of the SimultaneousAMSHyperslab
+    class.
+    """
     A, lb, ub = get_sparse_variables
 
-    alg = SimultaneousAMS(A, lb, ub, weights=np.ones(A.shape[0]), algorithmic_relaxation=2.0)
+    alg = SimultaneousAMSHyperslab(
+        A, lb, ub, weights=np.ones(A.shape[0]), algorithmic_relaxation=2.0
+    )
 
     x_1 = np.array([1.2, 1.2])
     x_2 = np.array([2.0, 2.0])
@@ -213,11 +219,13 @@ def test_SimultaneousAMS_algorithmic_relaxation_step(get_sparse_variables):
     assert np.all(np.abs(x_n - 1 / 4 * np.array([5, -5])) < 1e-10)
 
 
-def test_SimultaneousAMS_relaxation_step(get_sparse_variables):
-    """Test the step function with relaxation of the SimultaneousAMS class."""
+def test_SimultaneousAMSHyperslab_relaxation_step(get_sparse_variables):
+    """Test the step function with relaxation of the SimultaneousAMSHyperslab
+    class.
+    """
     A, lb, ub = get_sparse_variables
 
-    alg = SimultaneousAMS(A, lb, ub, weights=np.ones(A.shape[0]), relaxation=2.0)
+    alg = SimultaneousAMSHyperslab(A, lb, ub, weights=np.ones(A.shape[0]), relaxation=2.0)
 
     x_1 = np.array([1.2, 1.2])
     x_2 = np.array([2.0, 2.0])
@@ -247,10 +255,10 @@ def test_SimultaneousAMS_relaxation_step(get_sparse_variables):
     assert np.all(np.abs(x_n - 1 / 4 * np.array([5, -5])) < 1e-10)
 
 
-def test_SimultaneousAMS_proximity(get_full_variables):
-    """Test the proximity function of the SimultaneousAMS class."""
+def test_SimultaneousAMSHyperslab_proximity(get_full_variables):
+    """Test the proximity function of the SimultaneousAMSHyperslab class."""
     A, lb, ub = get_full_variables
-    alg = SimultaneousAMS(A, lb, ub, weights=np.ones(len(A)) / len(A))
+    alg = SimultaneousAMSHyperslab(A, lb, ub, weights=np.ones(len(A)) / len(A))
 
     x_1 = np.array([1.2, 1.2])
     x_2 = np.array([2.0, 2.0])

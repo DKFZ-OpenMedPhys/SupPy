@@ -31,8 +31,3 @@ def test_bounds():
     assert np.array_equal(bounds._center(), (lb + ub) / 2)
 
     assert np.array_equal(bounds._half_distance(), (ub - lb) / 2)
-
-
-if __name__ == "__main__":
-    test_bounds()
-    print("Passed all tests!")

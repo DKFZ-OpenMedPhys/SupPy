@@ -13,13 +13,3 @@ def calc_DVH(dose, idxs: list):
     for struct in idxs:
         dvh.append((dose[struct, None] > dose_grid).sum(axis=0) / (struct.sum()))
     return dvh, dose_grid
-
-
-if __name__ == "__main__":
-    dose = np.linspace(0, 100, 10)
-    idxs = [np.random.randint(0, 2, 10, dtype="bool") for i in range(10)]
-    dvh, dose_grid = calc_DVH(dose, idxs)
-    for el in dvh:
-        plt.plot(dose_grid, el)
-    print(dvh)
-    print(dose_grid)

@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 import scipy.sparse as sparse
-from suppy.feasibility import BlockIterativeAMS
+from suppy.feasibility import BlockIterativeAMSHyperslab
 from suppy.utils import LinearMapping
 
 
@@ -22,16 +22,16 @@ def get_sparse_variables():
 
 
 @pytest.fixture
-def get_BlockIterativeAMS_input_full_sequential(get_full_variables):
+def get_BlockIterativeAMSHyperslab_input_full_sequential(get_full_variables):
     A, lb, ub = get_full_variables
-    return BlockIterativeAMS(A, lb, ub, weights=np.eye(4)), A, lb, ub
+    return BlockIterativeAMSHyperslab(A, lb, ub, weights=np.eye(4)), A, lb, ub
 
 
 @pytest.fixture
-def get_BlockIterativeAMS_input_full_simultaneous(get_full_variables):
+def get_BlockIterativeAMSHyperslab_input_full_simultaneous(get_full_variables):
     A, lb, ub = get_full_variables
     return (
-        BlockIterativeAMS(A, lb, ub, weights=[[1 / 4, 1 / 4, 1 / 4, 1 / 4]]),
+        BlockIterativeAMSHyperslab(A, lb, ub, weights=[[1 / 4, 1 / 4, 1 / 4, 1 / 4]]),
         A,
         lb,
         ub,
@@ -39,30 +39,31 @@ def get_BlockIterativeAMS_input_full_simultaneous(get_full_variables):
 
 
 @pytest.fixture
-def get_BlockIterativeAMS_input_sparse_sequential(get_sparse_variables):
+def get_BlockIterativeAMSHyperslab_input_sparse_sequential(get_sparse_variables):
     A, lb, ub = get_sparse_variables
-    return BlockIterativeAMS(A, lb, ub, weights=np.eye(4)), A, lb, ub
+    return BlockIterativeAMSHyperslab(A, lb, ub, weights=np.eye(4)), A, lb, ub
 
 
 @pytest.fixture
-def get_BlockIterativeAMS_input_sparse_simultaneous(get_sparse_variables):
+def get_BlockIterativeAMSHyperslab_input_sparse_simultaneous(get_sparse_variables):
     A, lb, ub = get_sparse_variables
     return (
-        BlockIterativeAMS(A, lb, ub, weights=[[1 / 4, 1 / 4, 1 / 4, 1 / 4]]),
+        BlockIterativeAMSHyperslab(A, lb, ub, weights=[[1 / 4, 1 / 4, 1 / 4, 1 / 4]]),
         A,
         lb,
         ub,
     )
 
 
-def test_BlockIterativeAMS_sequential_constructor_full(
-    get_BlockIterativeAMS_input_full_sequential,
+def test_BlockIterativeAMSHyperslab_sequential_constructor_full(
+    get_BlockIterativeAMSHyperslab_input_full_sequential,
 ):
     """
-    Test the BlockIterativeAMS constructor with sequential weights and a
+    Test the BlockIterativeAMSHyperslab constructor with sequential weights
+    and a
     full matrix.
     """
-    alg, A, lb, ub = get_BlockIterativeAMS_input_full_sequential
+    alg, A, lb, ub = get_BlockIterativeAMSHyperslab_input_full_sequential
 
     assert isinstance(alg.A, LinearMapping)
     assert np.array_equal(alg.A, A)
@@ -74,14 +75,15 @@ def test_BlockIterativeAMS_sequential_constructor_full(
     assert alg.algorithmic_relaxation == 1.0
 
 
-def test_BlockIterativeAMS_simultaneous_constructor_full(
-    get_BlockIterativeAMS_input_full_simultaneous,
+def test_BlockIterativeAMSHyperslab_simultaneous_constructor_full(
+    get_BlockIterativeAMSHyperslab_input_full_simultaneous,
 ):
     """
-    Test the BlockIterativeAMS constructor with simultaneous weights and a
+    Test the BlockIterativeAMSHyperslab constructor with simultaneous
+    weights and a
     full matrix.
     """
-    alg, A, lb, ub = get_BlockIterativeAMS_input_full_simultaneous
+    alg, A, lb, ub = get_BlockIterativeAMSHyperslab_input_full_simultaneous
 
     assert isinstance(alg.A, LinearMapping)
     assert np.array_equal(alg.A, A)
@@ -93,14 +95,15 @@ def test_BlockIterativeAMS_simultaneous_constructor_full(
     assert alg.algorithmic_relaxation == 1.0
 
 
-def test_BlockIterativeAMS_sequential_constructor_sparse(
-    get_BlockIterativeAMS_input_sparse_sequential,
+def test_BlockIterativeAMSHyperslab_sequential_constructor_sparse(
+    get_BlockIterativeAMSHyperslab_input_sparse_sequential,
 ):
     """
-    Test the BlockIterativeAMS constructor with sequential weights and a
+    Test the BlockIterativeAMSHyperslab constructor with sequential weights
+    and a
     sparse matrix.
     """
-    alg, A, lb, ub = get_BlockIterativeAMS_input_sparse_sequential
+    alg, A, lb, ub = get_BlockIterativeAMSHyperslab_input_sparse_sequential
 
     assert isinstance(alg.A, LinearMapping)
     assert np.array_equal(alg.A.todense(), A.todense())
@@ -112,14 +115,15 @@ def test_BlockIterativeAMS_sequential_constructor_sparse(
     assert alg.algorithmic_relaxation == 1.0
 
 
-def test_BlockIterativeAMS_simultaneous_constructor_sparse(
-    get_BlockIterativeAMS_input_sparse_simultaneous,
+def test_BlockIterativeAMSHyperslab_simultaneous_constructor_sparse(
+    get_BlockIterativeAMSHyperslab_input_sparse_simultaneous,
 ):
     """
-    Test the BlockIterativeAMS constructor with simultaneous weights and a
+    Test the BlockIterativeAMSHyperslab constructor with simultaneous
+    weights and a
     sparse matrix.
     """
-    alg, A, lb, ub = get_BlockIterativeAMS_input_sparse_simultaneous
+    alg, A, lb, ub = get_BlockIterativeAMSHyperslab_input_sparse_simultaneous
 
     assert isinstance(alg.A, LinearMapping)
     assert np.array_equal(alg.A.todense(), A.todense())
@@ -131,66 +135,73 @@ def test_BlockIterativeAMS_simultaneous_constructor_sparse(
     assert alg.algorithmic_relaxation == 1.0
 
 
-def test_BlockIterativeAMS_map_full(get_BlockIterativeAMS_input_full_sequential):
+def test_BlockIterativeAMSHyperslab_map_full(get_BlockIterativeAMSHyperslab_input_full_sequential):
     """
-    Test the map function of the BlockIterativeAMS class with sequential
+    Test the map function of the BlockIterativeAMSHyperslab class with
+    sequential
     weights and full matrix.
     """
-    alg, _, _, _ = get_BlockIterativeAMS_input_full_sequential
+    alg, _, _, _ = get_BlockIterativeAMSHyperslab_input_full_sequential
 
     # test map function(s)
     x_map = np.array([1, 1])
     assert np.array_equal(alg.map(x_map), np.array([2, 0, 1, 1]))
 
 
-def test_BlockIterativeAMS_map_sparse(get_BlockIterativeAMS_input_sparse_sequential):
+def test_BlockIterativeAMSHyperslab_map_sparse(
+    get_BlockIterativeAMSHyperslab_input_sparse_sequential,
+):
     """
-    Test the map function of the BlockIterativeAMS class with sequential
+    Test the map function of the BlockIterativeAMSHyperslab class with
+    sequential
     weights and sparse matrix.
     """
-    alg, _, _, _ = get_BlockIterativeAMS_input_sparse_sequential
+    alg, _, _, _ = get_BlockIterativeAMSHyperslab_input_sparse_sequential
 
     # test map function(s)
     x_map = np.array([1, 1])
     assert np.array_equal(alg.map(x_map), np.array([2, 0, 1, 1]))
 
 
-def test_BlockIterativeAMS_indexed_map_full(
-    get_BlockIterativeAMS_input_full_sequential,
+def test_BlockIterativeAMSHyperslab_indexed_map_full(
+    get_BlockIterativeAMSHyperslab_input_full_sequential,
 ):
     """
-    Test the indexed_map function of the BlockIterativeAMS class with
+    Test the indexed_map function of the BlockIterativeAMSHyperslab class
+    with
     sequential weights and full matrix.
     """
-    alg, _, _, _ = get_BlockIterativeAMS_input_full_sequential
+    alg, _, _, _ = get_BlockIterativeAMSHyperslab_input_full_sequential
     idx = [0, 1]
     # test map function(s)
     x_map = np.array([1, 1])
     assert np.array_equal(alg.indexed_map(x_map, idx), np.array([2, 0]))
 
 
-def test_BlockIterativeAMS_indexed_map_sparse(
-    get_BlockIterativeAMS_input_sparse_sequential,
+def test_BlockIterativeAMSHyperslab_indexed_map_sparse(
+    get_BlockIterativeAMSHyperslab_input_sparse_sequential,
 ):
     """
-    Test the indexed_map function of the BlockIterativeAMS class with
+    Test the indexed_map function of the BlockIterativeAMSHyperslab class
+    with
     sequential weights and sparse matrix.
     """
-    alg, _, _, _ = get_BlockIterativeAMS_input_sparse_sequential
+    alg, _, _, _ = get_BlockIterativeAMSHyperslab_input_sparse_sequential
     idx = [0, 1]
     # test map function(s)
     x_map = np.array([1, 1])
     assert np.array_equal(alg.indexed_map(x_map, idx), np.array([2, 0]))
 
 
-def test_BlockIterativeAMS_sequential_step_full(
-    get_BlockIterativeAMS_input_full_sequential,
+def test_BlockIterativeAMSHyperslab_sequential_step_full(
+    get_BlockIterativeAMSHyperslab_input_full_sequential,
 ):
     """
-    Test the step function of the BlockIterativeAMS class with sequential
+    Test the step function of the BlockIterativeAMSHyperslab class with
+    sequential
     weights and full matrix.
     """
-    alg, _, _, _ = get_BlockIterativeAMS_input_full_sequential
+    alg, _, _, _ = get_BlockIterativeAMSHyperslab_input_full_sequential
 
     x_1 = np.array([2.0, 2.0])
     x_2 = np.array([1.0, 3.0])
@@ -226,14 +237,15 @@ def test_BlockIterativeAMS_sequential_step_full(
     assert np.array_equal(x_n, x_5)
 
 
-def test_BlockIterativeAMS_simultaneous_step_full(
-    get_BlockIterativeAMS_input_full_simultaneous,
+def test_BlockIterativeAMSHyperslab_simultaneous_step_full(
+    get_BlockIterativeAMSHyperslab_input_full_simultaneous,
 ):
     """
-    Test the step function of the BlockIterativeAMS class with simultaneous
+    Test the step function of the BlockIterativeAMSHyperslab class with
+    simultaneous
     weights and full matrix.
     """
-    alg, _, _, _ = get_BlockIterativeAMS_input_full_simultaneous
+    alg, _, _, _ = get_BlockIterativeAMSHyperslab_input_full_simultaneous
 
     x_1 = np.array([1.2, 1.2])
     x_2 = np.array([2.0, 2.0])
@@ -269,14 +281,15 @@ def test_BlockIterativeAMS_simultaneous_step_full(
     assert np.array_equal(x_n, x_5)
 
 
-def test_BlockIterativeAMS_simultaneous_step_sparse(
-    get_BlockIterativeAMS_input_sparse_simultaneous,
+def test_BlockIterativeAMSHyperslab_simultaneous_step_sparse(
+    get_BlockIterativeAMSHyperslab_input_sparse_simultaneous,
 ):
     """
-    Test the step function of the BlockIterativeAMS class with simultaneous
+    Test the step function of the BlockIterativeAMSHyperslab class with
+    simultaneous
     weights and sparse matrix.
     """
-    alg, _, _, _ = get_BlockIterativeAMS_input_sparse_simultaneous
+    alg, _, _, _ = get_BlockIterativeAMSHyperslab_input_sparse_simultaneous
 
     x_1 = np.array([1.2, 1.2])
     x_2 = np.array([2.0, 2.0])

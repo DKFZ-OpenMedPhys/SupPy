@@ -614,30 +614,3 @@ class PowerSeriesGradientSplitSuperiorization(SplitGradientSuperiorization):
             else:
                 self._l += 1
                 # TODO: stopping criteria
-
-
-if __name__ == "__main__":
-    import numpy as np
-    import matplotlib.pyplot as plt
-    import suppy.projections as pr
-
-    def func_2(x):
-        return 1 / len(x) * (x**2).sum(axis=0)
-
-    def grad_2(x):
-        return 1 / len(x) * 2 * x
-
-    center_1 = np.array([1.2, 0])
-    radius = 1
-    center_2 = np.array([0, 1.4])
-
-    # Creating a circle
-
-    Ball_1 = pr.BallProjection(center_1, radius)
-    Ball_2 = pr.BallProjection(center_2, radius)
-    Proj = pr.SequentialProjection([Ball_1, Ball_2])
-
-    x0 = np.array([2.5, 1.5])
-    new_implementation = PowerSeriesGradientSuperiorization(Proj, func_2, grad_2)
-    xF = new_implementation.solve(np.array([2.5, 1.5]), storage=True)
-    print(xF)

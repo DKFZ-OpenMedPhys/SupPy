@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from suppy.feasibility import SequentialAMS
+from suppy.feasibility import SequentialAMSHyperslab
 from suppy.superiorization import Superiorization
 from suppy.perturbations import PowerSeriesGradientPerturbation
 
@@ -14,9 +14,9 @@ def get_full_variables():
 
 
 @pytest.fixture
-def get_SequentialAMS_input_full(get_full_variables):
+def get_SequentialAMSHyperslab_input_full(get_full_variables):
     A, lb, ub = get_full_variables
-    return SequentialAMS(A, lb, ub)
+    return SequentialAMSHyperslab(A, lb, ub)
 
 
 @pytest.fixture
@@ -51,9 +51,9 @@ def get_test_perturbation(get_test_func, get_test_grad):
 
 
 @pytest.fixture
-def get_superiorization_input(get_SequentialAMS_input_full, get_test_perturbation):
+def get_superiorization_input(get_SequentialAMSHyperslab_input_full, get_test_perturbation):
     return Superiorization(
-        get_SequentialAMS_input_full,
+        get_SequentialAMSHyperslab_input_full,
         get_test_perturbation,
         objective_tol=1e-5,
         constr_tol=1e-5,
@@ -61,11 +61,11 @@ def get_superiorization_input(get_SequentialAMS_input_full, get_test_perturbatio
 
 
 def test_Superiorization_constructor(
-    get_superiorization_input, get_SequentialAMS_input_full, get_test_perturbation
+    get_superiorization_input, get_SequentialAMSHyperslab_input_full, get_test_perturbation
 ):
     sup = get_superiorization_input
 
-    assert sup.basic == get_SequentialAMS_input_full
+    assert sup.basic == get_SequentialAMSHyperslab_input_full
     assert sup.perturbation_scheme == get_test_perturbation
     assert sup.objective_tol == 1e-5
     assert sup.constr_tol == 1e-5

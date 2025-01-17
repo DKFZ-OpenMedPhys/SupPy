@@ -12,13 +12,14 @@ except ImportError:
     no_gpu = True
     cp = None
 
-from suppy.feasibility._linear_algorithms import HalfspaceFeasibility
+from suppy.feasibility._linear_algorithms import HyperplaneFeasibility
 from suppy.utils import LinearMapping
 
 
-class HalfspaceAMSAlgorithm(HalfspaceFeasibility, ABC):
+class HyperplaneAMSAlgorithm(HyperplaneFeasibility, ABC):
     """
-    The HalfspaceAMSAlgorithm class is used to find a feasible solution to a
+    The HyperplaneAMSAlgorithm class is used to find a feasible solution to
+    a
     set of linear inequalities.
 
     Parameters
@@ -46,7 +47,7 @@ class HalfspaceAMSAlgorithm(HalfspaceFeasibility, ABC):
         super().__init__(A, b, algorithmic_relaxation, relaxation, proximity_flag)
 
 
-class SequentialAMSHalfspace(HalfspaceAMSAlgorithm):
+class SequentialAMSHyperplane(HyperplaneAMSAlgorithm):
     """
     SequentialAMS class for sequentially applying the AMS algorithm.
 
@@ -105,14 +106,11 @@ class SequentialAMSHalfspace(HalfspaceAMSAlgorithm):
         for i in self.cs:
             p_i = self.single_map(x, i)
             res = self.b[i] - p_i
-            if res < 0:
-                self.A.update_step(
-                    x, self.algorithmic_relaxation * self.inverse_row_norm[i] * res, i
-                )
+            self.A.update_step(x, self.algorithmic_relaxation * self.inverse_row_norm[i] * res, i)
         return x
 
 
-class SequentialWeightedAMSHalfspace(SequentialAMSHalfspace):
+class SequentialWeightedAMSHyperplane(SequentialAMSHyperplane):
     """
     Parameters
     ----------
@@ -197,16 +195,15 @@ class SequentialWeightedAMSHalfspace(SequentialAMSHalfspace):
         for i in self.cs:
             p_i = self.single_map(x, i)
             res = self.b[i] - p_i
-            if res < 0:
-                self.A.update_step(
-                    x, weighted_relaxation * self.weights[i] * self.inverse_row_norm[i] * res, i
-                )
+            self.A.update_step(
+                x, weighted_relaxation * self.weights[i] * self.inverse_row_norm[i] * res, i
+            )
 
         self.temp_weight_decay *= self.weight_decay
         return x
 
 
-class SimultaneousAMSHalfspace(HalfspaceAMSAlgorithm):
+class SimultaneousAMSHyperplane(HyperplaneAMSAlgorithm):
     """
     SimultaneousAMS is an implementation of the AMS (Alternating
     Minimization Scheme) algorithm
@@ -254,21 +251,17 @@ class SimultaneousAMSHalfspace(HalfspaceAMSAlgorithm):
         # simultaneous projection
         p = self.map(x)
         res = self.b - p
-        idx = res < 0
-        x += self.algorithmic_relaxation * (
-            self.weights[idx] * self.inverse_row_norm[idx] * res[idx] @ self.A[idx, :]
-        )
+        x += self.algorithmic_relaxation * (self.weights * self.inverse_row_norm * res @ self.A)
         return x
 
     def _proximity(self, x: npt.ArrayLike) -> float:
         p = self.map(x)
         # residuals are positive  if constraints are met
         res = self.b - p
-        idx = res < 0
-        return (self.weights[idx] * res[idx] ** 2).sum()
+        return (self.weights * res**2).sum()
 
 
-class ExtrapolatedLandweberHalfspace(SimultaneousAMSHalfspace):
+class ExtrapolatedLandweberHyperplane(SimultaneousAMSHyperplane):
     def __init__(
         self, A, b, algorithmic_relaxation=1, relaxation=1, weights=None, proximity_flag=True
     ):
@@ -280,20 +273,20 @@ class ExtrapolatedLandweberHalfspace(SimultaneousAMSHalfspace):
     def _project(self, x):
         p = self.map(x)
         res = self.b - p
-        idx = res < 0
+        idx = res != 0
         if not (np.any(idx)):
             self.sigmas.append(0)
             return x
-        t = self.weight_norm[idx] * res[idx]
-        t_2 = t @ self.A[idx, :]
-        sig = (res[idx] @ t) / (t_2 @ t_2)
+        t = self.weight_norm * res
+        t_2 = t @ self.A
+        sig = (res @ t) / (t_2 @ t_2)
         self.sigmas.append(sig)
         x += sig * t_2
 
         return x
 
 
-class BlockIterativeAMSHalfspace(HalfspaceAMSAlgorithm):
+class BlockIterativeAMSHyperplane(HyperplaneAMSAlgorithm):
     """
     Block Iterative AMS Algorithm.
     This class implements a block iterative version of the AMS (Alternating
@@ -356,13 +349,8 @@ class BlockIterativeAMSHalfspace(HalfspaceAMSAlgorithm):
             p = self.indexed_map(x, idx)
             res = self.b[idx] - p
 
-            res_idx = res < 0
-
-            full_idx = xp.zeros(self.A.shape[0], dtype=bool)
-            full_idx[idx] = res_idx
-
             x += self.algorithmic_relaxation * (
-                el[res_idx] * self.inverse_row_norm[full_idx] * res[res_idx] @ self.A[full_idx, :]
+                el * self.inverse_row_norm[idx] * res @ self.A[idx, :]
             )
 
         return x
@@ -372,12 +360,13 @@ class BlockIterativeAMSHalfspace(HalfspaceAMSAlgorithm):
         # residuals are positive  if constraints are met
         res = self.b - p
         idx = res < 0
-        return (self.weights[idx] * res[idx] ** 2).sum()
+        return (self.weights * res**2).sum()
 
 
-class StringAveragedAMSHalfspace(HalfspaceAMSAlgorithm):
+class StringAveragedAMSHyperplane(HyperplaneAMSAlgorithm):
     """
-    StringAveragedAMS is an implementation of the HalfspaceAMSAlgorithm that
+    StringAveragedAMS is an implementation of the HyperplaneAMSAlgorithm
+    that
     performs
     string averaged projections.
 
@@ -435,9 +424,8 @@ class StringAveragedAMSHalfspace(HalfspaceAMSAlgorithm):
             for i in string:
                 p_i = self.single_map(x_s, i)
                 res_i = self.b[i] - p_i
-                if res_i < 0:
-                    self.A.update_step(
-                        x_s, self.algorithmic_relaxation * self.inverse_row_norm[i] * res_i, i
-                    )
+                self.A.update_step(
+                    x_s, self.algorithmic_relaxation * self.inverse_row_norm[i] * res_i, i
+                )
             x += weight * x_s
         return x

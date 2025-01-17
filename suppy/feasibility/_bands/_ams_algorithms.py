@@ -36,11 +36,6 @@ class HyperslabAMSAlgorithm(HyperslabFeasibility, ABC):
         The relaxation parameter for the feasibility problem, by default 1.
     proximity_flag : bool, optional
         A flag indicating whether to use proximity in the algorithm, by default True.
-
-    Attributes
-    ----------
-    A_norm : LinearMapping
-        Internal representation of the matrix normalized with respect to the row norms.
     """
 
     def __init__(
@@ -53,12 +48,12 @@ class HyperslabAMSAlgorithm(HyperslabFeasibility, ABC):
         proximity_flag: bool = True,
     ):
         super().__init__(A, lb, ub, algorithmic_relaxation, relaxation, proximity_flag)
-        self.A_norm = LinearMapping(self.A.normalize_rows(2, 2))
 
 
-class SequentialAMS(HyperslabAMSAlgorithm):
+class SequentialAMSHyperslab(HyperslabAMSAlgorithm):
     """
-    SequentialAMS class for sequentially applying the AMS algorithm.
+    SequentialAMSHyperslab class for sequentially applying the AMS algorithm
+    on hyperslabs.
 
     Parameters
     ----------
@@ -76,9 +71,6 @@ class SequentialAMS(HyperslabAMSAlgorithm):
         The list of indices for the constraints, by default None.
     proximity_flag : bool, optional
         Flag to indicate if proximity should be considered, by default True.
-
-    Attributes
-    ----------
     """
 
     def __init__(
@@ -122,13 +114,17 @@ class SequentialAMS(HyperslabAMSAlgorithm):
 
             # weights should be 1s!
             if res_ui < 0:
-                self.A_norm.update_step(x, self.algorithmic_relaxation * res_ui, i)
+                self.A.update_step(
+                    x, self.algorithmic_relaxation * self.inverse_row_norm[i] * res_ui, i
+                )
             elif res_li < 0:
-                self.A_norm.update_step(x, -1 * self.algorithmic_relaxation * res_li, i)
+                self.A.update_step(
+                    x, -1 * self.algorithmic_relaxation * self.inverse_row_norm[i] * res_li, i
+                )
         return x
 
 
-class SequentialWeightedAMS(SequentialAMS):
+class SequentialWeightedAMSHyperslab(SequentialAMSHyperslab):
     """
     Parameters
     ----------
@@ -221,19 +217,24 @@ class SequentialWeightedAMS(SequentialAMS):
             # check if constraints are violated
 
             if res_ui < 0:
-                self.A_norm.update_step(x, weighted_relaxation * self.weights[i] * res_ui, i)
+                self.A.update_step(
+                    x, weighted_relaxation * self.weights[i] * self.inverse_row_norm[i] * res_ui, i
+                )
             elif res_li < 0:
-                self.A_norm.update_step(x, -1 * weighted_relaxation * self.weights[i] * res_li, i)
+                self.A.update_step(
+                    x,
+                    -1 * weighted_relaxation * self.weights[i] * self.inverse_row_norm[i] * res_li,
+                    i,
+                )
 
         self.temp_weight_decay *= self.weight_decay
         return x
 
 
-class SimultaneousAMS(HyperslabAMSAlgorithm):
+class SimultaneousAMSHyperslab(HyperslabAMSAlgorithm):
     """
-    SimultaneousAMS is an implementation of the AMS (Alternating
-    Minimization Scheme) algorithm
-    that performs simultaneous projections and proximity calculations.
+    SimultaneousAMSHyperslab class for simultaneous application of the AMS
+    algorithm on hyperslabs.
 
     Parameters
     ----------
@@ -283,8 +284,8 @@ class SimultaneousAMS(HyperslabAMSAlgorithm):
         d_idx = res_u < 0
         c_idx = res_l < 0
         x += self.algorithmic_relaxation * (
-            self.weights[d_idx] * res_u[d_idx] @ self.A_norm[d_idx, :]
-            - self.weights[c_idx] * res_l[c_idx] @ self.A_norm[c_idx, :]
+            (self.weights * self.inverse_row_norm)[d_idx] * res_u[d_idx] @ self.A[d_idx, :]
+            - (self.weights * self.inverse_row_norm)[c_idx] * res_l[c_idx] @ self.A[c_idx, :]
         )
 
         return x
@@ -300,7 +301,7 @@ class SimultaneousAMS(HyperslabAMSAlgorithm):
         ).sum()
 
 
-class ExtrapolatedLandweber(SimultaneousAMS):
+class ExtrapolatedLandweber(SimultaneousAMSHyperslab):
     def __init__(
         self, A, lb, ub, algorithmic_relaxation=1, relaxation=1, weights=None, proximity_flag=True
     ):
@@ -331,12 +332,9 @@ class ExtrapolatedLandweber(SimultaneousAMS):
         return x
 
 
-class BlockIterativeAMS(HyperslabAMSAlgorithm):
+class BlockIterativeAMSHyperslab(HyperslabAMSAlgorithm):
     """
-    Block Iterative AMS Algorithm.
-    This class implements a block iterative version of the AMS (Alternating
-    Minimization Scheme) algorithm.
-    It is designed to handle constraints and weights in a block-wise manner.
+    Block Iterative AMS Algorithm for hyperslabs.
 
     Parameters
     ----------
@@ -406,8 +404,14 @@ class BlockIterativeAMS(HyperslabAMSAlgorithm):
             full_c_idx[idx] = c_idx
 
             x += self.algorithmic_relaxation * (
-                el[d_idx] * res_u[d_idx] @ self.A_norm[full_d_idx, :]
-                - el[c_idx] * res_l[c_idx] @ self.A_norm[full_c_idx, :]
+                self.inverse_row_norm[full_d_idx]
+                * el[d_idx]
+                * res_u[d_idx]
+                @ self.A[full_d_idx, :]
+                - self.inverse_row_norm[full_c_idx]
+                * el[c_idx]
+                * res_l[c_idx]
+                @ self.A[full_c_idx, :]
             )
 
         return x
@@ -422,11 +426,10 @@ class BlockIterativeAMS(HyperslabAMSAlgorithm):
         ).sum()
 
 
-class StringAveragedAMS(HyperslabAMSAlgorithm):
+class StringAveragedAMSHyperslab(HyperslabAMSAlgorithm):
     """
-    StringAveragedAMS is an implementation of the HyperslabAMSAlgorithm that
-    performs
-    string averaged projections.
+    StringAveragedAMSHyperslab is a string averaged implementation of the
+    AMS algorithm.
 
     Parameters
     ----------
@@ -486,9 +489,15 @@ class StringAveragedAMS(HyperslabAMSAlgorithm):
                 p_i = self.single_map(x_s, i)
                 (res_li, res_ui) = self.Bounds.single_residual(p_i, i)
                 if res_ui < 0:
-                    self.A_norm.update_step(x_s, self.algorithmic_relaxation * res_ui, i)
+                    self.A.update_step(
+                        x_s, self.algorithmic_relaxation * self.inverse_row_norm[i] * res_ui, i
+                    )
                 elif res_li < 0:
-                    self.A_norm.update_step(x_s, -1 * self.algorithmic_relaxation * res_li, i)
+                    self.A.update_step(
+                        x_s,
+                        -1 * self.algorithmic_relaxation * self.inverse_row_norm[i] * res_li,
+                        i,
+                    )
 
             x += weight * x_s
         return x

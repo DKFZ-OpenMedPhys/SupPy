@@ -1,72 +1,74 @@
 import numpy as np
 import pytest
 import scipy.sparse as sparse
-from suppy.feasibility import StringAveragedAMS
+from suppy.feasibility import StringAveragedAMSHalfspace
 from suppy.utils import LinearMapping
 
 
 @pytest.fixture
 def get_full_variables():
     A = np.array([[1, 1], [-1, 1], [1, 0], [0, 1]])
-    lb = np.array([-2, -2, -3 / 2, -3 / 2])
-    ub = -1 * lb
-    return A, lb, ub
+    ub = -1 * np.array([-2, -2, -3 / 2, -3 / 2])
+    return np.concatenate((A, -A)), np.concatenate((ub, ub))
 
 
 @pytest.fixture
 def get_sparse_variables():
-    A = sparse.csr_matrix([[1, 1], [-1, 1], [1, 0], [0, 1]])
-    lb = np.array([-2, -2, -3 / 2, -3 / 2])
-    ub = -1 * lb
-    return A, lb, ub
+    A = np.array([[1, 1], [-1, 1], [1, 0], [0, 1]])
+    A = sparse.csr_matrix(np.concatenate((A, -A)))
+    ub = -1 * np.array([-2, -2, -3 / 2, -3 / 2])
+    return A, np.concatenate((ub, ub))
 
 
-def test_StringAveragedAMS_constructor_full(get_full_variables):
-    """Test the StringAveragedAMS constructor."""
-    A, lb, ub = get_full_variables
-    alg = StringAveragedAMS(A, lb, ub, strings=[[0, 1, 2, 3]])  # sequential like
+def test_StringAveragedAMSHalfspace_constructor_full(get_full_variables):
+    """Test the StringAveragedAMSHalfspace constructor."""
+    A, b = get_full_variables
+    alg = StringAveragedAMSHalfspace(A, b, strings=[[0, 1, 2, 3, 4, 5, 6, 7]])  # sequential like
 
     assert isinstance(alg.A, LinearMapping)
     assert np.array_equal(alg.A, A)
-    assert np.array_equal(alg.Bounds.l, lb)
-    assert np.array_equal(alg.Bounds.u, ub)
-    assert alg.strings == [[0, 1, 2, 3]]
+    assert np.array_equal(alg.b, b)
+    assert alg.strings == [[0, 1, 2, 3, 4, 5, 6, 7]]
     assert np.array_equal(alg.weights, np.ones(1))
     assert alg.relaxation == 1.0
     assert alg.algorithmic_relaxation == 1.0
 
-    alg = StringAveragedAMS(A, lb, ub, strings=[[0], [1], [2], [3]])  # simultaneous like
-    assert alg.strings == [[0], [1], [2], [3]]
-    assert np.array_equal(alg.weights, np.ones(4) / 4)
+    alg = StringAveragedAMSHalfspace(
+        A, b, strings=[[0], [1], [2], [3], [4], [5], [6], [7]]
+    )  # simultaneous like
+    assert alg.strings == [[0], [1], [2], [3], [4], [5], [6], [7]]
+    assert np.array_equal(alg.weights, np.ones(8) / 8)
 
 
-def test_StringAveragedAMS_constructor_sparse(get_sparse_variables):
-    """Test the StringAveragedAMS constructor."""
-    A, lb, ub = get_sparse_variables
-    alg = StringAveragedAMS(A, lb, ub, strings=[[0, 1, 2, 3]])  # sequential like
+def test_StringAveragedAMSHalfspace_constructor_sparse(get_sparse_variables):
+    """Test the StringAveragedAMSHalfspace constructor."""
+    A, b = get_sparse_variables
+    alg = StringAveragedAMSHalfspace(A, b, strings=[[0, 1, 2, 3, 4, 5, 6, 7]])  # sequential like
 
     assert isinstance(alg.A, LinearMapping)
     assert np.array_equal(alg.A.todense(), A.todense())
-    assert np.array_equal(alg.Bounds.l, lb)
-    assert np.array_equal(alg.Bounds.u, ub)
-    assert alg.strings == [[0, 1, 2, 3]]
+    assert np.array_equal(alg.b, b)
+    assert alg.strings == [[0, 1, 2, 3, 4, 5, 6, 7]]
     assert np.array_equal(alg.weights, np.ones(1))
     assert alg.relaxation == 1.0
     assert alg.algorithmic_relaxation == 1.0
 
-    alg = StringAveragedAMS(A, lb, ub, strings=[[0], [1], [2], [3]])  # simultaneous like
-    assert alg.strings == [[0], [1], [2], [3]]
-    assert np.array_equal(alg.weights, np.ones(4) / 4)
+    alg = StringAveragedAMSHalfspace(
+        A, b, strings=[[0], [1], [2], [3], [4], [5], [6], [7]]
+    )  # simultaneous like
+    assert alg.strings == [[0], [1], [2], [3], [4], [5], [6], [7]]
+    assert np.array_equal(alg.weights, np.ones(8) / 8)
 
 
-def test_StringAveragedAMS_step_full_sequential_like(get_full_variables):
+def test_StringAveragedAMSHalfspace_step_full_sequential_like(get_full_variables):
     """
-    Test the step function of the StringAveragedAMS class for sequential
+    Test the step function of the StringAveragedAMSHalfspace class for
+    sequential
     like strings.
     """
 
-    A, lb, ub = get_full_variables
-    alg = StringAveragedAMS(A, lb, ub, strings=[[0, 1, 2, 3]])  # sequential like
+    A, b = get_full_variables
+    alg = StringAveragedAMSHalfspace(A, b, strings=[[0, 1, 2, 3, 4, 5, 6, 7]])  # sequential like
 
     x_1 = np.array([2.0, 2.0])
     x_2 = np.array([1.0, 3.0])
@@ -102,13 +104,14 @@ def test_StringAveragedAMS_step_full_sequential_like(get_full_variables):
     assert np.array_equal(x_n, x_5)
 
 
-def test_StringAveragedAMS_step_sparse_sequential_like(get_sparse_variables):
+def test_StringAveragedAMSHalfspace_step_sparse_sequential_like(get_sparse_variables):
     """
-    Test the step function of the StringAveragedAMS class for sequential
+    Test the step function of the StringAveragedAMSHalfspace class for
+    sequential
     like strings.
     """
-    A, lb, ub = get_sparse_variables
-    alg = StringAveragedAMS(A, lb, ub, strings=[[0, 1, 2, 3]])  # sequential like
+    A, b = get_sparse_variables
+    alg = StringAveragedAMSHalfspace(A, b, strings=[[0, 1, 2, 3, 4, 5, 6, 7]])  # sequential like
 
     x_1 = np.array([2.0, 2.0])
     x_2 = np.array([1.0, 3.0])
@@ -144,13 +147,16 @@ def test_StringAveragedAMS_step_sparse_sequential_like(get_sparse_variables):
     assert np.array_equal(x_n, x_5)
 
 
-def test_StringAveragedAMS_step_full_simultaneous_like(get_sparse_variables):
+def test_StringAveragedAMSHalfspace_step_full_simultaneous_like(get_sparse_variables):
     """
-    Test the step function of the StringAveragedAMS class for simultaneous
+    Test the step function of the StringAveragedAMSHalfspace class for
+    simultaneous
     like strings.
     """
-    A, lb, ub = get_sparse_variables
-    alg = StringAveragedAMS(A, lb, ub, strings=[[0], [1], [2], [3]])  # simultaneous like
+    A, b = get_sparse_variables
+    alg = StringAveragedAMSHalfspace(
+        A, b, strings=[[0], [1], [2], [3], [4], [5], [6], [7]]
+    )  # simultaneous like
 
     x_1 = np.array([1.2, 1.2])
     x_2 = np.array([2.0, 2.0])
@@ -159,40 +165,43 @@ def test_StringAveragedAMS_step_full_simultaneous_like(get_sparse_variables):
     x_5 = np.array([2.0, -2.0])
 
     x_n = alg.step(x_1)
-    assert np.all(np.abs(x_n - np.array([1.15, 1.15])) < 1e-10)
+    assert np.all(np.abs(x_n - np.array([1.175, 1.175])) < 1e-10)
     assert np.array_equal(x_n, x_1)
 
     # check that project gives the same result as step
     x_1 = np.array([1.2, 1.2])
     x_proj = alg.project(x_1)
-    assert np.all(np.abs(x_proj - np.array([1.15, 1.15])) < 1e-10)
+    assert np.all(np.abs(x_proj - np.array([1.175, 1.175])) < 1e-10)
     assert np.array_equal(x_proj, x_1)
     assert np.array_equal(x_proj, x_n)
 
     x_n = alg.step(x_2)
-    assert np.all(np.abs(x_n - 1 / 4 * np.array([6.5, 6.5])) < 1e-10)
+    assert np.all(np.abs(x_n - np.array([29 / 16, 29 / 16])) < 1e-10)
     assert np.array_equal(x_n, x_2)
 
     x_n = alg.step(x_3)
-    assert np.all(np.abs(x_n - np.array([-1.15, -1.15])) < 1e-10)
+    assert np.all(np.abs(x_n - np.array([-1.175, -1.175])) < 1e-10)
     assert np.array_equal(x_n, x_3)
 
     x_n = alg.step(x_4)
-    assert np.all(np.abs(x_n - 1 / 4 * np.array([-6.5, -6.5])) < 1e-10)
+    assert np.all(np.abs(x_n - np.array([-29 / 16, -29 / 16])) < 1e-10)
     assert np.array_equal(x_n, x_4)
 
     x_n = alg.step(x_5)
-    assert np.all(np.abs(x_n - 1 / 4 * np.array([6.5, -6.5])) < 1e-10)
+    assert np.all(np.abs(x_n - np.array([29 / 16, -29 / 16])) < 1e-10)
     assert np.array_equal(x_n, x_5)
 
 
-def test_StringAveragedAMS_step_sparse_simultaneous_like(get_sparse_variables):
+def test_StringAveragedAMSHalfspace_step_sparse_simultaneous_like(get_sparse_variables):
     """
-    Test the step function of the StringAveragedAMS class for simultaneous
+    Test the step function of the StringAveragedAMSHalfspace class for
+    simultaneous
     like strings.
     """
-    A, lb, ub = get_sparse_variables
-    alg = StringAveragedAMS(A, lb, ub, strings=[[0], [1], [2], [3]])  # simultaneous like
+    A, b = get_sparse_variables
+    alg = StringAveragedAMSHalfspace(
+        A, b, strings=[[0], [1], [2], [3], [4], [5], [6], [7]]
+    )  # simultaneous like
 
     x_1 = np.array([1.2, 1.2])
     x_2 = np.array([2.0, 2.0])
@@ -201,28 +210,28 @@ def test_StringAveragedAMS_step_sparse_simultaneous_like(get_sparse_variables):
     x_5 = np.array([2.0, -2.0])
 
     x_n = alg.step(x_1)
-    assert np.all(np.abs(x_n - np.array([1.15, 1.15])) < 1e-10)
+    assert np.all(np.abs(x_n - np.array([1.175, 1.175])) < 1e-10)
     assert np.array_equal(x_n, x_1)
 
     # check that project gives the same result as step
     x_1 = np.array([1.2, 1.2])
     x_proj = alg.project(x_1)
-    assert np.all(np.abs(x_proj - np.array([1.15, 1.15])) < 1e-10)
+    assert np.all(np.abs(x_proj - np.array([1.175, 1.175])) < 1e-10)
     assert np.array_equal(x_proj, x_1)
     assert np.array_equal(x_proj, x_n)
 
     x_n = alg.step(x_2)
-    assert np.all(np.abs(x_n - 1 / 4 * np.array([6.5, 6.5])) < 1e-10)
+    assert np.all(np.abs(x_n - np.array([29 / 16, 29 / 16])) < 1e-10)
     assert np.array_equal(x_n, x_2)
 
     x_n = alg.step(x_3)
-    assert np.all(np.abs(x_n - np.array([-1.15, -1.15])) < 1e-10)
+    assert np.all(np.abs(x_n - np.array([-1.175, -1.175])) < 1e-10)
     assert np.array_equal(x_n, x_3)
 
     x_n = alg.step(x_4)
-    assert np.all(np.abs(x_n - 1 / 4 * np.array([-6.5, -6.5])) < 1e-10)
+    assert np.all(np.abs(x_n - np.array([-29 / 16, -29 / 16])) < 1e-10)
     assert np.array_equal(x_n, x_4)
 
     x_n = alg.step(x_5)
-    assert np.all(np.abs(x_n - 1 / 4 * np.array([6.5, -6.5])) < 1e-10)
+    assert np.all(np.abs(x_n - np.array([29 / 16, -29 / 16])) < 1e-10)
     assert np.array_equal(x_n, x_5)

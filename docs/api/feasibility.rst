@@ -6,8 +6,8 @@ Linear algorithms
 =========================
 
 
-Hyperslab AMS algorithms
--------------------------
+Hyperslab AMS algorithms :math:`(lb \leq Ax \leq ub)`
+----------------------------------------------------
 
 .. autoclass:: suppy.feasibility.SequentialAMSHyperslab
    :members:
@@ -32,6 +32,70 @@ Hyperslab AMS algorithms
    :inherited-members:
    :undoc-members:
    :show-inheritance:
+
+Hyperplane AMS algorithms :math:`( Ax \leq b)`
+--------------------------------------------------
+
+.. autoclass:: suppy.feasibility.SequentialAMSHyperplane
+   :members:
+   :inherited-members:
+   :undoc-members:
+   :show-inheritance:
+
+.. autoclass:: suppy.feasibility.SequentialAMSHyperplane
+   :members:
+   :inherited-members:
+   :undoc-members:
+   :show-inheritance:
+
+.. autoclass:: suppy.feasibility.SimultaneousAMSHyperplane
+   :members:
+   :inherited-members:
+   :undoc-members:
+   :show-inheritance:
+
+.. autoclass:: suppy.feasibility.StringAveragedAMSHyperplane
+   :members:
+   :inherited-members:
+   :undoc-members:
+   :show-inheritance:
+
+.. autoclass:: suppy.feasibility.BlockIterativeAMSHyperplane
+   :members:
+   :inherited-members:
+   :undoc-members:
+   :show-inheritance:
+Halfspace AMS algorithms :math:`( Ax = b)`
+--------------------------------------------------
+.. autoclass:: suppy.feasibility.SequentialAMSHalfspace
+   :members:
+   :inherited-members:
+   :undoc-members:
+   :show-inheritance:
+
+.. autoclass:: suppy.feasibility.SequentialAMSHalfspace
+   :members:
+   :inherited-members:
+   :undoc-members:
+   :show-inheritance:
+
+.. autoclass:: suppy.feasibility.SimultaneousAMSHalfspace
+   :members:
+   :inherited-members:
+   :undoc-members:
+   :show-inheritance:
+
+.. autoclass:: suppy.feasibility.StringAveragedAMSHalfspace
+   :inherited-members:
+   :undoc-members:
+   :show-inheritance:
+
+.. autoclass:: suppy.feasibility.BlockIterativeAMSHalfspace
+   :members:
+   :inherited-members:
+   :undoc-members:
+   :show-inheritance:
+
 
 ARM algorithms
 -------------------------

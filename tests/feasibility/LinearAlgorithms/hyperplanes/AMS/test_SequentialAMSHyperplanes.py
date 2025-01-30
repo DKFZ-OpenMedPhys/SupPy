@@ -356,8 +356,28 @@ def test_SequentialAMSHyperplane_proximity(get_SequentialAMSHyperplane_input_ful
     x_4 = np.array([-2.0, 2.0])
     x_5 = np.array([-3.0, 0.0])
 
-    assert np.abs(alg.proximity(x_1) - 2 / 3) < 1e-10
-    assert np.abs(alg.proximity(x_2) - 5 / 3) < 1e-10
-    assert np.abs(alg.proximity(x_3) - 29 / 12) < 1e-10
-    assert np.abs(alg.proximity(x_4) - 14 / 3) < 1e-10
-    assert np.abs(alg.proximity(x_5) - 77 / 12) < 1e-10
+    prox_measures = []
+    no_prox = alg.proximity(x_1, prox_measures)
+    assert no_prox.size == 0
+
+    prox_measures = [("p_norm", 2), "max_norm"]
+    prox_1 = alg.proximity(x_1, prox_measures)
+    prox_2 = alg.proximity(x_2, prox_measures)
+    prox_3 = alg.proximity(x_3, prox_measures)
+    prox_4 = alg.proximity(x_4, prox_measures)
+    prox_5 = alg.proximity(x_5, prox_measures)
+
+    assert np.abs(prox_1[0] - 2 / 3) < 1e-10
+    assert np.abs(prox_1[1] - 1) < 1e-10
+
+    assert np.abs(prox_2[0] - 5 / 3) < 1e-10
+    assert np.abs(prox_2[1] - 2) < 1e-10
+
+    assert np.abs(prox_3[0] - 29 / 12) < 1e-10
+    assert np.abs(prox_3[1] - 2) < 1e-10
+
+    assert np.abs(prox_4[0] - 14 / 3) < 1e-10
+    assert np.abs(prox_4[1] - 3) < 1e-10
+
+    assert np.abs(prox_5[0] - 77 / 12) < 1e-10
+    assert np.abs(prox_5[1] - 4) < 1e-10

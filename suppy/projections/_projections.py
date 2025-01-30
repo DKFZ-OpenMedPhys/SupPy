@@ -1,6 +1,15 @@
 from abc import ABC, abstractmethod
+from typing import List, Callable
 import numpy as np
 import numpy.typing as npt
+
+try:
+    import cupy as cp
+
+    no_gpu = False
+except ImportError:
+    no_gpu = True
+    cp = np
 
 
 class Projection(ABC):
@@ -71,9 +80,9 @@ class Projection(ABC):
     def _project(self, x: npt.ArrayLike) -> npt.ArrayLike:
         """Internal method to project the point x onto the set."""
 
-    def proximity(self, x: npt.ArrayLike) -> float:
+    def proximity(self, x: npt.ArrayLike, proximity_measures: List) -> float:
         """
-        Calculate the proximity of point `x` to the set.
+        Calculate proximity measures of point `x` to the set.
 
         Parameters
         ----------
@@ -82,29 +91,31 @@ class Projection(ABC):
 
         Returns
         -------
-        float
-            The proximity measure of the input array `x`.
+        List[float]
+            The proximity measures of the input array `x`.
         """
+        xp = cp if isinstance(x, cp.ndarray) else np
         if self.proximity_flag:
-            return self._proximity(x)
+            return xp.array(self._proximity(x, proximity_measures))
         else:
-            return 0
+            return xp.zeros(len(proximity_measures))
 
     @abstractmethod
-    def _proximity(self, x: npt.ArrayLike) -> float:
+    def _proximity(self, x: npt.ArrayLike, proximity_measures: List) -> float:
         """
-        Abstract function to calculate the proximity of `x`to the set.
-        Needs to be implemented by subclasses.
+        Calculate proximity measures of point `x` to set.
 
         Parameters
         ----------
         x : npt.ArrayLike
-            The input array.
+            Input array for which the proximity measures are to be calculated.
+        proximity_measures : List
+            List of proximity measures to calculate.
 
         Returns
         -------
-        float
-            The calculated proximity value.
+        List[float]
+            The proximity measures of the input array `x`.
         """
 
 
@@ -164,20 +175,19 @@ class BasicProjection(Projection, ABC):
     #         )
     #         return x
 
-    def _proximity(self, x: npt.ArrayLike) -> float:
-        """
-        Calculate the proximity of point `x` to set.
-
-        Parameters
-        ----------
-        x : npt.ArrayLike
-            Input array for which the proximity measure is to be calculated.
-
-        Returns
-        -------
-        float
-            The proximity measure of the input array `x`.
-        """
-
+    def _proximity(self, x: npt.ArrayLike, proximity_measures: List) -> List[float]:
         # probably should have some option to choose the distance
-        return ((x - self._project(x.copy())) ** 2).sum()
+        res = x[self.idx] - self._project(x.copy())[self.idx]
+        dist = (res**2).sum() ** (1 / 2)
+        measures = []
+        for measure in proximity_measures:
+            if isinstance(measure, tuple):
+                if measure[0] == "p_norm":
+                    measures.append(dist ** measure[1])
+                else:
+                    raise ValueError("Invalid proximity measure")
+            elif isinstance(measure, str) and measure == "max_norm":
+                measures.append(dist)
+            else:
+                raise ValueError("Invalid proximity measure")
+        return measures

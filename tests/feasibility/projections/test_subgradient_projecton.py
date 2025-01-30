@@ -162,9 +162,12 @@ def test_level_diff(get_func_grad_no_args):
 def test_proximity(get_func_grad_no_args):
 
     func, grad = get_func_grad_no_args
-
+    proximity_measures = [("p_norm", 2), "max_norm"]
     subgrad = SubgradientProjection(func, grad, level=3)
     x = np.array([1.0, 2.0, 3.0])
-    assert np.abs(subgrad.proximity(x) - (np.sqrt(14) - 3) ** 2) < 1e-8
+    assert np.abs(subgrad.proximity(x, proximity_measures)[0] - (np.sqrt(14) - 3) ** 2) < 1e-8
+    assert np.abs(subgrad.proximity(x, proximity_measures)[1] - (np.sqrt(14) - 3)) < 1e-8
+
     x = np.array([1.0, 1.0, 1.0])
-    assert np.abs(subgrad.proximity(x) - 0) < 1e-8
+    assert np.abs(subgrad.proximity(x, proximity_measures)[0] - 0) < 1e-8
+    assert np.abs(subgrad.proximity(x, proximity_measures)[1] - 0) < 1e-8

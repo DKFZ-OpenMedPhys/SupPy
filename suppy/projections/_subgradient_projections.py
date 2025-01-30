@@ -4,6 +4,14 @@ import numpy.typing as npt
 
 from suppy.projections._projections import BasicProjection
 
+try:
+    import cupy as cp
+
+    no_gpu = False
+except ImportError:
+    no_gpu = True
+    cp = np
+
 
 class SubgradientProjection(BasicProjection):
     """Projection using subgradients."""
@@ -98,19 +106,21 @@ class SubgradientProjection(BasicProjection):
         """
         return self.func_call(x) - self.level
 
-    def _proximity(self, x: npt.ArrayLike) -> float:
-        """
-        Calculate the proximity to the set level.
-
-        Parameters:
-        - x (npt.ArrayLike): The input array.
-
-        Returns:
-        - float: The proximity to the set level.
-        """
-        diff = self.level_diff(x)
-        diff = diff if diff > 0 else 0
-        return diff**2
+    def _proximity(self, x: npt.ArrayLike, proximity_measures: List) -> float:
+        dist = self.level_diff(x)
+        dist = dist if dist > 0 else 0
+        measures = []
+        for measure in proximity_measures:
+            if isinstance(measure, tuple):
+                if measure[0] == "p_norm":
+                    measures.append(dist ** measure[1])
+                else:
+                    raise ValueError("Invalid proximity measure")
+            elif isinstance(measure, str) and measure == "max_norm":
+                measures.append(dist)
+            else:
+                raise ValueError("Invalid proximity measure")
+        return measures
 
 
 class EUDProjection(SubgradientProjection):

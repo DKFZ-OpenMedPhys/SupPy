@@ -186,16 +186,25 @@ class SimultaneousARM(ARMAlgorithm):
         self._k += 1
         return x
 
-    def _proximity(self, x: npt.ArrayLike) -> float:
-        xp = cp if self._use_gpu else np
+    def _proximity(self, x: npt.ArrayLike, proximity_measures: List[str]) -> float:
         p = self.map(x)
-        # residuals are positive  if constraints are met
-        (res_u, res_l) = self.Bounds.residual(p)
-        d_idx = res_u < 0
-        c_idx = res_l < 0
-        return xp.sum(self.weights[d_idx] * res_u[d_idx] ** 2) + xp.sum(
-            self.weights[c_idx] * res_l[c_idx] ** 2
-        )
+        # residuals are positive if constraints are met
+        (res_l, res_u) = self.Bounds.residual(p)
+        res_u[res_u > 0] = 0
+        res_l[res_l > 0] = 0
+        res = -res_u - res_l
+        measures = []
+        for measure in proximity_measures:
+            if isinstance(measure, tuple):
+                if measure[0] == "p_norm":
+                    measures.append(1 / len(res) * self.weights @ (res ** measure[1]))
+                else:
+                    raise ValueError("Invalid proximity measure")
+            elif isinstance(measure, str) and measure == "max_norm":
+                measures.append(res.max())
+            else:
+                raise ValueError("Invalid proximity measure)")
+        return measures
 
 
 class BIPARM(ARMAlgorithm):
@@ -272,14 +281,25 @@ class BIPARM(ARMAlgorithm):
         self._k += 1
         return x
 
-    def _proximity(self, x: npt.ArrayLike) -> float:
+    def _proximity(self, x: npt.ArrayLike, proximity_measures: List[str]) -> float:
         p = self.map(x)
-        (res_u, res_l) = self.Bounds.residual(p)  # residuals are positive  if constraints are met
-        d_idx = res_u < 0
-        c_idx = res_l < 0
-        return np.sum(self.weights[d_idx] * res_u[d_idx] ** 2) + np.sum(
-            self.weights[c_idx] * res_l[c_idx] ** 2
-        )
+        # residuals are positive if constraints are met
+        (res_l, res_u) = self.Bounds.residual(p)
+        res_u[res_u > 0] = 0
+        res_l[res_l > 0] = 0
+        res = -res_u - res_l
+        measures = []
+        for measure in proximity_measures:
+            if isinstance(measure, tuple):
+                if measure[0] == "p_norm":
+                    measures.append(1 / len(res) * self.total_weights @ (res ** measure[1]))
+                else:
+                    raise ValueError("Invalid proximity measure")
+            elif isinstance(measure, str) and measure == "max_norm":
+                measures.append(res.max())
+            else:
+                raise ValueError("Invalid proximity measure)")
+        return measures
 
 
 class StringAveragedARM(ARMAlgorithm):

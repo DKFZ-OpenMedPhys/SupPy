@@ -414,117 +414,44 @@ class BlockIterativeProjection(ProjectionMethod):
     ):
 
         super().__init__(projections, relaxation, proximity_flag)
+        xp = cp if self._use_gpu else np
         # check if weights has the correct format
         for el in weights:
             if len(el) != len(projections):
                 raise ValueError("Weights do not match the number of projections!")
 
-            if np.abs((np.sum(el) - 1)) > 1e-10:
+            if abs((el.sum() - 1)) > 1e-10:
                 raise ValueError("Weights do not add up to 1!")
 
         self.weights = []
+        self.block_idxs = [
+            xp.where(xp.array(el) > 0)[0] for el in weights
+        ]  # get idxs that meet requirements
 
-        self.total_weights = np.zeros_like(weights[0])
-
-        self.idxs = [
-            np.where(np.array(el) > 0)[0] for el in weights
-        ]  # get the indices for each block
-
+        # assemble a list of general weights
+        self.total_weights = xp.zeros_like(weights[0])
         for el in weights:
-            el = np.array(el)
-            self.weights.append(el[np.array(el) > 0])
+            el = xp.asarray(el)
+            self.weights.append(el[xp.array(el) > 0])  # remove non zero weights
             self.total_weights += el / len(weights)
 
     def _project(self, x: npt.ArrayLike) -> npt.ArrayLike:
         # TODO: Can this be parallelized?
-        for weight, idx in zip(self.weights, self.idxs):
+        for weight, block_idx in zip(self.weights, self.block_idxs):
             x_new = 0  # for simultaneous projection, later replaces x
 
             i = 0
-            for el in idx:
+            for el in block_idx:
                 x_new += weight[i] * self.projections[el].project(x.copy())
                 i += 1
             x = x_new
         return x
 
     def _proximity(self, x):
-        return np.sum(
+        xp = cp if isinstance(x, cp.ndarray) else np
+        return xp.sum(
             [
                 weight * proj.proximity(x.copy())
                 for (weight, proj) in zip(self.total_weights, self.projections)
             ]
         )
-
-
-class MultiBallProjection(BasicProjection, ABC):
-    """Projection onto multiple balls."""
-
-    def __init__(
-        self,
-        centers: npt.ArrayLike,
-        radii: npt.ArrayLike,
-        relaxation: float = 1,
-        idx: npt.ArrayLike | None = None,
-        proximity_flag=True,
-    ):
-        try:
-            if isinstance(centers, cp.ndarray) and isinstance(radii, cp.ndarray):
-                _use_gpu = True
-            elif (isinstance(centers, cp.ndarray)) != (isinstance(radii, cp.ndarray)):
-                raise ValueError("Mismatch between input types of centers and radii")
-            else:
-                _use_gpu = False
-        except ModuleNotFoundError:
-            _use_gpu = False
-
-        super().__init__(relaxation, idx, proximity_flag, _use_gpu)
-        self.centers = centers
-        self.radii = radii
-
-
-class SequentialMultiBallProjection(MultiBallProjection):
-    """Sequential projection onto multiple balls."""
-
-    # def __init__(self,
-    #             centers: npt.ArrayLike,
-    #             radii: npt.ArrayLike,
-    #             relaxation:float = 1,
-    #             idx: npt.ArrayLike | None = None):
-
-    #     super().__init__(centers, radii, relaxation,idx)
-
-    def _project(self, x: npt.ArrayLike) -> npt.ArrayLike:
-
-        for i in range(len(self.centers)):
-            if np.linalg.norm(x[self.idx] - self.centers[i]) > self.radii[i]:
-                x[self.idx] = self.centers[i] + self.radii[i] * (
-                    x[self.idx] - self.centers[i]
-                ) / np.linalg.norm(x[self.idx] - self.centers[i])
-        return x
-
-
-class SimultaneousMultiBallProjection(MultiBallProjection):
-    """Simultaneous projection onto multiple balls."""
-
-    def __init__(
-        self,
-        centers: npt.ArrayLike,
-        radii: npt.ArrayLike,
-        weights: npt.ArrayLike,
-        relaxation: float = 1,
-        idx: npt.ArrayLike | None = None,
-        proximity_flag=True,
-    ):
-
-        super().__init__(centers, radii, relaxation, idx, proximity_flag)
-        self.weights = weights
-
-    def _project(self, x: npt.ArrayLike) -> npt.ArrayLike:
-        # get all indices
-        dists = np.linalg.norm(x[self.idx] - self.centers, axis=1)
-        idx = (dists - self.radii) > 0
-        # project onto halfspaces
-        x[self.idx] = x[self.idx] - (self.weights[idx] * (1 - self.radii[idx] / dists[idx])) @ (
-            x[self.idx] - self.centers[idx]
-        )
-        return x

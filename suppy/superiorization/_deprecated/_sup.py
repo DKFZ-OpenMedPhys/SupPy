@@ -1,6 +1,4 @@
 from abc import ABC, abstractmethod
-
-import numpy as np
 import numpy.typing as npt
 from suppy.utils import ensure_float_array
 from suppy.perturbations import Perturbation, PowerSeriesGradientPerturbation
@@ -170,8 +168,8 @@ class Superiorization(FeasibilityPerturbation, ABC):
         - stop: A boolean indicating whether to stop the algorithm or not.
         """
         stop = (
-            np.abs(f_temp - self.f_k) < self.objective_tol
-            and np.abs(p_temp - self.p_k) < self.constr_tol
+            abs(f_temp - self.f_k) < self.objective_tol
+            and abs(p_temp - self.p_k) < self.constr_tol
         )
         return stop
 
@@ -365,9 +363,9 @@ class SplitSuperiorization(FeasibilityPerturbation, ABC):
         Returns:
         - stop: A boolean indicating whether to stop the algorithm or not.
         """
-        input_crit = np.abs(input_f_temp - self.input_f_k) < self.input_objective_tol
-        target_crit = np.abs(target_f_temp - self.target_f_k) < self.target_objective_tol
-        constr_crit = np.abs(p_temp - self.p_k) < self.constr_tol
+        input_crit = abs(input_f_temp - self.input_f_k) < self.input_objective_tol
+        target_crit = abs(target_f_temp - self.target_f_k) < self.target_objective_tol
+        constr_crit = abs(p_temp - self.p_k) < self.constr_tol
         stop = input_crit and target_crit and constr_crit
         return stop
 

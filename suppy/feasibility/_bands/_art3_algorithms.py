@@ -94,8 +94,9 @@ class SequentialART3plus(ART3plusAlgorithm):
     ):
 
         super().__init__(A, lb, ub, 1, 1, proximity_flag)
+        xp = cp if self.A.gpu else np
         if cs is None:
-            self.initial_cs = np.arange(self.A.shape[0])
+            self.initial_cs = xp.arange(self.A.shape[0])
         else:
             self.initial_cs = cs
 
@@ -124,7 +125,7 @@ class SequentialART3plus(ART3plusAlgorithm):
                 )  # reflection
                 self._feasible = False
 
-            elif self.Bounds.u[i] - self.Bounds.l[i] < np.abs(
+            elif self.Bounds.u[i] - self.Bounds.l[i] < abs(
                 p_i - (self.Bounds.l[i] + self.Bounds.u[i]) / 2
             ):
                 self.A.update_step(
@@ -202,20 +203,17 @@ class SimultaneousART3plus(ART3plusAlgorithm):
     ):
 
         super().__init__(A, lb, ub, 1, 1, proximity_flag)
-
+        xp = cp if self.A.gpu else np
         if weights is None:
-            self.weights = np.ones(self.A.shape[0]) / self.A.shape[0]
-        elif np.abs((weights.sum() - 1)) > 1e-10:
+            self.weights = xp.ones(self.A.shape[0]) / self.A.shape[0]
+        elif abs((weights.sum() - 1)) > 1e-10:
             print("Weights do not add up to 1! Choosing default weight vector...")
-            self.weights = np.ones(self.A.shape[0]) / self.A.shape[0]
+            self.weights = xp.ones(self.A.shape[0]) / self.A.shape[0]
         else:
             self.weights = weights
 
         self._feasible = True
-        if self.A._gpu:
-            self._not_met = cp.arange(self.A.shape[0])
-        else:
-            self._not_met = np.arange(self.A.shape[0])
+        self._not_met = xp.arange(self.A.shape[0])
 
         self._not_met_init = self._not_met.copy()
         self._feasible = True
@@ -279,9 +277,9 @@ class SimultaneousART3plus(ART3plusAlgorithm):
         (res_u, res_l) = self.Bounds.residual(p)  # residuals are positive  if constraints are met
         d_idx = res_u < 0
         c_idx = res_l < 0
-        return np.sum(self.weights[d_idx] * res_u[d_idx] ** 2) + np.sum(
+        return (self.weights[d_idx] * res_u[d_idx] ** 2).sum() + (
             self.weights[c_idx] * res_l[c_idx] ** 2
-        )
+        ).sum()
 
     @ensure_float_array
     def solve(self, x: npt.ArrayLike, max_iter: int):

@@ -12,9 +12,8 @@ from ._projection_methods import (
     SimultaneousProjection,
     BlockIterativeProjection,
     StringAveragedProjection,
-    SimultaneousMultiBallProjection,
-    SequentialMultiBallProjection,
 )
+
 from ._subgradient_projections import SubgradientProjection, EUDProjection
 
 __all__ = [

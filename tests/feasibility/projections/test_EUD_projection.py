@@ -36,4 +36,4 @@ def test_EUDProjection_proximity():
     x = np.array([1, 2, 3])
     assert eud._proximity(x) == 0
     x = np.array([25, 25, 25])
-    assert np.abs(eud._proximity(x) - 25) < 1e-10
+    assert abs(eud._proximity(x) - 25) < 1e-10

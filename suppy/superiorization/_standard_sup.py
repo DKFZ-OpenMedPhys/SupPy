@@ -190,8 +190,8 @@ class Superiorization(FeasibilityPerturbation):
         (`objective_tol` and `constr_tol`), the criteria are considered met.
         """
         stop = (
-            np.abs(f_temp - self.f_k) < self.objective_tol
-            and np.abs(p_temp - self.p_k) < self.constr_tol
+            abs(f_temp - self.f_k) < self.objective_tol
+            and abs(p_temp - self.p_k) < self.constr_tol
         )
         return stop
 

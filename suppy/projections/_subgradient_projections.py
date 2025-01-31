@@ -4,6 +4,14 @@ import numpy.typing as npt
 
 from suppy.projections._projections import BasicProjection
 
+try:
+    import cupy as cp
+
+    no_gpu = False
+except ImportError:
+    no_gpu = True
+    cp = np
+
 
 class SubgradientProjection(BasicProjection):
     """Projection using subgradients."""
@@ -78,10 +86,11 @@ class SubgradientProjection(BasicProjection):
         Returns:
         - npt.ArrayLike: The projected array.
         """
+        xp = cp if isinstance(x, cp.ndarray) else np
         f_x = self.func_call(x)
         g_x = self.grad_call(x)
 
-        if f_x > self.level and np.linalg.norm(g_x) > 0:
+        if f_x > self.level and xp.linalg.norm(g_x) > 0:
             x[self.idx] -= (f_x - self.level) * g_x / (g_x @ g_x)
         return x
 
@@ -158,10 +167,10 @@ class EUDProjection(SubgradientProjection):
         Computes the EUD projection function.
 
         Parameters:
-        - x (numpy.ndarray): The input array.
+        - x (npt.ArrayLike): The input array.
 
         Returns:
-        - numpy.ndarray: The result of the EUD projection function.
+        - npt.ArrayLike: The result of the EUD projection function.
         """
         return (1 / x.shape[0] * ((x**self.a).sum(axis=0))) ** (1 / self.a)
 
@@ -170,10 +179,10 @@ class EUDProjection(SubgradientProjection):
         Computes the gradient of the EUD projection function.
 
         Parameters:
-        - x (numpy.ndarray): The input array.
+        - x (npt.ArrayLike): The input array.
 
         Returns:
-        - numpy.ndarray: The gradient of the EUD projection function.
+        - npt.ArrayLike: The gradient of the EUD projection function.
         """
         return (
             ((x**self.a).sum()) ** (1 / self.a - 1)

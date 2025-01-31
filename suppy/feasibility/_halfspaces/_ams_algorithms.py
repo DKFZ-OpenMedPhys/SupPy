@@ -254,9 +254,12 @@ class SimultaneousAMSHalfspace(HalfspaceAMSAlgorithm):
         # simultaneous projection
         p = self.map(x)
         res = self.b - p
-        idx = res < 0
+        res_idx = res < 0
         x += self.algorithmic_relaxation * (
-            self.weights[idx] * self.inverse_row_norm[idx] * res[idx] @ self.A[idx, :]
+            self.weights[res_idx]
+            * self.inverse_row_norm[res_idx]
+            * res[res_idx]
+            @ self.A[res_idx, :]
         )
         return x
 
@@ -264,8 +267,8 @@ class SimultaneousAMSHalfspace(HalfspaceAMSAlgorithm):
         p = self.map(x)
         # residuals are positive  if constraints are met
         res = self.b - p
-        idx = res < 0
-        return (self.weights[idx] * res[idx] ** 2).sum()
+        res_idx = res < 0
+        return (self.weights[res_idx] * res[res_idx] ** 2).sum()
 
 
 class ExtrapolatedLandweberHalfspace(SimultaneousAMSHalfspace):
@@ -280,13 +283,13 @@ class ExtrapolatedLandweberHalfspace(SimultaneousAMSHalfspace):
     def _project(self, x):
         p = self.map(x)
         res = self.b - p
-        idx = res < 0
-        if not (np.any(idx)):
+        res_idx = res < 0
+        if not (np.any(res_idx)):
             self.sigmas.append(0)
             return x
-        t = self.weight_norm[idx] * res[idx]
-        t_2 = t @ self.A[idx, :]
-        sig = (res[idx] @ t) / (t_2 @ t_2)
+        t = self.weight_norm[res_idx] * res[res_idx]
+        t_2 = t @ self.A[res_idx, :]
+        sig = (res[res_idx] @ t) / (t_2 @ t_2)
         self.sigmas.append(sig)
         x += sig * t_2
 
@@ -341,25 +344,26 @@ class BlockIterativeAMSHalfspace(HalfspaceAMSAlgorithm):
                 raise ValueError("Weights do not add up to 1!")
 
         self.weights = []
+        self.block_idxs = [
+            xp.where(xp.array(el) > 0)[0] for el in weights
+        ]  # get idxs that meet requirements
+
+        # assemble a list of general weights
         self.total_weights = xp.zeros_like(weights[0])
-        self.idxs = [xp.array(el) > 0 for el in weights]  # create mask for blocks
         for el in weights:
-            el = xp.array(el)
+            el = xp.asarray(el)
             self.weights.append(el[xp.array(el) > 0])  # remove non zero weights
             self.total_weights += el / len(weights)
 
     def _project(self, x):
         # simultaneous projection
-        xp = cp if self._use_gpu else np
 
-        for el, idx in zip(self.weights, self.idxs):  # get mask and associated weights
-            p = self.indexed_map(x, idx)
-            res = self.b[idx] - p
+        for el, block_idx in zip(self.weights, self.block_idxs):  # get mask and associated weights
+            p = self.indexed_map(x, block_idx)
+            res = self.b[block_idx] - p
 
             res_idx = res < 0
-
-            full_idx = xp.zeros(self.A.shape[0], dtype=bool)
-            full_idx[idx] = res_idx
+            full_idx = block_idx[res_idx]
 
             x += self.algorithmic_relaxation * (
                 el[res_idx] * self.inverse_row_norm[full_idx] * res[res_idx] @ self.A[full_idx, :]
@@ -371,8 +375,8 @@ class BlockIterativeAMSHalfspace(HalfspaceAMSAlgorithm):
         p = self.map(x)
         # residuals are positive  if constraints are met
         res = self.b - p
-        idx = res < 0
-        return (self.weights[idx] * res[idx] ** 2).sum()
+        res_idx = res < 0
+        return (self.weights[res_idx] * res[res_idx] ** 2).sum()
 
 
 class StringAveragedAMSHalfspace(HalfspaceAMSAlgorithm):

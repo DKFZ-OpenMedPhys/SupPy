@@ -356,8 +356,8 @@ class HalfspaceFeasibility(LinearFeasibility, ABC):
         p = self.map(x)
         # residuals are positive  if constraints are met
         res = self.b - p
-        idx = res < 0
-        return 1 / len(p) * ((res[idx] ** 2).sum())
+        res_idx = res < 0
+        return 1 / len(p) * ((res[res_idx] ** 2).sum())
 
 
 class HyperslabFeasibility(LinearFeasibility, ABC):

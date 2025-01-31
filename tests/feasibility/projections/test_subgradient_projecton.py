@@ -75,7 +75,7 @@ def test_subgradientProjection_func_grad_call_no_args(get_func_grad_no_args):
     x = np.array([1.0, 2.0, 3.0])
     assert subgrad.func_call(x) == 3.7416573867739413
     assert np.all(
-        np.abs(subgrad.grad_call(x) - np.array([0.26726124, 0.53452248, 0.80178373])) < 1e-8
+        abs(subgrad.grad_call(x) - np.array([0.26726124, 0.53452248, 0.80178373])) < 1e-8
     )
 
 
@@ -87,7 +87,7 @@ def test_subgradientProjection_func_grad_call_args(get_func_grad_args):
     x = np.array([1.0, 2.0, 3.0])
     assert subgrad.func_call(x) == 8.483314773547882
     assert np.all(
-        np.abs(subgrad.grad_call(x) - np.array([0.53452248, 1.06904497, 1.60356745])) < 1e-8
+        abs(subgrad.grad_call(x) - np.array([0.53452248, 1.06904497, 1.60356745])) < 1e-8
     )
 
 
@@ -99,7 +99,7 @@ def test_subgradientProjection_project_no_args(get_func_grad_no_args):
     x = np.array([1.0, 2.0, 3.0])
     x_n = subgrad.project(x)
     assert np.array_equal(x_n, x)
-    assert np.all(np.abs(x_n - np.array([0, 0, 0])) < 1e-8)
+    assert np.all(abs(x_n - np.array([0, 0, 0])) < 1e-8)
 
 
 def test_subgradientProjection_project_args(get_func_grad_args):
@@ -111,7 +111,7 @@ def test_subgradientProjection_project_args(get_func_grad_args):
     x_n = subgrad.project(x)
     assert np.array_equal(x_n, x)
     assert np.all(
-        np.abs(
+        abs(
             x_n - (np.array([1.0, 2.0, 3.0]) * (1 - 2 * (2 * np.sqrt(14) + 1) / (4 * np.sqrt(14))))
         )
         < 1e-8
@@ -126,13 +126,13 @@ def test_subgradientProjection_level_set_call(get_func_grad_no_args):
     x_1 = np.array([1.0, 1.0, 1.0])
     x_n = subgrad.project(x_1)
     assert np.array_equal(x_n, x_1)
-    assert np.all(np.abs(x_n - np.array([1.0, 1.0, 1.0])) < 1e-8)
+    assert np.all(abs(x_n - np.array([1.0, 1.0, 1.0])) < 1e-8)
 
     x_2 = np.array([1.0, 2.0, 3.0])
     x_n = subgrad.project(x_2)
     assert np.array_equal(x_n, x_2)
     assert np.all(
-        np.abs(x_n - (np.array([1.0, 2.0, 3.0]) * (3 / np.linalg.norm(np.array([1.0, 2.0, 3.0])))))
+        abs(x_n - (np.array([1.0, 2.0, 3.0]) * (3 / np.linalg.norm(np.array([1.0, 2.0, 3.0])))))
         < 1e-8
     )
 
@@ -145,7 +145,7 @@ def test_subgradientProjection_idx_call(get_func_grad_no_args):
     x = np.array([1.0, 2.0, 3.0])
     x_n = subgrad.project(x)
     assert np.array_equal(x_n, x)
-    assert np.all(np.abs(x_n - np.array([0, 0, 3])) < 1e-8)
+    assert np.all(abs(x_n - np.array([0, 0, 3])) < 1e-8)
 
 
 def test_level_diff(get_func_grad_no_args):
@@ -154,9 +154,9 @@ def test_level_diff(get_func_grad_no_args):
 
     subgrad = SubgradientProjection(func, grad, level=3)
     x = np.array([1.0, 2.0, 3.0])
-    assert np.abs(subgrad.level_diff(x) - (np.sqrt(14) - 3)) < 1e-8
+    assert abs(subgrad.level_diff(x) - (np.sqrt(14) - 3)) < 1e-8
     x = np.array([1.0, 1.0, 1.0])
-    assert np.abs(subgrad.level_diff(x) - (np.sqrt(3) - 3)) < 1e-8
+    assert abs(subgrad.level_diff(x) - (np.sqrt(3) - 3)) < 1e-8
 
 
 def test_proximity(get_func_grad_no_args):
@@ -165,6 +165,6 @@ def test_proximity(get_func_grad_no_args):
 
     subgrad = SubgradientProjection(func, grad, level=3)
     x = np.array([1.0, 2.0, 3.0])
-    assert np.abs(subgrad.proximity(x) - (np.sqrt(14) - 3) ** 2) < 1e-8
+    assert abs(subgrad.proximity(x) - (np.sqrt(14) - 3) ** 2) < 1e-8
     x = np.array([1.0, 1.0, 1.0])
-    assert np.abs(subgrad.proximity(x) - 0) < 1e-8
+    assert abs(subgrad.proximity(x) - 0) < 1e-8

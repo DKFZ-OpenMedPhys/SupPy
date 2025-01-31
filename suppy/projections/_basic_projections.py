@@ -149,7 +149,7 @@ class BoxProjection(BasicProjection):
 
         Returns
         -------
-        np.ndarray
+        npt.ArrayLike
             A 2D array of shape (2, 400) containing the concatenated coordinates of the four edges.
 
         Raises
@@ -735,7 +735,7 @@ class BallProjection(BasicProjection):
         npt.ArrayLike
             The projected array.
         """
-
+        xp = cp if isinstance(x, cp.ndarray) else np
         if np.linalg.norm(x[self.idx] - self.center) > self.radius:
             x[self.idx] -= (x[self.idx] - self.center) * (
                 1 - self.radius / np.linalg.norm(x[self.idx] - self.center)
@@ -837,13 +837,10 @@ class MaxDVHProjection(BasicProjection):
 
         if isinstance(self.idx, slice):
             self._idx_indices = None
-
+        elif self.idx.dtype == bool:
+            raise ValueError("Boolean indexing is not supported for this projection.")
         else:
-            if cp:
-                xp = cp if self._use_gpu else np
-            else:
-                xp = np
-            self._idx_indices = xp.where(self.idx)[0]
+            self._idx_indices = self.idx
 
     def _project(self, x: npt.ArrayLike) -> npt.ArrayLike:
         """
@@ -878,7 +875,7 @@ class MaxDVHProjection(BasicProjection):
 
     def _project_subset(self, x: npt.ArrayLike) -> npt.ArrayLike:
 
-        n = self.idx.sum()
+        n = self.idx.sum() if self.idx.dtype == bool else len(self.idx)
 
         am = math.floor(self.max_percentage * n)
 
@@ -962,13 +959,10 @@ class MinDVHProjection(BasicProjection):
         self.d_min = d_min
         if isinstance(self.idx, slice):
             self._idx_indices = None
-
+        elif self.idx.dtype == bool:
+            raise ValueError("Boolean indexing is not supported for this projection.")
         else:
-            if cp:
-                xp = cp if self._use_gpu else np
-            else:
-                xp = np
-            self._idx_indices = xp.where(self.idx)[0]
+            self._idx_indices = self.idx
 
     def _project(self, x: npt.ArrayLike) -> npt.ArrayLike:
         """
@@ -1003,7 +997,7 @@ class MinDVHProjection(BasicProjection):
 
     def _project_subset(self, x: npt.ArrayLike) -> npt.ArrayLike:
 
-        n = self.idx.sum()
+        n = self.idx.sum() if self.idx.dtype == bool else len(self.idx)
 
         am = math.ceil(self.min_percentage * n)
 

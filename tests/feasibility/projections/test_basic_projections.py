@@ -346,11 +346,13 @@ def test_MaxDVHProjection_constructor():
     assert DVH_Proj.d_max == d_max
     assert DVH_Proj.max_percentage == max_overflow
     assert DVH_Proj.idx == np.s_[:]
+    with pytest.raises(ValueError):
+        MaxDVHProjection(d_max, max_overflow, idx=np.array([True, False]))
 
-    DVH_Proj2 = MaxDVHProjection(d_max, max_overflow, idx=[0, 1, 2])
+    DVH_Proj2 = MaxDVHProjection(d_max, max_overflow, idx=np.array([0, 1, 2]))
     assert DVH_Proj2.d_max == d_max
     assert DVH_Proj2.max_percentage == max_overflow
-    assert DVH_Proj2.idx == [0, 1, 2]
+    assert np.array_equal(DVH_Proj2.idx, np.array([0, 1, 2]))
 
 
 def test_MaxDVHProjection_project():
@@ -367,8 +369,7 @@ def test_MaxDVHProjection_project_idxs():
     """Test the projection of the DVH projection on subset."""
     d_max = 5
     max_overflow = 0.1  # 10% can overflow
-    idx = np.ones(11, dtype=bool)
-    idx[-1] = False
+    idx = np.arange(0, 10, 1)
     DVH_Proj = MaxDVHProjection(d_max, max_overflow, idx=idx)
     x = np.arange(11)
     proj = DVH_Proj.project(x)
@@ -395,8 +396,7 @@ def test_MaxDVHProjection_project_odd_overflow_idxs():
     """
     d_max = 5
     max_overflow = 0.05  # at most 5% of the volume are allowed to receive a dose higher than d_max
-    idx = np.ones(11, dtype=bool)
-    idx[-1] = False
+    idx = np.arange(0, 10, 1)
     DVH_Proj = MaxDVHProjection(d_max, max_overflow, idx=idx)
     x = np.arange(11)
     proj = DVH_Proj.project(x)
@@ -414,10 +414,10 @@ def test_MinDVHProjection_constructor():
     assert DVH_Proj.min_percentage == min_overflow
     assert DVH_Proj.idx == np.s_[:]
 
-    DVH_Proj2 = MinDVHProjection(d_min, min_overflow, idx=[0, 1, 2])
+    DVH_Proj2 = MinDVHProjection(d_min, min_overflow, idx=np.array([0, 1, 2]))
     assert DVH_Proj2.d_min == d_min
     assert DVH_Proj2.min_percentage == min_overflow
-    assert DVH_Proj2.idx == [0, 1, 2]
+    assert np.array_equal(DVH_Proj2.idx, [0, 1, 2])
 
 
 def test_MinDVHProjection_project():
@@ -434,8 +434,7 @@ def test_MinDVHProjection_project_idxs():
     """Test the projection of the DVH projection on subset."""
     d_min = 5
     min_percentage = 0.9  # 50% can overflow
-    idx = np.ones(11, dtype=bool)
-    idx[-1] = False
+    idx = np.arange(0, 10, 1)
     DVH_Proj = MinDVHProjection(d_min, min_percentage, idx=idx)
     x = np.arange(11)
     proj = DVH_Proj.project(x)
@@ -462,8 +461,7 @@ def test_MinDVHProjection_project_odd_overflow_idxs():
     """
     d_min = 5
     min_overflow = 0.95  # 5% can overflow, but since we have only 10 elements for x this means no element can overflow
-    idx = np.ones(11, dtype=bool)
-    idx[-1] = False
+    idx = np.arange(0, 10, 1)
     DVH_Proj = MinDVHProjection(d_min, min_overflow, idx=idx)
     x = np.arange(11)
     proj = DVH_Proj.project(x)

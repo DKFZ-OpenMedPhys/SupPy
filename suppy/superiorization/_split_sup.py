@@ -1,4 +1,3 @@
-import numpy as np
 import numpy.typing as npt
 from suppy.utils import ensure_float_array
 from suppy.perturbations import Perturbation
@@ -202,10 +201,10 @@ class SplitSuperiorization(FeasibilityPerturbation):
         current values and their respective target values being less than the
         specified tolerances.
         """
-        input_crit = np.abs(input_f_temp - self.input_f_k) < self.input_objective_tol
-        target_crit = np.abs(target_f_temp - self.target_f_k) < self.target_objective_tol
+        input_crit = abs(input_f_temp - self.input_f_k) < self.input_objective_tol
+        target_crit = abs(target_f_temp - self.target_f_k) < self.target_objective_tol
 
-        constr_crit = np.abs(p_temp - self.p_k) < self.constr_tol
+        constr_crit = abs(p_temp - self.p_k) < self.constr_tol
         stop = input_crit and target_crit and constr_crit
         return stop
 

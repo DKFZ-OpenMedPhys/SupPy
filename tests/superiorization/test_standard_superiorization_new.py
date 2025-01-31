@@ -186,9 +186,7 @@ def test_PowerSeriesGradient_superiorization(get_superiorization_input):
         [np.array([2, 2]), (2 - 1 / np.sqrt(2)) * np.array([1, 1]), np.array([1, 1])],
     )
     assert np.array_equal(alg.all_x_function_reduction, [(2 - 1 / np.sqrt(2)) * np.array([1, 1])])
-    assert np.all(
-        np.abs(alg.all_function_values - np.array([8, 9.0 - 4.0 * np.sqrt(2), 2])) < 1e-10
-    )
+    assert np.all(abs(alg.all_function_values - np.array([8, 9.0 - 4.0 * np.sqrt(2), 2])) < 1e-10)
     assert np.all(
         alg.all_function_values_function_reduction - np.array([9 - 4 * np.sqrt(2)]) < 1e-10
     )

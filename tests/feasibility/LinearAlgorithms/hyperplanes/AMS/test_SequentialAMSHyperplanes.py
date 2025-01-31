@@ -166,30 +166,30 @@ def test_SequentialAMSHyperplane_step_full(get_SequentialAMSHyperplane_input_ful
     x_5 = np.array([-3.0, 0.0])
 
     x_n = alg.step(x_1)
-    assert np.all(np.abs(x_n - np.array([1.5, 1])) < 1e-10)
+    assert np.all(abs(x_n - np.array([1.5, 1])) < 1e-10)
     assert np.array_equal(x_n, x_1)
 
     # check that project gives the same result
     x_1 = np.array([2.0, 2.0])
     x_proj = alg.project(x_1)
-    assert np.all(np.abs(x_proj - np.array([1.5, 1])) < 1e-10)
+    assert np.all(abs(x_proj - np.array([1.5, 1])) < 1e-10)
     assert np.array_equal(x_proj, x_1)
     assert np.array_equal(x_proj, x_n)
 
     x_n = alg.step(x_2)
-    assert np.all(np.abs(x_n - np.array([2, 1]) < 1e-10))
+    assert np.all(abs(x_n - np.array([2, 1]) < 1e-10))
     assert np.array_equal(x_n, x_2)
 
     x_n = alg.step(x_3)
-    assert np.all(np.abs(x_n - np.array([2, 1]) < 1e-10))
+    assert np.all(abs(x_n - np.array([2, 1]) < 1e-10))
     assert np.array_equal(x_n, x_3)
 
     x_n = alg.step(x_4)
-    assert np.all(np.abs(x_n - np.array([1.5, 1]) < 1e-10))
+    assert np.all(abs(x_n - np.array([1.5, 1]) < 1e-10))
     assert np.array_equal(x_n, x_4)
 
     x_n = alg.step(x_5)
-    assert np.all(np.abs(x_n - np.array([0.5, 1]) < 1e-10))
+    assert np.all(abs(x_n - np.array([0.5, 1]) < 1e-10))
     assert np.array_equal(x_n, x_5)
 
 
@@ -210,30 +210,30 @@ def test_SequentialAMSHyperplane_step_sparse(get_SequentialAMSHyperplane_input_s
     x_5 = np.array([-3.0, 0.0])
 
     x_n = alg.step(x_1)
-    assert np.all(np.abs(x_n - np.array([1.5, 1])) < 1e-10)
+    assert np.all(abs(x_n - np.array([1.5, 1])) < 1e-10)
     assert np.array_equal(x_n, x_1)
 
     # check that project gives the same result
     x_1 = np.array([2.0, 2.0])
     x_proj = alg.project(x_1)
-    assert np.all(np.abs(x_proj - np.array([1.5, 1])) < 1e-10)
+    assert np.all(abs(x_proj - np.array([1.5, 1])) < 1e-10)
     assert np.array_equal(x_proj, x_1)
     assert np.array_equal(x_proj, x_n)
 
     x_n = alg.step(x_2)
-    assert np.all(np.abs(x_n - np.array([2, 1]) < 1e-10))
+    assert np.all(abs(x_n - np.array([2, 1]) < 1e-10))
     assert np.array_equal(x_n, x_2)
 
     x_n = alg.step(x_3)
-    assert np.all(np.abs(x_n - np.array([2, 1]) < 1e-10))
+    assert np.all(abs(x_n - np.array([2, 1]) < 1e-10))
     assert np.array_equal(x_n, x_3)
 
     x_n = alg.step(x_4)
-    assert np.all(np.abs(x_n - np.array([1.5, 1]) < 1e-10))
+    assert np.all(abs(x_n - np.array([1.5, 1]) < 1e-10))
     assert np.array_equal(x_n, x_4)
 
     x_n = alg.step(x_5)
-    assert np.all(np.abs(x_n - np.array([0.5, 1]) < 1e-10))
+    assert np.all(abs(x_n - np.array([0.5, 1]) < 1e-10))
     assert np.array_equal(x_n, x_5)
 
 
@@ -249,7 +249,7 @@ def test_SequentialAMSHyperplane_step_full_algoritimic_relaxation(get_full_varia
 
     x_1 = np.array([2.0, 2.0])
     x_n = alg.step(x_1)
-    assert np.all(np.abs(x_n - np.array([1.625, 1.0625])) < 1e-10)
+    assert np.all(abs(x_n - np.array([1.625, 1.0625])) < 1e-10)
     assert np.array_equal(x_n, x_1)
 
 
@@ -265,7 +265,7 @@ def test_SequentialAMSHyperplane_step_sparse_algoritimic_relaxation(get_sparse_v
 
     x_1 = np.array([2.0, 2.0])
     x_n = alg.step(x_1)
-    assert np.all(np.abs(x_n - np.array([1.625, 1.0625])) < 1e-10)
+    assert np.all(abs(x_n - np.array([1.625, 1.0625])) < 1e-10)
     assert np.array_equal(x_n, x_1)
 
 
@@ -281,7 +281,7 @@ def test_SequentialAMSHyperplane_step_full_relaxation(get_full_variables):
 
     x_1 = np.array([2.0, 2.0])
     x_n = alg.step(x_1)
-    assert np.all(np.abs(x_n - np.array([1.25, 0.5])) < 1e-10)
+    assert np.all(abs(x_n - np.array([1.25, 0.5])) < 1e-10)
 
 
 def test_SequentialAMSHyperplane_step_sparse_relaxation(get_sparse_variables):
@@ -296,7 +296,7 @@ def test_SequentialAMSHyperplane_step_sparse_relaxation(get_sparse_variables):
 
     x_1 = np.array([2.0, 2.0])
     x_n = alg.step(x_1)
-    assert np.all(np.abs(x_n - np.array([1.25, 0.5])) < 1e-10)
+    assert np.all(abs(x_n - np.array([1.25, 0.5])) < 1e-10)
 
 
 def test_SequentialAMSHyperplane_custom_cs(get_SequentialAMSHyperplane_input_full):
@@ -315,30 +315,30 @@ def test_SequentialAMSHyperplane_custom_cs(get_SequentialAMSHyperplane_input_ful
     x_5 = np.array([-3.0, 0.0])
 
     x_n = alg.step(x_1)
-    assert np.all(np.abs(x_n - np.array([1, 1.5])) < 1e-10)
+    assert np.all(abs(x_n - np.array([1, 1.5])) < 1e-10)
     assert np.array_equal(x_n, x_1)
 
     # check that project gives the same result
     x_1 = np.array([2.0, 2.0])
     x_proj = alg.project(x_1)
-    assert np.all(np.abs(x_proj - np.array([1, 1.5])) < 1e-10)
+    assert np.all(abs(x_proj - np.array([1, 1.5])) < 1e-10)
     assert np.array_equal(x_proj, x_1)
     assert np.array_equal(x_proj, x_n)
 
     x_n = alg.step(x_2)
-    assert np.all(np.abs(x_n - np.array([1, 2]) < 1e-10))
+    assert np.all(abs(x_n - np.array([1, 2]) < 1e-10))
     assert np.array_equal(x_n, x_2)
 
     x_n = alg.step(x_3)
-    assert np.all(np.abs(x_n - np.array([1, 2]) < 1e-10))
+    assert np.all(abs(x_n - np.array([1, 2]) < 1e-10))
     assert np.array_equal(x_n, x_3)
 
     x_n = alg.step(x_4)
-    assert np.all(np.abs(x_n - np.array([1, 1.5]) < 1e-10))
+    assert np.all(abs(x_n - np.array([1, 1.5]) < 1e-10))
     assert np.array_equal(x_n, x_4)
 
     x_n = alg.step(x_5)
-    assert np.all(np.abs(x_n - np.array([1, 0.5]) < 1e-10))
+    assert np.all(abs(x_n - np.array([1, 0.5]) < 1e-10))
     assert np.array_equal(x_n, x_5)
 
 
@@ -356,8 +356,8 @@ def test_SequentialAMSHyperplane_proximity(get_SequentialAMSHyperplane_input_ful
     x_4 = np.array([-2.0, 2.0])
     x_5 = np.array([-3.0, 0.0])
 
-    assert np.abs(alg.proximity(x_1) - 2 / 3) < 1e-10
-    assert np.abs(alg.proximity(x_2) - 5 / 3) < 1e-10
-    assert np.abs(alg.proximity(x_3) - 29 / 12) < 1e-10
-    assert np.abs(alg.proximity(x_4) - 14 / 3) < 1e-10
-    assert np.abs(alg.proximity(x_5) - 77 / 12) < 1e-10
+    assert abs(alg.proximity(x_1) - 2 / 3) < 1e-10
+    assert abs(alg.proximity(x_2) - 5 / 3) < 1e-10
+    assert abs(alg.proximity(x_3) - 29 / 12) < 1e-10
+    assert abs(alg.proximity(x_4) - 14 / 3) < 1e-10
+    assert abs(alg.proximity(x_5) - 77 / 12) < 1e-10

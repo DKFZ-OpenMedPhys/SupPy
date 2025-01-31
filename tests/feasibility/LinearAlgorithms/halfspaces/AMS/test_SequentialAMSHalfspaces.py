@@ -182,30 +182,30 @@ def test_SequentialAMSHalfspace_step_full(get_SequentialAMSHalfspace_input_full)
     x_5 = np.array([-3.0, 0.0])
 
     x_n = alg.step(x_1)
-    assert np.all(np.abs(x_n - np.array([1, 1])) < 1e-10)
+    assert np.all(abs(x_n - np.array([1, 1])) < 1e-10)
     assert np.array_equal(x_n, x_1)
 
     # check that project gives the same result
     x_1 = np.array([2.0, 2.0])
     x_proj = alg.project(x_1)
-    assert np.all(np.abs(x_proj - np.array([1, 1])) < 1e-10)
+    assert np.all(abs(x_proj - np.array([1, 1])) < 1e-10)
     assert np.array_equal(x_proj, x_1)
     assert np.array_equal(x_proj, x_n)
 
     x_n = alg.step(x_2)
-    assert np.all(np.abs(x_n - np.array([0, 1.5]) < 1e-10))
+    assert np.all(abs(x_n - np.array([0, 1.5]) < 1e-10))
     assert np.array_equal(x_n, x_2)
 
     x_n = alg.step(x_3)
-    assert np.all(np.abs(x_n - np.array([0, 1.5]) < 1e-10))
+    assert np.all(abs(x_n - np.array([0, 1.5]) < 1e-10))
     assert np.array_equal(x_n, x_3)
 
     x_n = alg.step(x_4)
-    assert np.all(np.abs(x_n - np.array([-1, 1]) < 1e-10))
+    assert np.all(abs(x_n - np.array([-1, 1]) < 1e-10))
     assert np.array_equal(x_n, x_4)
 
     x_n = alg.step(x_5)
-    assert np.all(np.abs(x_n - np.array([-1.5, 0]) < 1e-10))
+    assert np.all(abs(x_n - np.array([-1.5, 0]) < 1e-10))
     assert np.array_equal(x_n, x_5)
 
 
@@ -226,30 +226,30 @@ def test_SequentialAMSHalfspace_step_sparse(get_SequentialAMSHalfspace_input_spa
     x_5 = np.array([-3.0, 0.0])
 
     x_n = alg.step(x_1)
-    assert np.all(np.abs(x_n - np.array([1, 1])) < 1e-10)
+    assert np.all(abs(x_n - np.array([1, 1])) < 1e-10)
     assert np.array_equal(x_n, x_1)
 
     # check that project gives the same result
     x_1 = np.array([2.0, 2.0])
     x_proj = alg.project(x_1)
-    assert np.all(np.abs(x_proj - np.array([1, 1])) < 1e-10)
+    assert np.all(abs(x_proj - np.array([1, 1])) < 1e-10)
     assert np.array_equal(x_proj, x_1)
     assert np.array_equal(x_proj, x_n)
 
     x_n = alg.step(x_2)
-    assert np.all(np.abs(x_n - np.array([0, 1.5]) < 1e-10))
+    assert np.all(abs(x_n - np.array([0, 1.5]) < 1e-10))
     assert np.array_equal(x_n, x_2)
 
     x_n = alg.step(x_3)
-    assert np.all(np.abs(x_n - np.array([0, 1.5]) < 1e-10))
+    assert np.all(abs(x_n - np.array([0, 1.5]) < 1e-10))
     assert np.array_equal(x_n, x_3)
 
     x_n = alg.step(x_4)
-    assert np.all(np.abs(x_n - np.array([-1, 1]) < 1e-10))
+    assert np.all(abs(x_n - np.array([-1, 1]) < 1e-10))
     assert np.array_equal(x_n, x_4)
 
     x_n = alg.step(x_5)
-    assert np.all(np.abs(x_n - np.array([-1.5, 0]) < 1e-10))
+    assert np.all(abs(x_n - np.array([-1.5, 0]) < 1e-10))
     assert np.array_equal(x_n, x_5)
 
 
@@ -265,7 +265,7 @@ def test_SequentialAMSHalfspace_step_full_algoritimic_relaxation(get_full_variab
 
     x_1 = np.array([2.0, 2.0])
     x_n = alg.step(x_1)
-    assert np.all(np.abs(x_n - np.array([0.5, 0.5])) < 1e-10)
+    assert np.all(abs(x_n - np.array([0.5, 0.5])) < 1e-10)
     assert np.array_equal(x_n, x_1)
 
 
@@ -281,7 +281,7 @@ def test_SequentialAMSHalfspace_step_sparse_algoritimic_relaxation(get_sparse_va
 
     x_1 = np.array([2.0, 2.0])
     x_n = alg.step(x_1)
-    assert np.all(np.abs(x_n - np.array([0.5, 0.5])) < 1e-10)
+    assert np.all(abs(x_n - np.array([0.5, 0.5])) < 1e-10)
     assert np.array_equal(x_n, x_1)
 
 
@@ -297,7 +297,7 @@ def test_SequentialAMSHalfspace_step_full_relaxation(get_full_variables):
 
     x_1 = np.array([2.0, 2.0])
     x_n = alg.step(x_1)
-    assert np.all(np.abs(x_n - np.array([0.5, 0.5])) < 1e-10)
+    assert np.all(abs(x_n - np.array([0.5, 0.5])) < 1e-10)
 
 
 def test_SequentialAMSHalfspace_step_sparse_relaxation(get_sparse_variables):
@@ -312,7 +312,7 @@ def test_SequentialAMSHalfspace_step_sparse_relaxation(get_sparse_variables):
 
     x_1 = np.array([2.0, 2.0])
     x_n = alg.step(x_1)
-    assert np.all(np.abs(x_n - np.array([0.5, 0.5])) < 1e-10)
+    assert np.all(abs(x_n - np.array([0.5, 0.5])) < 1e-10)
 
 
 def test_SequentialAMSHalfspace_custom_cs(get_SequentialAMSHalfspace_input_full):
@@ -331,23 +331,23 @@ def test_SequentialAMSHalfspace_custom_cs(get_SequentialAMSHalfspace_input_full)
     x_5 = np.array([-3.0, 0.0])
 
     x_n = alg3.step(x_1)
-    assert np.all(np.abs(x_n - np.array([1, 1])) < 1e-10)
+    assert np.all(abs(x_n - np.array([1, 1])) < 1e-10)
     assert np.array_equal(x_n, x_1)
 
     x_n = alg3.step(x_2)
-    assert np.all(np.abs(x_n - np.array([3 / 4, 5 / 4]) < 1e-10))
+    assert np.all(abs(x_n - np.array([3 / 4, 5 / 4]) < 1e-10))
     assert np.array_equal(x_n, x_2)
 
     x_n = alg3.step(x_3)
-    assert np.all(np.abs(x_n - np.array([0, 1.5]) < 1e-10))
+    assert np.all(abs(x_n - np.array([0, 1.5]) < 1e-10))
     assert np.array_equal(x_n, x_3)
 
     x_n = alg3.step(x_4)
-    assert np.all(np.abs(x_n - np.array([-1, 1]) < 1e-10))
+    assert np.all(abs(x_n - np.array([-1, 1]) < 1e-10))
     assert np.array_equal(x_n, x_4)
 
     x_n = alg3.step(x_5)
-    assert np.all(np.abs(x_n - np.array([-1.5, 0]) < 1e-10))
+    assert np.all(abs(x_n - np.array([-1.5, 0]) < 1e-10))
     assert np.array_equal(x_n, x_5)
 
 
@@ -370,23 +370,23 @@ def test_SequentialAMSHalfspace_infinity_bounds(get_SequentialAMSHalfspace_input
     x_5 = np.array([-3.0, 0.0])
 
     x_n = alg4.step(x_1)
-    assert np.all(np.abs(x_n - np.array([1.5, 1.5])) < 1e-10)
+    assert np.all(abs(x_n - np.array([1.5, 1.5])) < 1e-10)
     assert np.array_equal(x_n, x_1)
 
     x_n = alg4.step(x_2)
-    assert np.all(np.abs(x_n - np.array([1, 1.5]) < 1e-10))
+    assert np.all(abs(x_n - np.array([1, 1.5]) < 1e-10))
     assert np.array_equal(x_n, x_2)
 
     x_n = alg4.step(x_3)
-    assert np.all(np.abs(x_n - np.array([0.5, 1.5]) < 1e-10))
+    assert np.all(abs(x_n - np.array([0.5, 1.5]) < 1e-10))
     assert np.array_equal(x_n, x_3)
 
     x_n = alg4.step(x_4)
-    assert np.all(np.abs(x_n - np.array([-1, 1]) < 1e-10))
+    assert np.all(abs(x_n - np.array([-1, 1]) < 1e-10))
     assert np.array_equal(x_n, x_4)
 
     x_n = alg4.step(x_5)
-    assert np.all(np.abs(x_n - np.array([-1.5, 0]) < 1e-10))
+    assert np.all(abs(x_n - np.array([-1.5, 0]) < 1e-10))
     assert np.array_equal(x_n, x_5)
 
 
@@ -404,8 +404,8 @@ def test_SequentialAMSHalfspace_proximity(get_SequentialAMSHalfspace_input_full)
     x_4 = np.array([-2.0, -2.0])
     x_5 = np.array([2.0, -2.0])
 
-    assert np.abs(alg.proximity(x_1) - 0.02) < 1e-10
-    assert np.abs(alg.proximity(x_2) - 9 / 16) < 1e-10
-    assert np.abs(alg.proximity(x_3) - 0.02) < 1e-10
-    assert np.abs(alg.proximity(x_4) - 9 / 16) < 1e-10
-    assert np.abs(alg.proximity(x_5) - 9 / 16) < 1e-10
+    assert abs(alg.proximity(x_1) - 0.02) < 1e-10
+    assert abs(alg.proximity(x_2) - 9 / 16) < 1e-10
+    assert abs(alg.proximity(x_3) - 0.02) < 1e-10
+    assert abs(alg.proximity(x_4) - 9 / 16) < 1e-10
+    assert abs(alg.proximity(x_5) - 9 / 16) < 1e-10

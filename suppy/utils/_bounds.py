@@ -2,6 +2,14 @@ import numpy as np
 import numpy.typing as npt
 from typing import List
 
+try:
+    import cupy as cp
+
+    no_gpu = False
+except ImportError:
+    no_gpu = True
+    cp = np
+
 
 class Bounds:
     """
@@ -33,75 +41,20 @@ class Bounds:
     """
 
     def __init__(self, lb: None | npt.ArrayLike = None, ub: None | npt.ArrayLike = None):
-
-        # TODO: default values for lower and upper bounds
+        # TODO: Rework validity check? Should be possible to just pass a scaler
+        # TODO: default values for lower and upper bounds and check
         if lb is None and ub is not None:
-            lb = np.ones_like(ub) * (-np.inf)
+            lb = -np.inf
         elif ub is None and lb is not None:
-            ub = np.ones_like(lb) * (np.inf)
+            ub = np.inf
 
         elif lb is None and ub is None:
             raise ValueError("At least one of the bounds must be provided")
 
-        self._l = lb
-        self._u = ub
+        self.l = lb
+        self.u = ub
         self.half_distance = self._half_distance()
         self.center = self._center()
-        self._check_validity()
-
-    @property
-    def l(self):
-        return self._l
-
-    @l.getter
-    def l(self):
-        return self._l
-
-    @l.setter
-    def l(self, l):
-        self._l = l
-        self._check_validity()
-
-    @l.deleter
-    def l(self):
-        del self._l
-
-    @property
-    def u(self):
-        return self._u
-
-    @u.getter
-    def u(self):
-        return self._u
-
-    @u.setter
-    def u(self, u):
-        self._u = u
-        self._check_validity()
-
-    @u.deleter
-    def u(self):
-        del self._u
-
-    # private methods
-    def _check_validity(self):
-        """
-        Check the validity of the lower and upper bounds.
-
-        This method verifies that the lower bounds (`self.l`) and upper bounds (`self.u`)
-        have the same size and that each lower bound is not greater than the corresponding
-        upper bound.
-
-        Raises
-        ------
-        ValueError
-            If the sizes of the lower and upper bounds do not match.
-            If any lower bound is greater than the corresponding upper bound.
-        """
-        if np.size(self.l) != np.size(self.u):
-            raise ValueError("Lower and upper bounds must be of same size")
-        if (self.l > self.u).any():
-            raise ValueError("Lower bound must be smaller than upper bound")
 
     def residual(self, x: npt.ArrayLike):
         """
@@ -119,14 +72,7 @@ class Bounds:
             A tuple containing two arrays:
             - The residuals between `x` and the lower bound `l`.
             - The residuals between the upper bound `u` and `x`.
-
-        Raises
-        ------
-        ValueError
-            If the size of `x` does not match the size of the bounds `l` and `u`.
         """
-        if np.size(self.l) != np.size(x):
-            raise ValueError("Bounds and vector x have to be of same size")
         return x - self.l, self.u - x
 
     def single_residual(self, x: float, i: int):
@@ -203,8 +149,9 @@ class Bounds:
 
         Returns
         -------
-        numpy.ndarray
+        npt.ArrayLike
             The projected array where each element is clipped to be within the bounds
             defined by `self.l` and `self.u`.
         """
-        return np.minimum(self.u, np.maximum(self.l, x))
+        xp = cp if isinstance(x, cp.ndarray) else np
+        return xp.minimum(self.u, xp.maximum(self.l, x))

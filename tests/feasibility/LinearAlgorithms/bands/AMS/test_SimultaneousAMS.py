@@ -114,30 +114,30 @@ def test_SimultaneousAMSHyperslab_step_full(get_full_variables):
     x_5 = np.array([2.0, -2.0])
 
     x_n = alg.step(x_1)
-    assert np.all(np.abs(x_n - np.array([1.15, 1.15])) < 1e-10)
+    assert np.all(abs(x_n - np.array([1.15, 1.15])) < 1e-10)
     assert np.array_equal(x_n, x_1)
 
     # check that project gives the same result as step
     x_1 = np.array([1.2, 1.2])
     x_proj = alg.project(x_1)
-    assert np.all(np.abs(x_proj - np.array([1.15, 1.15])) < 1e-10)
+    assert np.all(abs(x_proj - np.array([1.15, 1.15])) < 1e-10)
     assert np.array_equal(x_proj, x_1)
     assert np.array_equal(x_proj, x_n)
 
     x_n = alg.step(x_2)
-    assert np.all(np.abs(x_n - 1 / 4 * np.array([6.5, 6.5])) < 1e-10)
+    assert np.all(abs(x_n - 1 / 4 * np.array([6.5, 6.5])) < 1e-10)
     assert np.array_equal(x_n, x_2)
 
     x_n = alg.step(x_3)
-    assert np.all(np.abs(x_n - np.array([-1.15, -1.15])) < 1e-10)
+    assert np.all(abs(x_n - np.array([-1.15, -1.15])) < 1e-10)
     assert np.array_equal(x_n, x_3)
 
     x_n = alg.step(x_4)
-    assert np.all(np.abs(x_n - 1 / 4 * np.array([-6.5, -6.5])) < 1e-10)
+    assert np.all(abs(x_n - 1 / 4 * np.array([-6.5, -6.5])) < 1e-10)
     assert np.array_equal(x_n, x_4)
 
     x_n = alg.step(x_5)
-    assert np.all(np.abs(x_n - 1 / 4 * np.array([6.5, -6.5])) < 1e-10)
+    assert np.all(abs(x_n - 1 / 4 * np.array([6.5, -6.5])) < 1e-10)
     assert np.array_equal(x_n, x_5)
 
 
@@ -154,30 +154,30 @@ def test_SimultaneousAMSHyperslab_step_sparse(get_sparse_variables):
     x_5 = np.array([2.0, -2.0])
 
     x_n = alg.step(x_1)
-    assert np.all(np.abs(x_n - np.array([1.15, 1.15])) < 1e-10)
+    assert np.all(abs(x_n - np.array([1.15, 1.15])) < 1e-10)
     assert np.array_equal(x_n, x_1)
 
     # check that project gives the same result as step
     x_1 = np.array([1.2, 1.2])
     x_proj = alg.project(x_1)
-    assert np.all(np.abs(x_proj - np.array([1.15, 1.15])) < 1e-10)
+    assert np.all(abs(x_proj - np.array([1.15, 1.15])) < 1e-10)
     assert np.array_equal(x_proj, x_1)
     assert np.array_equal(x_proj, x_n)
 
     x_n = alg.step(x_2)
-    assert np.all(np.abs(x_n - 1 / 4 * np.array([6.5, 6.5])) < 1e-10)
+    assert np.all(abs(x_n - 1 / 4 * np.array([6.5, 6.5])) < 1e-10)
     assert np.array_equal(x_n, x_2)
 
     x_n = alg.step(x_3)
-    assert np.all(np.abs(x_n - np.array([-1.15, -1.15])) < 1e-10)
+    assert np.all(abs(x_n - np.array([-1.15, -1.15])) < 1e-10)
     assert np.array_equal(x_n, x_3)
 
     x_n = alg.step(x_4)
-    assert np.all(np.abs(x_n - 1 / 4 * np.array([-6.5, -6.5])) < 1e-10)
+    assert np.all(abs(x_n - 1 / 4 * np.array([-6.5, -6.5])) < 1e-10)
     assert np.array_equal(x_n, x_4)
 
     x_n = alg.step(x_5)
-    assert np.all(np.abs(x_n - 1 / 4 * np.array([6.5, -6.5])) < 1e-10)
+    assert np.all(abs(x_n - 1 / 4 * np.array([6.5, -6.5])) < 1e-10)
     assert np.array_equal(x_n, x_5)
 
 
@@ -198,25 +198,25 @@ def test_SimultaneousAMSHyperslab_algorithmic_relaxation_step(get_sparse_variabl
     x_5 = np.array([2.0, -2.0])
 
     x_n = alg.step(x_1)
-    assert np.all(np.abs(x_n - np.array([1.1, 1.1])) < 1e-10)
+    assert np.all(abs(x_n - np.array([1.1, 1.1])) < 1e-10)
 
     # check that project gives the same result as step
     x_1 = np.array([1.2, 1.2])
     x_proj = alg.project(x_1)
-    assert np.all(np.abs(x_proj - np.array([1.1, 1.1])) < 1e-10)
+    assert np.all(abs(x_proj - np.array([1.1, 1.1])) < 1e-10)
     assert np.array_equal(x_proj, x_n)
 
     x_n = alg.step(x_2)
-    assert np.all(np.abs(x_n - 1 / 4 * np.array([5, 5])) < 1e-10)
+    assert np.all(abs(x_n - 1 / 4 * np.array([5, 5])) < 1e-10)
 
     x_n = alg.step(x_3)
-    assert np.all(np.abs(x_n - np.array([-1.1, -1.1])) < 1e-10)
+    assert np.all(abs(x_n - np.array([-1.1, -1.1])) < 1e-10)
 
     x_n = alg.step(x_4)
-    assert np.all(np.abs(x_n - 1 / 4 * np.array([-5, -5])) < 1e-10)
+    assert np.all(abs(x_n - 1 / 4 * np.array([-5, -5])) < 1e-10)
 
     x_n = alg.step(x_5)
-    assert np.all(np.abs(x_n - 1 / 4 * np.array([5, -5])) < 1e-10)
+    assert np.all(abs(x_n - 1 / 4 * np.array([5, -5])) < 1e-10)
 
 
 def test_SimultaneousAMSHyperslab_relaxation_step(get_sparse_variables):
@@ -234,25 +234,25 @@ def test_SimultaneousAMSHyperslab_relaxation_step(get_sparse_variables):
     x_5 = np.array([2.0, -2.0])
 
     x_n = alg.step(x_1)
-    assert np.all(np.abs(x_n - np.array([1.1, 1.1])) < 1e-10)
+    assert np.all(abs(x_n - np.array([1.1, 1.1])) < 1e-10)
 
     # check that project gives the same result as step
     x_1 = np.array([1.2, 1.2])
     x_proj = alg.project(x_1)
-    assert np.all(np.abs(x_proj - np.array([1.1, 1.1])) < 1e-10)
+    assert np.all(abs(x_proj - np.array([1.1, 1.1])) < 1e-10)
     assert np.array_equal(x_proj, x_n)
 
     x_n = alg.step(x_2)
-    assert np.all(np.abs(x_n - 1 / 4 * np.array([5, 5])) < 1e-10)
+    assert np.all(abs(x_n - 1 / 4 * np.array([5, 5])) < 1e-10)
 
     x_n = alg.step(x_3)
-    assert np.all(np.abs(x_n - np.array([-1.1, -1.1])) < 1e-10)
+    assert np.all(abs(x_n - np.array([-1.1, -1.1])) < 1e-10)
 
     x_n = alg.step(x_4)
-    assert np.all(np.abs(x_n - 1 / 4 * np.array([-5, -5])) < 1e-10)
+    assert np.all(abs(x_n - 1 / 4 * np.array([-5, -5])) < 1e-10)
 
     x_n = alg.step(x_5)
-    assert np.all(np.abs(x_n - 1 / 4 * np.array([5, -5])) < 1e-10)
+    assert np.all(abs(x_n - 1 / 4 * np.array([5, -5])) < 1e-10)
 
 
 def test_SimultaneousAMSHyperslab_proximity(get_full_variables):
@@ -266,8 +266,8 @@ def test_SimultaneousAMSHyperslab_proximity(get_full_variables):
     x_4 = np.array([-2.0, -2.0])
     x_5 = np.array([2.0, -2.0])
 
-    assert np.abs(alg.proximity(x_1) - 0.04) < 1e-10
-    assert np.abs(alg.proximity(x_2) - 9 / 8) < 1e-10
-    assert np.abs(alg.proximity(x_3) - 0.04) < 1e-10
-    assert np.abs(alg.proximity(x_4) - 9 / 8) < 1e-10
-    assert np.abs(alg.proximity(x_5) - 9 / 8) < 1e-10
+    assert abs(alg.proximity(x_1) - 0.04) < 1e-10
+    assert abs(alg.proximity(x_2) - 9 / 8) < 1e-10
+    assert abs(alg.proximity(x_3) - 0.04) < 1e-10
+    assert abs(alg.proximity(x_4) - 9 / 8) < 1e-10
+    assert abs(alg.proximity(x_5) - 9 / 8) < 1e-10

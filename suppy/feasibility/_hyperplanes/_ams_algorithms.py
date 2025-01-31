@@ -273,8 +273,8 @@ class ExtrapolatedLandweberHyperplane(SimultaneousAMSHyperplane):
     def _project(self, x):
         p = self.map(x)
         res = self.b - p
-        idx = res != 0
-        if not (np.any(idx)):
+        res_idx = res != 0
+        if not (np.any(res_idx)):
             self.sigmas.append(0)
             return x
         t = self.weight_norm * res
@@ -334,33 +334,35 @@ class BlockIterativeAMSHyperplane(HyperplaneAMSAlgorithm):
                 raise ValueError("Weights do not add up to 1!")
 
         self.weights = []
+        self.block_idxs = [
+            xp.where(xp.array(el) > 0)[0] for el in weights
+        ]  # get idxs that meet requirements
+
+        # assemble a list of general weights
         self.total_weights = xp.zeros_like(weights[0])
-        self.idxs = [xp.array(el) > 0 for el in weights]  # create mask for blocks
         for el in weights:
-            el = xp.array(el)
+            el = xp.asarray(el)
             self.weights.append(el[xp.array(el) > 0])  # remove non zero weights
             self.total_weights += el / len(weights)
 
     def _project(self, x):
         # simultaneous projection
-        xp = cp if self._use_gpu else np
 
-        for el, idx in zip(self.weights, self.idxs):  # get mask and associated weights
-            p = self.indexed_map(x, idx)
-            res = self.b[idx] - p
+        for el, block_idx in zip(self.weights, self.block_idxs):  # get mask and associated weights
+            p = self.indexed_map(x, block_idx)
+            res = self.b[block_idx] - p
 
             x += self.algorithmic_relaxation * (
-                el * self.inverse_row_norm[idx] * res @ self.A[idx, :]
+                el * self.inverse_row_norm[block_idx] * res @ self.A[block_idx, :]
             )
-
         return x
 
     def _proximity(self, x: npt.ArrayLike) -> float:
         p = self.map(x)
         # residuals are positive  if constraints are met
         res = self.b - p
-        idx = res < 0
-        return (self.weights * res**2).sum()
+        res_idx = res < 0
+        return (self.weights[res_idx] * res[res_idx] ** 2).sum()
 
 
 class StringAveragedAMSHyperplane(HyperplaneAMSAlgorithm):

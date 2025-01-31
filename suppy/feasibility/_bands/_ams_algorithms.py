@@ -311,11 +311,12 @@ class ExtrapolatedLandweber(SimultaneousAMSHyperslab):
         self.sigmas = []
 
     def _project(self, x):
+        xp = cp if self._use_gpu else np
         p = self.map(x)
         (res_l, res_u) = self.Bounds.residual(p)
         d_idx = res_u < 0
         c_idx = res_l < 0
-        if not (np.any(d_idx) or np.any(c_idx)):
+        if not (xp.any(d_idx) or xp.any(c_idx)):
             self.sigmas.append(0)
             return x
         t_u = self.weight_norm[d_idx] * res_u[d_idx]  # D*(Ax-b)+
@@ -380,10 +381,14 @@ class BlockIterativeAMSHyperslab(HyperslabAMSAlgorithm):
                 raise ValueError("Weights do not add up to 1!")
 
         self.weights = []
+        self.block_idxs = [
+            xp.where(xp.array(el) > 0)[0] for el in weights
+        ]  # get idxs that meet requirements
+
+        # assemble a list of general weights
         self.total_weights = xp.zeros_like(weights[0])
-        self.idxs = [xp.array(el) > 0 for el in weights]  # create mask for blocks
         for el in weights:
-            el = xp.array(el)
+            el = xp.asarray(el)
             self.weights.append(el[xp.array(el) > 0])  # remove non zero weights
             self.total_weights += el / len(weights)
 
@@ -391,17 +396,13 @@ class BlockIterativeAMSHyperslab(HyperslabAMSAlgorithm):
         # simultaneous projection
         xp = cp if self._use_gpu else np
 
-        for el, idx in zip(self.weights, self.idxs):  # get mask and associated weights
-            p = self.indexed_map(x, idx)
-            (res_l, res_u) = self.Bounds.indexed_residual(p, idx)
+        for el, block_idx in zip(self.weights, self.block_idxs):  # get mask and associated weights
+            p = self.indexed_map(x, block_idx)
+            (res_l, res_u) = self.Bounds.indexed_residual(p, block_idx)
             d_idx = res_u < 0
             c_idx = res_l < 0
-
-            full_d_idx = xp.zeros(self.A.shape[0], dtype=bool)
-            full_c_idx = xp.zeros(self.A.shape[0], dtype=bool)
-
-            full_d_idx[idx] = d_idx
-            full_c_idx[idx] = c_idx
+            full_d_idx = block_idx[d_idx]
+            full_c_idx = block_idx[c_idx]
 
             x += self.algorithmic_relaxation * (
                 self.inverse_row_norm[full_d_idx]

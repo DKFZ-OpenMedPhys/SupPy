@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 from typing import Callable
-import numpy as np
 import numpy.typing as npt
 from suppy.perturbations import Perturbation, PowerSeriesGradientPerturbation
 

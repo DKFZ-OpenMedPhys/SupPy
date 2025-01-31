@@ -122,7 +122,7 @@ def get_simultaneous_BlockIterativeProjection_input():
 
     return x0, BlockIterativeProjection(
         [BallProjection(center_1, radius), BallProjection(center_2, radius)],
-        weights=[[1 / 2, 1 / 2]],
+        weights=np.array([[1 / 2, 1 / 2]]),
     )
 
 

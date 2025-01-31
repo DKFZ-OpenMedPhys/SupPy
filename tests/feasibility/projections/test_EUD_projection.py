@@ -32,8 +32,11 @@ def test_EUDProjection_level_diff():
 
 
 def test_EUDProjection_proximity():
+    proximity_measures = [("p_norm", 2), "max_norm"]
     eud = EUDProjection(a=5, EUD_max=20, relaxation=1.5)
     x = np.array([1, 2, 3])
-    assert eud._proximity(x) == 0
+    assert eud._proximity(x, proximity_measures)[0] == 0
+    assert eud._proximity(x, proximity_measures)[1] == 0
     x = np.array([25, 25, 25])
-    assert abs(eud._proximity(x) - 25) < 1e-10
+    assert np.abs(eud._proximity(x, proximity_measures)[0] - 25) < 1e-10
+    assert np.abs(eud._proximity(x, proximity_measures)[1] - 5) < 1e-10

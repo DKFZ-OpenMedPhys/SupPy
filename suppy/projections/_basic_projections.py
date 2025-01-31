@@ -1,7 +1,7 @@
 import math
 import numpy as np
 import numpy.typing as npt
-
+from typing import List, Callable
 import matplotlib.pyplot as plt
 from suppy.utils import Bounds
 from matplotlib import patches
@@ -91,22 +91,20 @@ class BoxProjection(BasicProjection):
         x[self.idx] = xp.maximum(self.lb, xp.minimum(self.ub, x[self.idx]))
         return x
 
-    def _proximity(self, x: npt.ArrayLike) -> float:
-        """
-        Calculate the proximity measure for the given array.
-
-        Parameters
-        ----------
-        x : npt.ArrayLike
-            Input array for which the proximity is to be calculated.
-
-        Returns
-        -------
-        float
-            The calculated proximity measure.
-        """
-        # probably should have some option to choose the distance
-        return 1 / len(x) * ((x - self._project(x.copy())) ** 2).sum()
+    def _proximity(self, x: npt.ArrayLike, proximity_measures: List) -> float:
+        res = abs(x[self.idx] - self._project(x.copy())[self.idx])
+        measures = []
+        for measure in proximity_measures:
+            if isinstance(measure, tuple):
+                if measure[0] == "p_norm":
+                    measures.append(1 / len(res) * (res ** measure[1]).sum())
+                else:
+                    raise ValueError("Invalid proximity measure")
+            elif isinstance(measure, str) and measure == "max_norm":
+                measures.append(res.max())
+            else:
+                raise ValueError("Invalid proximity measure")
+        return measures
 
     def visualize(self, ax: plt.Axes | None = None, color=None):
         """
@@ -263,22 +261,20 @@ class WeightedBoxProjection(BasicProjection):
 
         return x
 
-    def _proximity(self, x: npt.ArrayLike) -> float:
-        """
-        Calculate the proximity of point `x` to set.
-
-        Parameters
-        ----------
-        x : npt.ArrayLike
-            Input array for which the proximity measure is to be calculated.
-
-        Returns
-        -------
-        float
-            The proximity measure of the input array `x`.
-        """
-        # probably should have some option to choose the distance
-        return (self.weights * ((x[self.idx] - self._full_project(x.copy())[self.idx]) ** 2)).sum()
+    def _proximity(self, x: npt.ArrayLike, proximity_measures: List) -> float:
+        res = abs(x[self.idx] - self._project(x.copy())[self.idx])
+        measures = []
+        for measure in proximity_measures:
+            if isinstance(measure, tuple):
+                if measure[0] == "p_norm":
+                    measures.append(self.weights @ (res ** measure[1]))
+                else:
+                    raise ValueError("Invalid proximity measure")
+            elif isinstance(measure, str) and measure == "max_norm":
+                measures.append(res.max())
+            else:
+                raise ValueError("Invalid proximity measure")
+        return measures
 
     def visualize(self, ax: plt.Axes | None = None, color=None):
         """
@@ -937,8 +933,11 @@ class MaxDVHProjection(BasicProjection):
         float
             The proximity value as a percentage.
         """
-        n = len(x) if isinstance(self.idx, slice) else self.idx.sum()
-        return abs((1 / n * (x[self.idx] > self.d_max).sum()) - self.max_percentage) * 100
+        # TODO: Find appropriate proximity measure
+        raise NotImplementedError
+
+        # n = len(x) if isinstance(self.idx, slice) else self.idx.sum()
+        # return abs((1 / n * (x[self.idx] > self.d_max).sum()) - self.max_percentage) * 100
 
 
 class MinDVHProjection(BasicProjection):
@@ -1025,8 +1024,10 @@ class MinDVHProjection(BasicProjection):
         float
             The proximity value as a percentage.
         """
-        n = len(x) if isinstance(self.idx, slice) else self.idx.sum()
-        return abs((1 / n * (x[self.idx] < self.d_min).sum()) - self.min_percentage) * 100
+        # TODO: Find appropriate proximity measure
+        raise NotImplementedError
+        # n = len(x) if isinstance(self.idx, slice) else self.idx.sum()
+        # return abs((1 / n * (x[self.idx] < self.d_min).sum()) - self.min_percentage) * 100
 
     # def _project_argpartition(self, x: npt.ArrayLike) -> npt.ArrayLike:
     # print(WARNING: This function is not working properly!)

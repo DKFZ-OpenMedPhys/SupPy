@@ -1,3 +1,4 @@
+from typing import List
 import numpy as np
 import numpy.typing as npt
 from suppy.utils import ensure_float_array
@@ -59,14 +60,10 @@ class Superiorization(FeasibilityPerturbation):
         self,
         basic,
         perturbation_scheme: Perturbation,
-        objective_tol: float = 1e-4,
-        constr_tol: float = 1e-6,
     ):
 
         super().__init__(basic)
         self.perturbation_scheme = perturbation_scheme
-        self.objective_tol = objective_tol
-        self.constr_tol = constr_tol
 
         # initialize some variables for the algorithms
         self.f_k = None
@@ -96,7 +93,15 @@ class Superiorization(FeasibilityPerturbation):
         )  # array storing all proximity function values achieved via the basic algorithm
 
     @ensure_float_array
-    def solve(self, x_0: npt.ArrayLike, max_iter: int = 10, storage=False) -> npt.ArrayLike:
+    def solve(
+        self,
+        x_0: npt.ArrayLike,
+        max_iter: int = 10,
+        storage=False,
+        constr_tol: float = 1e-6,
+        proximity_measures: List | None = None,
+        objective_tol: float = 1e-6,
+    ) -> npt.ArrayLike:
         """
         Solve the optimization problem using the superiorization method.
 
@@ -108,13 +113,23 @@ class Superiorization(FeasibilityPerturbation):
             Maximum number of iterations to perform (default is 10).
         storage : bool, optional
             If True, store intermediate results (default is False).
+        constr_tol : float, optional
+            Tolerance for the constraint function value to determine stopping criteria, by default 1e-6.
+        proximity_measure : List, optional
+            The proximity measures to calculate, by default None. Right now only the first in the list is used to check the feasibility.
+        objective_tol : float, optional
+            Tolernace for the objective function value to determine stopping criteria, by default 1e-6.
 
         Returns
         -------
         npt.ArrayLike
             The optimized solution.
         """
-
+        if proximity_measures is None:
+            proximity_measures = [("p_norm", 2)]
+        else:
+            # TODO: check that proximity measures are valid
+            _ = None
         # initialization of variables
         x = x_0
         self._k = 0  # reset counter if necessary
@@ -122,7 +137,7 @@ class Superiorization(FeasibilityPerturbation):
 
         # initial function and proximity values
         self.f_k = self.perturbation_scheme.func(x_0)
-        self.p_k = self.basic.proximity(x_0)
+        self.p_k = self.basic.proximity(x_0, proximity_measures)
 
         if storage:
             self._initial_storage(x_0, self.f_k, self.p_k)
@@ -136,7 +151,9 @@ class Superiorization(FeasibilityPerturbation):
 
             if storage:
                 self._storage_function_reduction(
-                    x, self.perturbation_scheme.func(x), self.basic.proximity(x)
+                    x,
+                    self.perturbation_scheme.func(x),
+                    self.basic.proximity(x, proximity_measures),
                 )
             if self._k % 10 == 0:
                 print(f"Current iteration: {self._k}")
@@ -145,15 +162,15 @@ class Superiorization(FeasibilityPerturbation):
 
             # check current function and proximity values
             f_temp = self.perturbation_scheme.func(x)
-            p_temp = self.basic.proximity(x)
+            p_temp = self.basic.proximity(x, proximity_measures)
 
             if storage:
-                self._storage_basic_step(x, f_temp, self.basic.proximity(x))
+                self._storage_basic_step(x, f_temp, p_temp)
 
             self._k += 1
 
             # enable different stopping criteria for different superiorization algorithms
-            stop = self._stopping_criteria(f_temp, p_temp)
+            stop = self._stopping_criteria(f_temp, p_temp, objective_tol, constr_tol)
 
             # update function and proximity values
             self.f_k = f_temp
@@ -165,7 +182,9 @@ class Superiorization(FeasibilityPerturbation):
 
         return x
 
-    def _stopping_criteria(self, f_temp, p_temp) -> bool:
+    def _stopping_criteria(
+        self, f_temp: float, p_temp: List[float], objective_tol: float, constr_tol: float
+    ) -> bool:
         """
         Determine if the stopping criteria for the optimization process are
         met.
@@ -174,25 +193,19 @@ class Superiorization(FeasibilityPerturbation):
         ----------
         f_temp : float
             The current value of the objective function.
-        p_temp : float
-            The current value of the constraint function.
+        p_temp : List[float]
+            The current proximity values to the constraints.
+        objective_tol : float
+            Tolerance for the objective function value change to determine stopping criteria.
+        constr_tol : float
+            Tolerance for the constraint proximity value change to determine stopping criteria.
 
         Returns
         -------
         bool
             True if the stopping criteria are met, False otherwise.
-
-        Notes
-        -----
-        The stopping criteria are based on the absolute differences between the
-        current values and the previous values of the objective and constraint
-        functions. If both differences are less than their respective tolerances
-        (`objective_tol` and `constr_tol`), the criteria are considered met.
         """
-        stop = (
-            abs(f_temp - self.f_k) < self.objective_tol
-            and abs(p_temp - self.p_k) < self.constr_tol
-        )
+        stop = abs(f_temp - self.f_k) < objective_tol and p_temp[0] < constr_tol
         return stop
 
     def _additional_action(self, x):

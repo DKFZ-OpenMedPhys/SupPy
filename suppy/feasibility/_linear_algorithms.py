@@ -57,7 +57,12 @@ class Feasibility(Projection, ABC):
 
     @ensure_float_array
     def solve(
-        self, x: npt.ArrayLike, max_iter: int, storage: bool = False, constr_tol: float = 1e-6
+        self,
+        x: npt.ArrayLike,
+        max_iter: int = 500,
+        storage: bool = False,
+        constr_tol: float = 1e-6,
+        proximity_measure: List | None = None,
     ) -> npt.ArrayLike:
         """
         Solves the optimization problem using an iterative approach.
@@ -72,20 +77,21 @@ class Feasibility(Projection, ABC):
             Flag indicating whether to store the intermediate solutions, by default False.
         constr_tol : float, optional
             The tolerance for the constraints, by default 1e-6.
+        proximity_measure : List, optional
+            The proximity measures to calculate, by default None. Right now only the first in the list is used to check the feasibility.
 
         Returns
         -------
         npt.ArrayLike
             The solution after the iterative process.
-
-        Notes
-        -----
-        The method iteratively updates the solution `x` using the `step` method
-        until the maximum number of iterations `max_iter` is reached or the change
-        in proximity is less than a threshold (1e-6). Progress is printed every
-        1000 iterations.
         """
         xp = cp if isinstance(x, cp.ndarray) else np
+        if proximity_measure is None:
+            proximity_measures = [("p_norm", 2)]
+        else:
+            # TODO: Check if the proximity measures are valid
+            _ = None
+
         self.proximities = []
         i = 0
         feasible = False
@@ -98,10 +104,10 @@ class Feasibility(Projection, ABC):
             x = self.project(x)
             if storage is True:
                 self.all_x.append(x.copy())
-            self.proximities.append(self.proximity(x))
+            self.proximities.append(self.proximity(x, proximity_measures))
 
             # TODO: If proximity changes x some potential issues!
-            if self.proximities[-1] < constr_tol:
+            if self.proximities[-1][0] < constr_tol:
 
                 feasible = True
             i += 1
@@ -265,24 +271,22 @@ class HyperplaneFeasibility(LinearFeasibility, ABC):
                 b = cp.ones(A.shape[0]) * b
         self.b = b
 
-    def _proximity(self, x: npt.ArrayLike) -> float:
-        """
-        Calculate the proximity of point `x` to the hyperslabs.
-
-        Parameters
-        ----------
-        x : npt.ArrayLike
-            Input array for which the proximity measure is to be calculated.
-
-        Returns
-        -------
-        float
-            The proximity measure of the input array `x`.
-        """
+    def _proximity(self, x: npt.ArrayLike, proximity_measures: List) -> float:
         p = self.map(x)
         # residuals are positive  if constraints are met
-        res = self.b - p
-        return 1 / len(p) * ((res**2).sum())
+        res = abs(self.b - p)
+        measures = []
+        for measure in proximity_measures:
+            if isinstance(measure, tuple):
+                if measure[0] == "p_norm":
+                    measures.append(1 / len(res) * (res ** measure[1]).sum())
+                else:
+                    raise ValueError("Invalid proximity measure")
+            elif isinstance(measure, str) and measure == "max_norm":
+                measures.append(res.max())
+            else:
+                raise ValueError("Invalid proximity measure")
+        return measures
 
 
 class HalfspaceFeasibility(LinearFeasibility, ABC):
@@ -339,25 +343,26 @@ class HalfspaceFeasibility(LinearFeasibility, ABC):
                 b = cp.ones(A.shape[0]) * b
         self.b = b
 
-    def _proximity(self, x: npt.ArrayLike) -> float:
-        """
-        Calculate the proximity of point `x` to the hyperslabs.
+    def _proximity(self, x: npt.ArrayLike, proximity_measures: List) -> float:
 
-        Parameters
-        ----------
-        x : npt.ArrayLike
-            Input array for which the proximity measure is to be calculated.
-
-        Returns
-        -------
-        float
-            The proximity measure of the input array `x`.
-        """
         p = self.map(x)
         # residuals are positive  if constraints are met
         res = self.b - p
-        res_idx = res < 0
-        return 1 / len(p) * ((res[res_idx] ** 2).sum())
+        res[res > 0] = 0
+        res = -res
+
+        measures = []
+        for measure in proximity_measures:
+            if isinstance(measure, tuple):
+                if measure[0] == "p_norm":
+                    measures.append(1 / len(res) * (res ** measure[1]).sum())
+                else:
+                    raise ValueError("Invalid proximity measure")
+            elif isinstance(measure, str) and measure == "max_norm":
+                measures.append(res.max())
+            else:
+                raise ValueError("Invalid proximity measure)")
+        return measures
 
 
 class HyperslabFeasibility(LinearFeasibility, ABC):
@@ -409,23 +414,25 @@ class HyperslabFeasibility(LinearFeasibility, ABC):
         if self.A.shape[0] != len(self.Bounds.l):
             raise ValueError("Matrix A and bound vector must have the same number of rows.")
 
-    def _proximity(self, x: npt.ArrayLike) -> float:
-        """
-        Calculate the proximity of point `x` to the hyperslabs.
+    def _proximity(self, x: npt.ArrayLike, proximity_measures: List) -> float:
 
-        Parameters
-        ----------
-        x : npt.ArrayLike
-            Input array for which the proximity measure is to be calculated.
-
-        Returns
-        -------
-        float
-            The proximity measure of the input array `x`.
-        """
         p = self.map(x)
-        # residuals are positive  if constraints are met
-        (res_u, res_l) = self.Bounds.residual(p)
-        d_idx = res_u < 0
-        c_idx = res_l < 0
-        return 1 / len(p) * ((res_u[d_idx] ** 2).sum() + (res_l[c_idx] ** 2).sum())
+
+        # residuals are positive if constraints are met
+        (res_l, res_u) = self.Bounds.residual(p)
+        res_l[res_l > 0] = 0
+        res_u[res_u > 0] = 0
+        res = -res_l - res_u
+
+        measures = []
+        for measure in proximity_measures:
+            if isinstance(measure, tuple):
+                if measure[0] == "p_norm":
+                    measures.append(1 / len(res) * (res ** measure[1]).sum())
+                else:
+                    raise ValueError("Invalid proximity measure")
+            elif isinstance(measure, str) and measure == "max_norm":
+                measures.append(res.max())
+            else:
+                raise ValueError("Invalid proximity measure)")
+        return measures

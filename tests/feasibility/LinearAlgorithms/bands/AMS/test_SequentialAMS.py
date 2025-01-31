@@ -358,8 +358,28 @@ def test_SequentialAMSHyperslab_proximity(get_SequentialAMSHyperslab_input_full)
     x_4 = np.array([-2.0, -2.0])
     x_5 = np.array([2.0, -2.0])
 
-    assert abs(alg.proximity(x_1) - 0.04) < 1e-10
-    assert abs(alg.proximity(x_2) - 9 / 8) < 1e-10
-    assert abs(alg.proximity(x_3) - 0.04) < 1e-10
-    assert abs(alg.proximity(x_4) - 9 / 8) < 1e-10
-    assert abs(alg.proximity(x_5) - 9 / 8) < 1e-10
+    prox_measures = []
+    no_prox = alg.proximity(x_1, prox_measures)
+    assert no_prox.size == 0
+
+    prox_measures = [("p_norm", 2), "max_norm"]
+    prox_1 = alg.proximity(x_1, prox_measures)
+    prox_2 = alg.proximity(x_2, prox_measures)
+    prox_3 = alg.proximity(x_3, prox_measures)
+    prox_4 = alg.proximity(x_4, prox_measures)
+    prox_5 = alg.proximity(x_5, prox_measures)
+
+    assert np.abs(prox_1[0] - 0.04) < 1e-10
+    assert np.abs(prox_1[1] - 0.4) < 1e-10
+
+    assert np.abs(prox_2[0] - 9 / 8) < 1e-10
+    assert np.abs(prox_2[1] - 2) < 1e-10
+
+    assert np.abs(prox_3[0] - 0.04) < 1e-10
+    assert np.abs(prox_3[1] - 0.4) < 1e-10
+
+    assert np.abs(prox_4[0] - 9 / 8) < 1e-10
+    assert np.abs(prox_4[1] - 2) < 1e-10
+
+    assert np.abs(prox_5[0] - 9 / 8) < 1e-10
+    assert np.abs(prox_5[1] - 2) < 1e-10

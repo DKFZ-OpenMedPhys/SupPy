@@ -111,6 +111,24 @@ def test_Box_projection_idx():
     Box_Proj3.get_xy()
 
 
+def test_BoxProjection_proximity():
+    lb = np.array([0, 0])
+    ub = np.array([1, 1])
+    box_proj = BoxProjection(lb, ub, idx=[0, 1], relaxation=1.5)
+    x = np.array([-1, 0.5, 2])
+
+    prox_measures = []
+    no_prox = box_proj.proximity(x, prox_measures)
+    assert no_prox.size == 0
+
+    prox_measures = [("p_norm", 2), "max_norm"]
+
+    prox = box_proj.proximity(x, prox_measures)
+
+    assert np.abs(prox[0] - 0.5) < 1e-10
+    assert np.abs(prox[1] - 1) < 1e-10
+
+
 def test_HalfspaceProjection_datatype_error():
     """
     Test to check that integer arrays do not work properly on halfspace

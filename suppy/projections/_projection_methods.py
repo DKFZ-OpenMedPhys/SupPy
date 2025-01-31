@@ -5,8 +5,11 @@ import numpy.typing as npt
 
 try:
     import cupy as cp
+
+    no_gpu = False
 except ImportError:
     cp = np
+    no_gpu = True
 
 from suppy.projections._projections import Projection, BasicProjection
 from suppy.utils import ensure_float_array
@@ -64,33 +67,42 @@ class ProjectionMethod(Projection, ABC):
             proj.visualize(ax)
 
     @ensure_float_array
-    def solve(self, x: npt.ArrayLike, max_iter=1000, constr_tol=1e-6, storage=False):
+    def solve(
+        self,
+        x: npt.ArrayLike,
+        max_iter: int = 500,
+        storage: bool = False,
+        constr_tol: float = 1e-6,
+        proximity_measure: List | None = None,
+    ) -> npt.ArrayLike:
         """
-        Solves the feasibility seeking problem by projecting onto the
-        different sets.
+        Solves the optimization problem using an iterative approach.
 
         Parameters
         ----------
         x : npt.ArrayLike
-            Initial input array.
-        max_iter : int, optional
-            Maximum number of iterations (default is 1000).
-        constr_tol : float, optional
-            Convergence tolerance for the proximity measure (default is 1e-6).
+            Initial guess for the solution.
+        max_iter : int
+            Maximum number of iterations to perform.
         storage : bool, optional
-            If True, stores all intermediate solutions (default is False).
+            Flag indicating whether to store the intermediate solutions, by default False.
+        constr_tol : float, optional
+            The tolerance for the constraints, by default 1e-6.
+        proximity_measure : List, optional
+            The proximity measures to calculate, by default None. Right now only the first in the list is used to check the feasibility.
 
         Returns
         -------
-        x : npt.ArrayLike
-            The solution array after the projection process.
-
-        Notes
-        -----
-        This method requires `cupy` to be installed right now!
+        npt.ArrayLike
+            The solution after the iterative process.
         """
-        # TODO: This requires cupy to be installed!
         xp = cp if isinstance(x, cp.ndarray) else np
+        if proximity_measure is None:
+            proximity_measures = [("p_norm", 2)]
+        else:
+            # TODO: Check if the proximity measures are valid
+            _ = None
+
         self.proximities = []
         i = 0
         feasible = False
@@ -103,10 +115,10 @@ class ProjectionMethod(Projection, ABC):
             x = self.project(x)
             if storage is True:
                 self.all_x.append(x.copy())
-            self.proximities.append(self.proximity(x))
+            self.proximities.append(self.proximity(x, proximity_measures))
 
             # TODO: If proximity changes x some potential issues!
-            if self.proximities[-1] < constr_tol:
+            if self.proximities[-1][0] < constr_tol:
 
                 feasible = True
             i += 1
@@ -114,26 +126,23 @@ class ProjectionMethod(Projection, ABC):
             self.all_x = xp.array(self.all_x)
         return x
 
-    def _proximity(self, x):
-        """
-        Calculate the average proximity of a given input `x` across all
-        projections.
-
-        Parameters
-        ----------
-        x : array-like
-            The input data for which the proximity is to be calculated.
-
-        Returns
-        -------
-        float
-            The average proximity value of the input `x` across all projections.
-        """
-        return (
-            1
-            / len(self.projections)
-            * sum([proj.proximity(x.copy()) for proj in self.projections])
+    def _proximity(self, x: npt.ArrayLike, proximity_measures: List) -> List[float]:
+        xp = cp if isinstance(x, cp.ndarray) else np
+        proxs = xp.array(
+            [xp.array(proj.proximity(x, proximity_measures)) for proj in self.projections]
         )
+        measures = []
+        for i, measure in enumerate(proximity_measures):
+            if isinstance(measure, tuple):
+                if measure[0] == "p_norm":
+                    measures.append((proxs[:, i]).mean())
+                else:
+                    raise ValueError("Invalid proximity measure")
+            elif isinstance(measure, str) and measure == "max_norm":
+                measures.append(proxs[:, i].max())
+            else:
+                raise ValueError("Invalid proximity measure")
+        return measures
 
 
 class SequentialProjection(ProjectionMethod):
@@ -269,26 +278,23 @@ class SimultaneousProjection(ProjectionMethod):
             x_new = x_new + weight * proj.project(x.copy())
         return x_new
 
-    def _proximity(self, x):
-        """
-        Calculate the proximity of point `x` to set.
-
-        Parameters
-        ----------
-        x : npt.ArrayLike
-            Input array for which the proximity measure is to be calculated.
-
-        Returns
-        -------
-        float
-            The proximity measure of the input array `x`.
-        """
-        return sum(
-            [
-                weight * proj.proximity(x.copy())
-                for (weight, proj) in zip(self.weights, self.projections)
-            ]
+    def _proximity(self, x: npt.ArrayLike, proximity_measures: List) -> List[float]:
+        xp = cp if isinstance(x, cp.ndarray) else np
+        proxs = xp.array(
+            [xp.array(proj.proximity(x, proximity_measures)) for proj in self.projections]
         )
+        measures = []
+        for i, measure in enumerate(proximity_measures):
+            if isinstance(measure, tuple):
+                if measure[0] == "p_norm":
+                    measures.append(self.weights @ (proxs[:, i]))
+                else:
+                    raise ValueError("Invalid proximity measure")
+            elif isinstance(measure, str) and measure == "max_norm":
+                measures.append(proxs[:, i].max())
+            else:
+                raise ValueError("Invalid proximity measure")
+        return measures
 
 
 class StringAveragedProjection(ProjectionMethod):
@@ -447,11 +453,94 @@ class BlockIterativeProjection(ProjectionMethod):
             x = x_new
         return x
 
-    def _proximity(self, x):
+    def _proximity(self, x: npt.ArrayLike, proximity_measures: List) -> List[float]:
         xp = cp if isinstance(x, cp.ndarray) else np
-        return xp.sum(
-            [
-                weight * proj.proximity(x.copy())
-                for (weight, proj) in zip(self.total_weights, self.projections)
-            ]
+        proxs = xp.array(
+            [xp.array(proj.proximity(x, proximity_measures)) for proj in self.projections]
         )
+        measures = []
+        for i, measure in enumerate(proximity_measures):
+            if isinstance(measure, tuple):
+                if measure[0] == "p_norm":
+                    measures.append(self.total_weights @ (proxs[:, i]))
+                else:
+                    raise ValueError("Invalid proximity measure")
+            elif isinstance(measure, str) and measure == "max_norm":
+                measures.append(proxs[:, i].max())
+            else:
+                raise ValueError("Invalid proximity measure")
+        return measures
+
+
+class MultiBallProjection(BasicProjection, ABC):
+    """Projection onto multiple balls."""
+
+    def __init__(
+        self,
+        centers: npt.ArrayLike,
+        radii: npt.ArrayLike,
+        relaxation: float = 1,
+        idx: npt.ArrayLike | None = None,
+        proximity_flag=True,
+    ):
+        try:
+            if isinstance(centers, cp.ndarray) and isinstance(radii, cp.ndarray):
+                _use_gpu = True
+            elif (isinstance(centers, cp.ndarray)) != (isinstance(radii, cp.ndarray)):
+                raise ValueError("Mismatch between input types of centers and radii")
+            else:
+                _use_gpu = False
+        except ModuleNotFoundError:
+            _use_gpu = False
+
+        super().__init__(relaxation, idx, proximity_flag, _use_gpu)
+        self.centers = centers
+        self.radii = radii
+
+
+class SequentialMultiBallProjection(MultiBallProjection):
+    """Sequential projection onto multiple balls."""
+
+    # def __init__(self,
+    #             centers: npt.ArrayLike,
+    #             radii: npt.ArrayLike,
+    #             relaxation:float = 1,
+    #             idx: npt.ArrayLike | None = None):
+
+    #     super().__init__(centers, radii, relaxation,idx)
+
+    def _project(self, x: npt.ArrayLike) -> npt.ArrayLike:
+
+        for i in range(len(self.centers)):
+            if np.linalg.norm(x[self.idx] - self.centers[i]) > self.radii[i]:
+                x[self.idx] = self.centers[i] + self.radii[i] * (
+                    x[self.idx] - self.centers[i]
+                ) / np.linalg.norm(x[self.idx] - self.centers[i])
+        return x
+
+
+class SimultaneousMultiBallProjection(MultiBallProjection):
+    """Simultaneous projection onto multiple balls."""
+
+    def __init__(
+        self,
+        centers: npt.ArrayLike,
+        radii: npt.ArrayLike,
+        weights: npt.ArrayLike,
+        relaxation: float = 1,
+        idx: npt.ArrayLike | None = None,
+        proximity_flag=True,
+    ):
+
+        super().__init__(centers, radii, relaxation, idx, proximity_flag)
+        self.weights = weights
+
+    def _project(self, x: npt.ArrayLike) -> npt.ArrayLike:
+        # get all indices
+        dists = np.linalg.norm(x[self.idx] - self.centers, axis=1)
+        idx = (dists - self.radii) > 0
+        # project onto halfspaces
+        x[self.idx] = x[self.idx] - (self.weights[idx] * (1 - self.radii[idx] / dists[idx])) @ (
+            x[self.idx] - self.centers[idx]
+        )
+        return x

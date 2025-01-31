@@ -274,7 +274,7 @@ class SimultaneousART3plus(ART3plusAlgorithm):
 
     def proximity(self, x: npt.ArrayLike) -> float:
         p = self.map(x)
-        (res_u, res_l) = self.Bounds.residual(p)  # residuals are positive  if constraints are met
+        (res_l, res_u) = self.Bounds.residual(p)  # residuals are positive  if constraints are met
         d_idx = res_u < 0
         c_idx = res_l < 0
         return (self.weights[d_idx] * res_u[d_idx] ** 2).sum() + (

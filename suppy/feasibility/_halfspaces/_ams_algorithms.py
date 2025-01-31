@@ -263,12 +263,25 @@ class SimultaneousAMSHalfspace(HalfspaceAMSAlgorithm):
         )
         return x
 
-    def _proximity(self, x: npt.ArrayLike) -> float:
+    def _proximity(self, x: npt.ArrayLike, proximity_measures: List) -> float:
         p = self.map(x)
         # residuals are positive  if constraints are met
         res = self.b - p
-        res_idx = res < 0
-        return (self.weights[res_idx] * res[res_idx] ** 2).sum()
+        res[res > 0] = 0
+        res = -res
+
+        measures = []
+        for measure in proximity_measures:
+            if isinstance(measure, tuple):
+                if measure[0] == "p_norm":
+                    measures.append(self.weights @ (res ** measure[1]))
+                else:
+                    raise ValueError("Invalid proximity measure")
+            elif isinstance(measure, str) and measure == "max_norm":
+                measures.append(res.max())
+            else:
+                raise ValueError("Invalid proximity measure)")
+        return measures
 
 
 class ExtrapolatedLandweberHalfspace(SimultaneousAMSHalfspace):
@@ -371,12 +384,25 @@ class BlockIterativeAMSHalfspace(HalfspaceAMSAlgorithm):
 
         return x
 
-    def _proximity(self, x: npt.ArrayLike) -> float:
+    def _proximity(self, x: npt.ArrayLike, proximity_measures: List) -> float:
         p = self.map(x)
         # residuals are positive  if constraints are met
         res = self.b - p
-        res_idx = res < 0
-        return (self.weights[res_idx] * res[res_idx] ** 2).sum()
+        res[res > 0] = 0
+        res = -res
+
+        measures = []
+        for measure in proximity_measures:
+            if isinstance(measure, tuple):
+                if measure[0] == "p_norm":
+                    measures.append(self.total_weights @ (res ** measure[1]))
+                else:
+                    raise ValueError("Invalid proximity measure")
+            elif isinstance(measure, str) and measure == "max_norm":
+                measures.append(res.max())
+            else:
+                raise ValueError("Invalid proximity measure)")
+        return measures
 
 
 class StringAveragedAMSHalfspace(HalfspaceAMSAlgorithm):

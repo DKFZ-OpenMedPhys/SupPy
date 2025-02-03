@@ -23,11 +23,11 @@ class HalfspaceAMSAlgorithm(HalfspaceFeasibility, ABC):
 
     Parameters
     ----------
-    A : npt.ArrayLike
+    A : npt.NDArray
         The matrix representing the coefficients of the linear inequalities.
-    b : npt.ArrayLike
+    b : npt.NDArray
         Bound for linear inequalities
-    algorithmic_relaxation : npt.ArrayLike or float, optional
+    algorithmic_relaxation : npt.NDArray or float, optional
         The relaxation parameter for the algorithm, by default 1.
     relaxation : float, optional
         The relaxation parameter for the feasibility problem, by default 1.
@@ -37,9 +37,9 @@ class HalfspaceAMSAlgorithm(HalfspaceFeasibility, ABC):
 
     def __init__(
         self,
-        A: npt.ArrayLike,
-        b: npt.ArrayLike,
-        algorithmic_relaxation: npt.ArrayLike | float = 1,
+        A: npt.NDArray,
+        b: npt.NDArray,
+        algorithmic_relaxation: npt.NDArray | float = 1,
         relaxation: float = 1,
         proximity_flag: bool = True,
     ):
@@ -52,11 +52,11 @@ class SequentialAMSHalfspace(HalfspaceAMSAlgorithm):
 
     Parameters
     ----------
-    A : npt.ArrayLike
+    A : npt.NDArray
         The matrix A used in the AMS algorithm.
-    b : npt.ArrayLike
+    b : npt.NDArray
         Bound for linear inequalities
-    algorithmic_relaxation : npt.ArrayLike or float, optional
+    algorithmic_relaxation : npt.NDArray or float, optional
         The relaxation parameter for the algorithm, by default 1.
     relaxation : float, optional
         The relaxation parameter, by default 1.
@@ -71,9 +71,9 @@ class SequentialAMSHalfspace(HalfspaceAMSAlgorithm):
 
     def __init__(
         self,
-        A: npt.ArrayLike,
-        b: npt.ArrayLike,
-        algorithmic_relaxation: npt.ArrayLike | float = 1,
+        A: npt.NDArray,
+        b: npt.NDArray,
+        algorithmic_relaxation: npt.NDArray | float = 1,
         relaxation: float = 1,
         cs: None | List[int] = None,
         proximity_flag: bool = True,
@@ -86,19 +86,19 @@ class SequentialAMSHalfspace(HalfspaceAMSAlgorithm):
         else:
             self.cs = cs
 
-    def _project(self, x: npt.ArrayLike) -> npt.ArrayLike:
+    def _project(self, x: npt.NDArray) -> npt.NDArray:
         """
         Projects the input array `x` onto the feasible region defined by the
         constraints.
 
         Parameters
         ----------
-        x : npt.ArrayLike
+        x : npt.NDArray
             The input array to be projected.
 
         Returns
         -------
-        npt.ArrayLike
+        npt.NDArray
             The projected array.
         """
 
@@ -116,14 +116,14 @@ class SequentialWeightedAMSHalfspace(SequentialAMSHalfspace):
     """
     Parameters
     ----------
-    A : npt.ArrayLike
+    A : npt.NDArray
         The constraint matrix.
-    b : npt.ArrayLike
+    b : npt.NDArray
         Bound for linear inequalities
-    weights : None, list of float, or npt.ArrayLike, optional
+    weights : None, list of float, or npt.NDArray, optional
         The weights assigned to each constraint. If None, default weights are
     used.
-    algorithmic_relaxation : npt.ArrayLike or float, optional
+    algorithmic_relaxation : npt.NDArray or float, optional
         The relaxation parameter for the algorithm. Default is 1.
     relaxation : float, optional
         The relaxation parameter for the algorithm. Default is 1.
@@ -137,7 +137,7 @@ class SequentialWeightedAMSHalfspace(SequentialAMSHalfspace):
 
     Attributes
     ----------
-    weights : npt.ArrayLike
+    weights : npt.NDArray
         The weights assigned to each constraint.
     weight_decay : float
         Decay rate for the weights.
@@ -147,10 +147,10 @@ class SequentialWeightedAMSHalfspace(SequentialAMSHalfspace):
 
     def __init__(
         self,
-        A: npt.ArrayLike,
-        b: npt.ArrayLike,
-        weights: None | List[float] | npt.ArrayLike = None,
-        algorithmic_relaxation: npt.ArrayLike | float = 1,
+        A: npt.NDArray,
+        b: npt.NDArray,
+        weights: None | List[float] | npt.NDArray = None,
+        algorithmic_relaxation: npt.NDArray | float = 1,
         relaxation: float = 1,
         weight_decay: float = 1,
         cs: None | List[int] = None,
@@ -168,19 +168,19 @@ class SequentialWeightedAMSHalfspace(SequentialAMSHalfspace):
             print("Weights do not add up to 1! Renormalizing to 1...")
             self.weights = weights
 
-    def _project(self, x: npt.ArrayLike) -> npt.ArrayLike:
+    def _project(self, x: npt.NDArray) -> npt.NDArray:
         """
         Projects the input array `x` onto a feasible region defined by the
         constraints.
 
         Parameters
         ----------
-        x : npt.ArrayLike
+        x : npt.NDArray
             The input array to be projected.
 
         Returns
         -------
-        npt.ArrayLike
+        npt.NDArray
             The projected array.
 
         Notes
@@ -214,11 +214,11 @@ class SimultaneousAMSHalfspace(HalfspaceAMSAlgorithm):
 
     Parameters
     ----------
-    A : npt.ArrayLike
+    A : npt.NDArray
         The matrix representing the constraints.
-    b : npt.ArrayLike
+    b : npt.NDArray
         Bound for linear inequalities
-    algorithmic_relaxation : npt.ArrayLike or float, optional
+    algorithmic_relaxation : npt.NDArray or float, optional
         The relaxation parameter for the algorithm, by default 1.
     relaxation : float, optional
         The relaxation parameter for the projections, by default 1.
@@ -230,9 +230,9 @@ class SimultaneousAMSHalfspace(HalfspaceAMSAlgorithm):
 
     def __init__(
         self,
-        A: npt.ArrayLike,
-        b: npt.ArrayLike,
-        algorithmic_relaxation: npt.ArrayLike | float = 1,
+        A: npt.NDArray,
+        b: npt.NDArray,
+        algorithmic_relaxation: npt.NDArray | float = 1,
         relaxation: float = 1,
         weights: None | List[float] = None,
         proximity_flag: bool = True,
@@ -254,13 +254,16 @@ class SimultaneousAMSHalfspace(HalfspaceAMSAlgorithm):
         # simultaneous projection
         p = self.map(x)
         res = self.b - p
-        idx = res < 0
+        res_idx = res < 0
         x += self.algorithmic_relaxation * (
-            self.weights[idx] * self.inverse_row_norm[idx] * res[idx] @ self.A[idx, :]
+            self.weights[res_idx]
+            * self.inverse_row_norm[res_idx]
+            * res[res_idx]
+            @ self.A[res_idx, :]
         )
         return x
 
-    def _proximity(self, x: npt.ArrayLike, proximity_measures: List) -> float:
+    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> float:
         p = self.map(x)
         # residuals are positive  if constraints are met
         res = self.b - p
@@ -293,13 +296,13 @@ class ExtrapolatedLandweberHalfspace(SimultaneousAMSHalfspace):
     def _project(self, x):
         p = self.map(x)
         res = self.b - p
-        idx = res < 0
-        if not (np.any(idx)):
+        res_idx = res < 0
+        if not (np.any(res_idx)):
             self.sigmas.append(0)
             return x
-        t = self.weight_norm[idx] * res[idx]
-        t_2 = t @ self.A[idx, :]
-        sig = (res[idx] @ t) / (t_2 @ t_2)
+        t = self.weight_norm[res_idx] * res[res_idx]
+        t_2 = t @ self.A[res_idx, :]
+        sig = (res[res_idx] @ t) / (t_2 @ t_2)
         self.sigmas.append(sig)
         x += sig * t_2
 
@@ -315,13 +318,13 @@ class BlockIterativeAMSHalfspace(HalfspaceAMSAlgorithm):
 
     Parameters
     ----------
-    A : npt.ArrayLike
+    A : npt.NDArray
         The matrix representing the linear constraints.
-    b : npt.ArrayLike
+    b : npt.NDArray
         Bound for linear inequalities
-    weights : List[List[float]] or List[npt.ArrayLike]
+    weights : List[List[float]] or List[npt.NDArray]
         A list of lists or arrays representing the weights for each block. Each list/array should sum to 1.
-    algorithmic_relaxation : npt.ArrayLike or float, optional
+    algorithmic_relaxation : npt.NDArray or float, optional
         The relaxation parameter for the algorithm, by default 1.
     relaxation : float, optional
         The relaxation parameter for the constraints, by default 1.
@@ -336,10 +339,10 @@ class BlockIterativeAMSHalfspace(HalfspaceAMSAlgorithm):
 
     def __init__(
         self,
-        A: npt.ArrayLike,
-        b: npt.ArrayLike,
-        weights: List[List[float]] | List[npt.ArrayLike],
-        algorithmic_relaxation: npt.ArrayLike | float = 1,
+        A: npt.NDArray,
+        b: npt.NDArray,
+        weights: List[List[float]] | List[npt.NDArray],
+        algorithmic_relaxation: npt.NDArray | float = 1,
         relaxation: float = 1,
         proximity_flag: bool = True,
     ):
@@ -354,25 +357,26 @@ class BlockIterativeAMSHalfspace(HalfspaceAMSAlgorithm):
                 raise ValueError("Weights do not add up to 1!")
 
         self.weights = []
+        self.block_idxs = [
+            xp.where(xp.array(el) > 0)[0] for el in weights
+        ]  # get idxs that meet requirements
+
+        # assemble a list of general weights
         self.total_weights = xp.zeros_like(weights[0])
-        self.idxs = [xp.array(el) > 0 for el in weights]  # create mask for blocks
         for el in weights:
-            el = xp.array(el)
+            el = xp.asarray(el)
             self.weights.append(el[xp.array(el) > 0])  # remove non zero weights
             self.total_weights += el / len(weights)
 
     def _project(self, x):
         # simultaneous projection
-        xp = cp if self._use_gpu else np
 
-        for el, idx in zip(self.weights, self.idxs):  # get mask and associated weights
-            p = self.indexed_map(x, idx)
-            res = self.b[idx] - p
+        for el, block_idx in zip(self.weights, self.block_idxs):  # get mask and associated weights
+            p = self.indexed_map(x, block_idx)
+            res = self.b[block_idx] - p
 
             res_idx = res < 0
-
-            full_idx = xp.zeros(self.A.shape[0], dtype=bool)
-            full_idx[idx] = res_idx
+            full_idx = block_idx[res_idx]
 
             x += self.algorithmic_relaxation * (
                 el[res_idx] * self.inverse_row_norm[full_idx] * res[res_idx] @ self.A[full_idx, :]
@@ -380,7 +384,7 @@ class BlockIterativeAMSHalfspace(HalfspaceAMSAlgorithm):
 
         return x
 
-    def _proximity(self, x: npt.ArrayLike, proximity_measures: List) -> float:
+    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> float:
         p = self.map(x)
         # residuals are positive  if constraints are met
         res = self.b - p
@@ -409,13 +413,13 @@ class StringAveragedAMSHalfspace(HalfspaceAMSAlgorithm):
 
     Parameters
     ----------
-    A : npt.ArrayLike
+    A : npt.NDArray
         The matrix A used in the algorithm.
-    b : npt.ArrayLike
+    b : npt.NDArray
         Bound for linear inequalities
     strings : List[List[int]]
         A list of lists, where each inner list represents a string of indices.
-    algorithmic_relaxation : npt.ArrayLike or float, optional
+    algorithmic_relaxation : npt.NDArray or float, optional
         The relaxation parameter for the algorithm, by default 1.
     relaxation : float, optional
         The relaxation parameter for the projection, by default 1.
@@ -427,10 +431,10 @@ class StringAveragedAMSHalfspace(HalfspaceAMSAlgorithm):
 
     def __init__(
         self,
-        A: npt.ArrayLike,
-        b: npt.ArrayLike,
+        A: npt.NDArray,
+        b: npt.NDArray,
         strings: List[List[int]],
-        algorithmic_relaxation: npt.ArrayLike | float = 1,
+        algorithmic_relaxation: npt.NDArray | float = 1,
         relaxation: float = 1,
         weights: None | List[float] = None,
         proximity_flag: bool = True,

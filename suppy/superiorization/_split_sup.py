@@ -90,20 +90,20 @@ class SplitSuperiorization(FeasibilityPerturbation):
     @ensure_float_array
     def solve(
         self,
-        x_0: npt.ArrayLike,
+        x_0: npt.NDArray,
         max_iter: int = 10,
         storage=False,
         input_objective_tol: float = 1e-6,
         target_objective_tol: float = 1e-6,
         constr_tol: float = 1e-6,
         proximity_measures: List | None = None,
-    ) -> npt.ArrayLike:
+    ) -> npt.NDArray:
         """
         Solves the optimization problem using the superiorization method.
 
         Parameters
         ----------
-        x_0 : npt.ArrayLike
+        x_0 : npt.NDArray
             Initial guess for the solution.
         max_iter : int, optional
             Maximum number of iterations to perform (default is 10).
@@ -112,7 +112,7 @@ class SplitSuperiorization(FeasibilityPerturbation):
 
         Returns
         -------
-        npt.ArrayLike
+        npt.NDArray
             The optimized solution after performing the superiorization method.
         """
         # initialization of variables
@@ -214,8 +214,8 @@ class SplitSuperiorization(FeasibilityPerturbation):
             True if all stopping criteria are met, False otherwise.
         """
 
-        input_crit = np.abs(input_f_temp - self.input_f_k) < input_objective_tol
-        target_crit = np.abs(target_f_temp - self.target_f_k) < target_objective_tol
+        input_crit = abs(input_f_temp - self.input_f_k) < input_objective_tol
+        target_crit = abs(target_f_temp - self.target_f_k) < target_objective_tol
 
         constr_crit = p_temp < constr_tol
         stop = input_crit and target_crit and constr_crit

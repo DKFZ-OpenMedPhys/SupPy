@@ -24,7 +24,7 @@ class Feasibility(Projection, ABC):
     """
     Parameters
     ----------
-    algorithmic_relaxation : npt.ArrayLike or float, optional
+    algorithmic_relaxation : npt.NDArray or float, optional
         The relaxation parameter for the algorithm, by default 1.0.
     relaxation : float, optional
         The relaxation parameter for the projection, by default 1.0.
@@ -34,7 +34,7 @@ class Feasibility(Projection, ABC):
 
     Attributes
     ----------
-    algorithmic_relaxation : npt.ArrayLike or float, optional
+    algorithmic_relaxation : npt.NDArray or float, optional
         The relaxation parameter for the algorithm, by default 1.0.
     relaxation : float, optional
         The relaxation parameter for the projection, by default 1.0.
@@ -46,7 +46,7 @@ class Feasibility(Projection, ABC):
 
     def __init__(
         self,
-        algorithmic_relaxation: npt.ArrayLike | float = 1.0,
+        algorithmic_relaxation: npt.NDArray | float = 1.0,
         relaxation: float = 1.0,
         proximity_flag: bool = True,
         _use_gpu: bool = False,
@@ -58,18 +58,18 @@ class Feasibility(Projection, ABC):
     @ensure_float_array
     def solve(
         self,
-        x: npt.ArrayLike,
+        x: npt.NDArray,
         max_iter: int = 500,
         storage: bool = False,
         constr_tol: float = 1e-6,
         proximity_measure: List | None = None,
-    ) -> npt.ArrayLike:
+    ) -> npt.NDArray:
         """
         Solves the optimization problem using an iterative approach.
 
         Parameters
         ----------
-        x : npt.ArrayLike
+        x : npt.NDArray
             Initial guess for the solution.
         max_iter : int
             Maximum number of iterations to perform.
@@ -82,7 +82,7 @@ class Feasibility(Projection, ABC):
 
         Returns
         -------
-        npt.ArrayLike
+        npt.NDArray
             The solution after the iterative process.
         """
         xp = cp if isinstance(x, cp.ndarray) else np
@@ -122,9 +122,9 @@ class LinearFeasibility(Feasibility, ABC):
 
     Parameters
     ----------
-    A : npt.ArrayLike or sparse.sparray
+    A : npt.NDArray or sparse.sparray
         Matrix for linear inequalities
-    algorithmic_relaxation : npt.ArrayLike or float, optional
+    algorithmic_relaxation : npt.NDArray or float, optional
         The relaxation parameter for the algorithm, by default 1.0.
     relaxation : float, optional
         The relaxation parameter, by default 1.0.
@@ -135,7 +135,7 @@ class LinearFeasibility(Feasibility, ABC):
     ----------
     A : LinearMapping
         Matrix for linear system (stored in internal LinearMapping object).
-    algorithmic_relaxation : npt.ArrayLike or float, optional
+    algorithmic_relaxation : npt.NDArray or float, optional
         The relaxation parameter for the algorithm, by default 1.0.
     relaxation : float, optional
         The relaxation parameter for the projection, by default 1.0.
@@ -147,8 +147,8 @@ class LinearFeasibility(Feasibility, ABC):
 
     def __init__(
         self,
-        A: npt.ArrayLike | sparse.sparray,
-        algorithmic_relaxation: npt.ArrayLike | float = 1.0,
+        A: npt.NDArray | sparse.sparray,
+        algorithmic_relaxation: npt.NDArray | float = 1.0,
         relaxation: float = 1.0,
         proximity_flag: bool = True,
     ):
@@ -157,42 +157,42 @@ class LinearFeasibility(Feasibility, ABC):
         self.A = LinearMapping(A)
         self.inverse_row_norm = 1 / self.A.row_norm(2, 2)
 
-    def map(self, x: npt.ArrayLike) -> npt.ArrayLike:
+    def map(self, x: npt.NDArray) -> npt.NDArray:
         """
         Applies the linear mapping to the input array x.
 
         Parameters
         ----------
-        x : npt.ArrayLike
+        x : npt.NDArray
             The input array to which the linear mapping is applied.
 
         Returns
         -------
-        npt.ArrayLike
+        npt.NDArray
             The result of applying the linear mapping to the input array.
         """
         return self.A @ x
 
-    def single_map(self, x: npt.ArrayLike, i: int) -> npt.ArrayLike:
+    def single_map(self, x: npt.NDArray, i: int) -> npt.NDArray:
         """
         Applies the linear mapping to the input array x at a specific index
         i.
 
         Parameters
         ----------
-        x : npt.ArrayLike
+        x : npt.NDArray
             The input array to which the linear mapping is applied.
         i : int
             The specific index at which the linear mapping is applied.
 
         Returns
         -------
-        npt.ArrayLike
+        npt.NDArray
             The result of applying the linear mapping to the input array at the specified index.
         """
         return self.A.single_map(x, i)
 
-    def indexed_map(self, x: npt.ArrayLike, idx: List[int] | npt.ArrayLike) -> npt.ArrayLike:
+    def indexed_map(self, x: npt.NDArray, idx: List[int] | npt.NDArray) -> npt.NDArray:
         """
         Applies the linear mapping to the input array x at multiple
         specified
@@ -200,20 +200,20 @@ class LinearFeasibility(Feasibility, ABC):
 
         Parameters
         ----------
-        x : npt.ArrayLike
+        x : npt.NDArray
             The input array to which the linear mapping is applied.
-        idx : List[int] or npt.ArrayLike
+        idx : List[int] or npt.NDArray
             The indices at which the linear mapping is applied.
 
         Returns
         -------
-        npt.ArrayLike
+        npt.NDArray
             The result of applying the linear mapping to the input array at the specified indices.
         """
         return self.A.index_map(x, idx)
 
     # @abstractmethodpass
-    # def project(self, x: npt.ArrayLike) -> npt.ArrayLike:
+    # def project(self, x: npt.NDArray) -> npt.NDArray:
     #
 
 
@@ -223,11 +223,11 @@ class HyperplaneFeasibility(LinearFeasibility, ABC):
 
     Parameters
     ----------
-    A : npt.ArrayLike or sparse.sparray
+    A : npt.NDArray or sparse.sparray
         Matrix for linear inequalities
-    b : npt.ArrayLike
+    b : npt.NDArray
         Bound for linear inequalities
-    algorithmic_relaxation : npt.ArrayLike or float, optional
+    algorithmic_relaxation : npt.NDArray or float, optional
         The relaxation parameter for the algorithm, by default 1.0.
     relaxation : float, optional
         The relaxation parameter, by default 1.0.
@@ -238,9 +238,9 @@ class HyperplaneFeasibility(LinearFeasibility, ABC):
     ----------
     A : LinearMapping
         Matrix for linear system (stored in internal LinearMapping object).
-    b : npt.ArrayLike
+    b : npt.NDArray
         Bound for linear inequalities
-    algorithmic_relaxation : npt.ArrayLike or float, optional
+    algorithmic_relaxation : npt.NDArray or float, optional
         The relaxation parameter for the algorithm, by default 1.0.
     relaxation : float, optional
         The relaxation parameter for the projection, by default 1.0.
@@ -252,9 +252,9 @@ class HyperplaneFeasibility(LinearFeasibility, ABC):
 
     def __init__(
         self,
-        A: npt.ArrayLike | sparse.sparray,
-        b: npt.ArrayLike,
-        algorithmic_relaxation: npt.ArrayLike | float = 1.0,
+        A: npt.NDArray | sparse.sparray,
+        b: npt.NDArray,
+        algorithmic_relaxation: npt.NDArray | float = 1.0,
         relaxation: float = 1.0,
         proximity_flag: bool = True,
     ):
@@ -271,7 +271,7 @@ class HyperplaneFeasibility(LinearFeasibility, ABC):
                 b = cp.ones(A.shape[0]) * b
         self.b = b
 
-    def _proximity(self, x: npt.ArrayLike, proximity_measures: List) -> float:
+    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> float:
         p = self.map(x)
         # residuals are positive  if constraints are met
         res = abs(self.b - p)
@@ -295,11 +295,11 @@ class HalfspaceFeasibility(LinearFeasibility, ABC):
 
     Parameters
     ----------
-    A : npt.ArrayLike or sparse.sparray
+    A : npt.NDArray or sparse.sparray
         Matrix for linear inequalities
-    b : npt.ArrayLike
+    b : npt.NDArray
         Bound for linear inequalities
-    algorithmic_relaxation : npt.ArrayLike or float, optional
+    algorithmic_relaxation : npt.NDArray or float, optional
         The relaxation parameter for the algorithm, by default 1.0.
     relaxation : float, optional
         The relaxation parameter, by default 1.0.
@@ -310,9 +310,9 @@ class HalfspaceFeasibility(LinearFeasibility, ABC):
     ----------
     A : LinearMapping
         Matrix for linear system (stored in internal LinearMapping object).
-    b : npt.ArrayLike
+    b : npt.NDArray
         Bound for linear inequalities
-    algorithmic_relaxation : npt.ArrayLike or float, optional
+    algorithmic_relaxation : npt.NDArray or float, optional
         The relaxation parameter for the algorithm, by default 1.0.
     relaxation : float, optional
         The relaxation parameter for the projection, by default 1.0.
@@ -324,9 +324,9 @@ class HalfspaceFeasibility(LinearFeasibility, ABC):
 
     def __init__(
         self,
-        A: npt.ArrayLike | sparse.sparray,
-        b: npt.ArrayLike,
-        algorithmic_relaxation: npt.ArrayLike | float = 1.0,
+        A: npt.NDArray | sparse.sparray,
+        b: npt.NDArray,
+        algorithmic_relaxation: npt.NDArray | float = 1.0,
         relaxation: float = 1.0,
         proximity_flag: bool = True,
     ):
@@ -343,7 +343,7 @@ class HalfspaceFeasibility(LinearFeasibility, ABC):
                 b = cp.ones(A.shape[0]) * b
         self.b = b
 
-    def _proximity(self, x: npt.ArrayLike, proximity_measures: List) -> float:
+    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> float:
 
         p = self.map(x)
         # residuals are positive  if constraints are met
@@ -371,13 +371,13 @@ class HyperslabFeasibility(LinearFeasibility, ABC):
 
     Parameters
     ----------
-    A : npt.ArrayLike
+    A : npt.NDArray
         The matrix representing the linear system.
-    lb : npt.ArrayLike
+    lb : npt.NDArray
         The lower bounds for the hyperslab.
-    ub : npt.ArrayLike
+    ub : npt.NDArray
         The upper bounds for the hyperslab.
-    algorithmic_relaxation : npt.ArrayLike or float, optional
+    algorithmic_relaxation : npt.NDArray or float, optional
         The relaxation parameter for the algorithm, by default 1.0.
     relaxation : int, optional
         The relaxation parameter, by default 1.
@@ -390,7 +390,7 @@ class HyperslabFeasibility(LinearFeasibility, ABC):
         Objective for handling the upper and lower bounds of the hyperslab.
     A : LinearMapping
         Matrix for linear system (stored in internal LinearMapping object).
-    algorithmic_relaxation : npt.ArrayLike or float, optional
+    algorithmic_relaxation : npt.NDArray or float, optional
         The relaxation parameter for the algorithm, by default 1.0.
     relaxation : float, optional
         The relaxation parameter for the projection, by default 1.0.
@@ -402,10 +402,10 @@ class HyperslabFeasibility(LinearFeasibility, ABC):
 
     def __init__(
         self,
-        A: npt.ArrayLike,
-        lb: npt.ArrayLike,
-        ub: npt.ArrayLike,
-        algorithmic_relaxation: npt.ArrayLike | float = 1.0,
+        A: npt.NDArray,
+        lb: npt.NDArray,
+        ub: npt.NDArray,
+        algorithmic_relaxation: npt.NDArray | float = 1.0,
         relaxation=1,
         proximity_flag=True,
     ):
@@ -414,7 +414,7 @@ class HyperslabFeasibility(LinearFeasibility, ABC):
         if self.A.shape[0] != len(self.Bounds.l):
             raise ValueError("Matrix A and bound vector must have the same number of rows.")
 
-    def _proximity(self, x: npt.ArrayLike, proximity_measures: List) -> float:
+    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> float:
 
         p = self.map(x)
 

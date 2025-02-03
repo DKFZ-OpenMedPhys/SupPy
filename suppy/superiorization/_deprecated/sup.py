@@ -68,7 +68,7 @@ class StandardSuperiorize(BaseSuperiorize):
     @ensure_float_array
     def solve(
         self,
-        x0: npt.ArrayLike,
+        x0: npt.NDArray,
         N_red: int = 1,
         max_iter: int = 10,
         alpha=0.5,
@@ -130,7 +130,7 @@ class StandardSuperiorize(BaseSuperiorize):
             p_temp = self.basic.proximity(x)
 
             # if both objective and constraint are not changing much stop
-            if np.abs(f_temp - f_k) < objective_tol and np.abs(p_temp - p_k) < constr_tol:
+            if abs(f_temp - f_k) < objective_tol and abs(p_temp - p_k) < constr_tol:
                 stop = True
             # update f_k for next step
             f_k = f_temp

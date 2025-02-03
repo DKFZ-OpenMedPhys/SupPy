@@ -18,13 +18,13 @@ class LinearMapping:
     """This class is used to allow interoperatibility between numpy, scipy etc."""
 
     def __init__(self, A):
-        self._gpu = False  # flag for gpu
+        self.gpu = False  # flag for gpu
 
         if no_gpu == False:  # is only checked when cupy is available
 
             if isinstance(A, cp.ndarray):
                 self.flag = "cupy_full"
-                self._gpu = True  # set a flag for gpu
+                self.gpu = True  # set a flag for gpu
                 if A.ndim == 1:
                     self.A = cp.array([A])  # wrap 1d arrays
                 elif A.ndim > 2:
@@ -34,7 +34,7 @@ class LinearMapping:
 
             elif csparse.issparse(A):
                 self.flag = "cupy_sparse"
-                self._gpu = True  # set a flag for gpu
+                self.gpu = True  # set a flag for gpu
                 self.A = csparse.csr_matrix(A)  # transform to csr format
 
         # set a flag based on class

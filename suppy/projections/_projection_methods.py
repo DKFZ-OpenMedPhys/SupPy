@@ -69,18 +69,18 @@ class ProjectionMethod(Projection, ABC):
     @ensure_float_array
     def solve(
         self,
-        x: npt.ArrayLike,
+        x: npt.NDArray,
         max_iter: int = 500,
         storage: bool = False,
         constr_tol: float = 1e-6,
         proximity_measure: List | None = None,
-    ) -> npt.ArrayLike:
+    ) -> npt.NDArray:
         """
         Solves the optimization problem using an iterative approach.
 
         Parameters
         ----------
-        x : npt.ArrayLike
+        x : npt.NDArray
             Initial guess for the solution.
         max_iter : int
             Maximum number of iterations to perform.
@@ -93,7 +93,7 @@ class ProjectionMethod(Projection, ABC):
 
         Returns
         -------
-        npt.ArrayLike
+        npt.NDArray
             The solution after the iterative process.
         """
         xp = cp if isinstance(x, cp.ndarray) else np
@@ -126,7 +126,7 @@ class ProjectionMethod(Projection, ABC):
             self.all_x = xp.array(self.all_x)
         return x
 
-    def _proximity(self, x: npt.ArrayLike, proximity_measures: List) -> List[float]:
+    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> List[float]:
         xp = cp if isinstance(x, cp.ndarray) else np
         proxs = xp.array(
             [xp.array(proj.proximity(x, proximity_measures)) for proj in self.projections]
@@ -171,7 +171,7 @@ class SequentialProjection(ProjectionMethod):
         Relaxation parameter for the projection.
     proximity_flag : bool
         Flag to indicate whether to take this object into account when calculating proximity.
-    control_seq : npt.ArrayLike or List[int]
+    control_seq : npt.NDArray or List[int]
         The sequence in which the projections are applied.
     """
 
@@ -179,7 +179,7 @@ class SequentialProjection(ProjectionMethod):
         self,
         projections: List[Projection],
         relaxation: float = 1,
-        control_seq: None | npt.ArrayLike | List[int] = None,
+        control_seq: None | npt.NDArray | List[int] = None,
         proximity_flag=True,
     ):
 
@@ -190,19 +190,19 @@ class SequentialProjection(ProjectionMethod):
         else:
             self.control_seq = control_seq
 
-    def _project(self, x: npt.ArrayLike) -> npt.ArrayLike:
+    def _project(self, x: npt.NDArray) -> npt.NDArray:
         """
         Sequentially projects the input array `x` using the control
         sequence.
 
         Parameters
         ----------
-        x : npt.ArrayLike
+        x : npt.NDArray
             The input array to be projected.
 
         Returns
         -------
-        npt.ArrayLike
+        npt.NDArray
             The projected array after applying all projection methods in the control sequence.
         """
 
@@ -219,7 +219,7 @@ class SimultaneousProjection(ProjectionMethod):
     ----------
     projections : List[Projection]
         A list of projection methods to be applied.
-    weights : npt.ArrayLike or None, optional
+    weights : npt.NDArray or None, optional
         An array of weights for each projection method. If None, equal weights
         are assigned to each projection. Weights are normalized to sum up to 1. Default is None.
     relaxation : float, optional
@@ -238,7 +238,7 @@ class SimultaneousProjection(ProjectionMethod):
         Relaxation parameter for the projection.
     proximity_flag : bool
         Flag to indicate whether to take this object into account when calculating proximity.
-    weights : npt.ArrayLike
+    weights : npt.NDArray
         The weights assigned to each projection method.
 
     Notes
@@ -249,7 +249,7 @@ class SimultaneousProjection(ProjectionMethod):
     def __init__(
         self,
         projections: List[Projection],
-        weights: npt.ArrayLike | None = None,
+        weights: npt.NDArray | None = None,
         relaxation: float = 1,
         proximity_flag=True,
     ):
@@ -265,12 +265,12 @@ class SimultaneousProjection(ProjectionMethod):
 
         Parameters
         ----------
-        x : npt.ArrayLike
+        x : npt.NDArray
             The input array to be projected.
 
         Returns
         -------
-        npt.ArrayLike
+        npt.NDArray
             The projected array.
         """
         x_new = 0
@@ -278,7 +278,7 @@ class SimultaneousProjection(ProjectionMethod):
             x_new = x_new + weight * proj.project(x.copy())
         return x_new
 
-    def _proximity(self, x: npt.ArrayLike, proximity_measures: List) -> List[float]:
+    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> List[float]:
         xp = cp if isinstance(x, cp.ndarray) else np
         proxs = xp.array(
             [xp.array(proj.proximity(x, proximity_measures)) for proj in self.projections]
@@ -307,7 +307,7 @@ class StringAveragedProjection(ProjectionMethod):
         A list of projection methods to be applied.
     strings : List[List]
         A list of strings, where each string is a list of indices of the projection methods to be applied.
-    weights : npt.ArrayLike or None, optional
+    weights : npt.NDArray or None, optional
         An array of weights for each strings. If None, equal weights
         are assigned to each string. Weights are normalized to sum up to 1. Default is None.
     relaxation : float, optional
@@ -328,7 +328,7 @@ class StringAveragedProjection(ProjectionMethod):
         Flag to indicate whether to take this object into account when calculating proximity.
     strings : List[List]
         A list of strings, where each string is a list of indices of the projection methods to be applied.
-    weights : npt.ArrayLike
+    weights : npt.NDArray
         The weights assigned to each projection method.
 
     Notes
@@ -340,7 +340,7 @@ class StringAveragedProjection(ProjectionMethod):
         self,
         projections: List[Projection],
         strings: List[List],
-        weights: npt.ArrayLike | None = None,
+        weights: npt.NDArray | None = None,
         relaxation: float = 1,
         proximity_flag=True,
     ):
@@ -352,18 +352,18 @@ class StringAveragedProjection(ProjectionMethod):
             self.weights = weights / weights.sum()
         self.strings = strings
 
-    def _project(self, x: npt.ArrayLike) -> npt.ArrayLike:
+    def _project(self, x: npt.NDArray) -> npt.NDArray:
         """
         String averaged projection of the input array `x`.
 
         Parameters
         ----------
-        x : npt.ArrayLike
+        x : npt.NDArray
             The input array to be projected.
 
         Returns
         -------
-        npt.ArrayLike
+        npt.NDArray
             The projected array after applying all projection methods in the control sequence.
         """
         x_new = 0
@@ -385,7 +385,7 @@ class BlockIterativeProjection(ProjectionMethod):
     ----------
     projections : List[Projection]
         A list of projection methods to be applied.
-    weights : List[List[float]] | List[npt.ArrayLike]
+    weights : List[List[float]] | List[npt.NDArray]
         A List of weights for each block of projection methods.
     relaxation : float, optional
         A relaxation parameter for the projection methods. Default is 1.
@@ -403,7 +403,7 @@ class BlockIterativeProjection(ProjectionMethod):
         Relaxation parameter for the projection.
     proximity_flag : bool
         Flag to indicate whether to take this object into account when calculating proximity.
-    weights : List[npt.ArrayLike]
+    weights : List[npt.NDArray]
         The weights assigned to each block of projection methods.
 
     Notes
@@ -414,46 +414,46 @@ class BlockIterativeProjection(ProjectionMethod):
     def __init__(
         self,
         projections: List[Projection],
-        weights: List[List[float]] | List[npt.ArrayLike],
+        weights: List[List[float]] | List[npt.NDArray],
         relaxation: float = 1,
         proximity_flag=True,
     ):
 
         super().__init__(projections, relaxation, proximity_flag)
+        xp = cp if self._use_gpu else np
         # check if weights has the correct format
         for el in weights:
             if len(el) != len(projections):
                 raise ValueError("Weights do not match the number of projections!")
 
-            if np.abs((np.sum(el) - 1)) > 1e-10:
+            if abs((el.sum() - 1)) > 1e-10:
                 raise ValueError("Weights do not add up to 1!")
 
         self.weights = []
+        self.block_idxs = [
+            xp.where(xp.array(el) > 0)[0] for el in weights
+        ]  # get idxs that meet requirements
 
-        self.total_weights = np.zeros_like(weights[0])
-
-        self.idxs = [
-            np.where(np.array(el) > 0)[0] for el in weights
-        ]  # get the indices for each block
-
+        # assemble a list of general weights
+        self.total_weights = xp.zeros_like(weights[0])
         for el in weights:
-            el = np.array(el)
-            self.weights.append(el[np.array(el) > 0])
+            el = xp.asarray(el)
+            self.weights.append(el[xp.array(el) > 0])  # remove non zero weights
             self.total_weights += el / len(weights)
 
-    def _project(self, x: npt.ArrayLike) -> npt.ArrayLike:
+    def _project(self, x: npt.NDArray) -> npt.NDArray:
         # TODO: Can this be parallelized?
-        for weight, idx in zip(self.weights, self.idxs):
+        for weight, block_idx in zip(self.weights, self.block_idxs):
             x_new = 0  # for simultaneous projection, later replaces x
 
             i = 0
-            for el in idx:
+            for el in block_idx:
                 x_new += weight[i] * self.projections[el].project(x.copy())
                 i += 1
             x = x_new
         return x
 
-    def _proximity(self, x: npt.ArrayLike, proximity_measures: List) -> List[float]:
+    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> List[float]:
         xp = cp if isinstance(x, cp.ndarray) else np
         proxs = xp.array(
             [xp.array(proj.proximity(x, proximity_measures)) for proj in self.projections]
@@ -477,10 +477,10 @@ class MultiBallProjection(BasicProjection, ABC):
 
     def __init__(
         self,
-        centers: npt.ArrayLike,
-        radii: npt.ArrayLike,
+        centers: npt.NDArray,
+        radii: npt.NDArray,
         relaxation: float = 1,
-        idx: npt.ArrayLike | None = None,
+        idx: npt.NDArray | None = None,
         proximity_flag=True,
     ):
         try:
@@ -502,14 +502,14 @@ class SequentialMultiBallProjection(MultiBallProjection):
     """Sequential projection onto multiple balls."""
 
     # def __init__(self,
-    #             centers: npt.ArrayLike,
-    #             radii: npt.ArrayLike,
+    #             centers: npt.NDArray,
+    #             radii: npt.NDArray,
     #             relaxation:float = 1,
-    #             idx: npt.ArrayLike | None = None):
+    #             idx: npt.NDArray | None = None):
 
     #     super().__init__(centers, radii, relaxation,idx)
 
-    def _project(self, x: npt.ArrayLike) -> npt.ArrayLike:
+    def _project(self, x: npt.NDArray) -> npt.NDArray:
 
         for i in range(len(self.centers)):
             if np.linalg.norm(x[self.idx] - self.centers[i]) > self.radii[i]:
@@ -524,18 +524,18 @@ class SimultaneousMultiBallProjection(MultiBallProjection):
 
     def __init__(
         self,
-        centers: npt.ArrayLike,
-        radii: npt.ArrayLike,
-        weights: npt.ArrayLike,
+        centers: npt.NDArray,
+        radii: npt.NDArray,
+        weights: npt.NDArray,
         relaxation: float = 1,
-        idx: npt.ArrayLike | None = None,
+        idx: npt.NDArray | None = None,
         proximity_flag=True,
     ):
 
         super().__init__(centers, radii, relaxation, idx, proximity_flag)
         self.weights = weights
 
-    def _project(self, x: npt.ArrayLike) -> npt.ArrayLike:
+    def _project(self, x: npt.NDArray) -> npt.NDArray:
         # get all indices
         dists = np.linalg.norm(x[self.idx] - self.centers, axis=1)
         idx = (dists - self.radii) > 0

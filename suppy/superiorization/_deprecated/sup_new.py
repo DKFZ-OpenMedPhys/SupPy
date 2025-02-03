@@ -113,7 +113,7 @@ class Superiorization(BaseSuperiorization, ABC):
         )  # array storing all objective function values achieved via the basic algorithm
 
     @ensure_float_array
-    def solve(self, x_0: npt.ArrayLike, max_iter: int = 10, storage=False):
+    def solve(self, x_0: npt.NDArray, max_iter: int = 10, storage=False):
         """
         Solve the superiorization problem.
 
@@ -403,7 +403,7 @@ class SplitSuperiorization(BaseSuperiorization, ABC):
         self.constr_tol = constr_tol
 
     @ensure_float_array
-    def solve(self, x_0: npt.ArrayLike, max_iter: int = 10):
+    def solve(self, x_0: npt.NDArray, max_iter: int = 10):
         """
         Solve the superiorization problem.
 

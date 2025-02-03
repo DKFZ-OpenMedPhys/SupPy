@@ -95,19 +95,19 @@ class Superiorization(FeasibilityPerturbation):
     @ensure_float_array
     def solve(
         self,
-        x_0: npt.ArrayLike,
+        x_0: npt.NDArray,
         max_iter: int = 10,
         storage=False,
         constr_tol: float = 1e-6,
         proximity_measures: List | None = None,
         objective_tol: float = 1e-6,
-    ) -> npt.ArrayLike:
+    ) -> npt.NDArray:
         """
         Solve the optimization problem using the superiorization method.
 
         Parameters
         ----------
-        x_0 : npt.ArrayLike
+        x_0 : npt.NDArray
             Initial guess for the solution.
         max_iter : int, optional
             Maximum number of iterations to perform (default is 10).
@@ -122,7 +122,7 @@ class Superiorization(FeasibilityPerturbation):
 
         Returns
         -------
-        npt.ArrayLike
+        npt.NDArray
             The optimized solution.
         """
         if proximity_measures is None:
@@ -305,7 +305,7 @@ class Superiorization(FeasibilityPerturbation):
         self.all_proximity_values_basic.append(p)
         self.all_proximity_values.append(p)
 
-    def _post_step(self, x: npt.ArrayLike):
+    def _post_step(self, x: npt.NDArray):
         """
         Perform an action after the optimization process has finished.
 

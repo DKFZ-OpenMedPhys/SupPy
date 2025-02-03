@@ -37,7 +37,7 @@ class LevelSet:
     @ensure_float_array
     def solve(
         self,
-        x: npt.ArrayLike,
+        x: npt.NDArray,
         f_init: None | float = None,
         max_iter=1000,
         epsilon=0.1,

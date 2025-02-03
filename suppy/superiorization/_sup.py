@@ -25,13 +25,13 @@ class FeasibilityPerturbation(ABC):
 
     @abstractmethod
     # @ensure_float_array
-    def solve(self, x_0: npt.ArrayLike):
+    def solve(self, x_0: npt.NDArray):
         """
         Solve the perturbed feasibility seeking problem.
 
         Parameters
         ----------
-        x_0 : npt.ArrayLike
+        x_0 : npt.NDArray
             Initial guess for the solution.
 
         Returns

@@ -24,11 +24,11 @@ class HyperplaneAMSAlgorithm(HyperplaneFeasibility, ABC):
 
     Parameters
     ----------
-    A : npt.ArrayLike
+    A : npt.NDArray
         The matrix representing the coefficients of the linear inequalities.
-    b : npt.ArrayLike
+    b : npt.NDArray
         Bound for linear inequalities
-    algorithmic_relaxation : npt.ArrayLike or float, optional
+    algorithmic_relaxation : npt.NDArray or float, optional
         The relaxation parameter for the algorithm, by default 1.
     relaxation : float, optional
         The relaxation parameter for the feasibility problem, by default 1.
@@ -38,9 +38,9 @@ class HyperplaneAMSAlgorithm(HyperplaneFeasibility, ABC):
 
     def __init__(
         self,
-        A: npt.ArrayLike,
-        b: npt.ArrayLike,
-        algorithmic_relaxation: npt.ArrayLike | float = 1,
+        A: npt.NDArray,
+        b: npt.NDArray,
+        algorithmic_relaxation: npt.NDArray | float = 1,
         relaxation: float = 1,
         proximity_flag: bool = True,
     ):
@@ -53,11 +53,11 @@ class SequentialAMSHyperplane(HyperplaneAMSAlgorithm):
 
     Parameters
     ----------
-    A : npt.ArrayLike
+    A : npt.NDArray
         The matrix A used in the AMS algorithm.
-    b : npt.ArrayLike
+    b : npt.NDArray
         Bound for linear inequalities
-    algorithmic_relaxation : npt.ArrayLike or float, optional
+    algorithmic_relaxation : npt.NDArray or float, optional
         The relaxation parameter for the algorithm, by default 1.
     relaxation : float, optional
         The relaxation parameter, by default 1.
@@ -72,9 +72,9 @@ class SequentialAMSHyperplane(HyperplaneAMSAlgorithm):
 
     def __init__(
         self,
-        A: npt.ArrayLike,
-        b: npt.ArrayLike,
-        algorithmic_relaxation: npt.ArrayLike | float = 1,
+        A: npt.NDArray,
+        b: npt.NDArray,
+        algorithmic_relaxation: npt.NDArray | float = 1,
         relaxation: float = 1,
         cs: None | List[int] = None,
         proximity_flag: bool = True,
@@ -87,19 +87,19 @@ class SequentialAMSHyperplane(HyperplaneAMSAlgorithm):
         else:
             self.cs = cs
 
-    def _project(self, x: npt.ArrayLike) -> npt.ArrayLike:
+    def _project(self, x: npt.NDArray) -> npt.NDArray:
         """
         Projects the input array `x` onto the feasible region defined by the
         constraints.
 
         Parameters
         ----------
-        x : npt.ArrayLike
+        x : npt.NDArray
             The input array to be projected.
 
         Returns
         -------
-        npt.ArrayLike
+        npt.NDArray
             The projected array.
         """
 
@@ -114,14 +114,14 @@ class SequentialWeightedAMSHyperplane(SequentialAMSHyperplane):
     """
     Parameters
     ----------
-    A : npt.ArrayLike
+    A : npt.NDArray
         The constraint matrix.
-    b : npt.ArrayLike
+    b : npt.NDArray
         Bound for linear inequalities
-    weights : None, list of float, or npt.ArrayLike, optional
+    weights : None, list of float, or npt.NDArray, optional
         The weights assigned to each constraint. If None, default weights are
     used.
-    algorithmic_relaxation : npt.ArrayLike or float, optional
+    algorithmic_relaxation : npt.NDArray or float, optional
         The relaxation parameter for the algorithm. Default is 1.
     relaxation : float, optional
         The relaxation parameter for the algorithm. Default is 1.
@@ -135,7 +135,7 @@ class SequentialWeightedAMSHyperplane(SequentialAMSHyperplane):
 
     Attributes
     ----------
-    weights : npt.ArrayLike
+    weights : npt.NDArray
         The weights assigned to each constraint.
     weight_decay : float
         Decay rate for the weights.
@@ -145,10 +145,10 @@ class SequentialWeightedAMSHyperplane(SequentialAMSHyperplane):
 
     def __init__(
         self,
-        A: npt.ArrayLike,
-        b: npt.ArrayLike,
-        weights: None | List[float] | npt.ArrayLike = None,
-        algorithmic_relaxation: npt.ArrayLike | float = 1,
+        A: npt.NDArray,
+        b: npt.NDArray,
+        weights: None | List[float] | npt.NDArray = None,
+        algorithmic_relaxation: npt.NDArray | float = 1,
         relaxation: float = 1,
         weight_decay: float = 1,
         cs: None | List[int] = None,
@@ -166,19 +166,19 @@ class SequentialWeightedAMSHyperplane(SequentialAMSHyperplane):
             print("Weights do not add up to 1! Renormalizing to 1...")
             self.weights = weights
 
-    def _project(self, x: npt.ArrayLike) -> npt.ArrayLike:
+    def _project(self, x: npt.NDArray) -> npt.NDArray:
         """
         Projects the input array `x` onto a feasible region defined by the
         constraints.
 
         Parameters
         ----------
-        x : npt.ArrayLike
+        x : npt.NDArray
             The input array to be projected.
 
         Returns
         -------
-        npt.ArrayLike
+        npt.NDArray
             The projected array.
 
         Notes
@@ -211,11 +211,11 @@ class SimultaneousAMSHyperplane(HyperplaneAMSAlgorithm):
 
     Parameters
     ----------
-    A : npt.ArrayLike
+    A : npt.NDArray
         The matrix representing the constraints.
-    b : npt.ArrayLike
+    b : npt.NDArray
         Bound for linear inequalities
-    algorithmic_relaxation : npt.ArrayLike or float, optional
+    algorithmic_relaxation : npt.NDArray or float, optional
         The relaxation parameter for the algorithm, by default 1.
     relaxation : float, optional
         The relaxation parameter for the projections, by default 1.
@@ -227,9 +227,9 @@ class SimultaneousAMSHyperplane(HyperplaneAMSAlgorithm):
 
     def __init__(
         self,
-        A: npt.ArrayLike,
-        b: npt.ArrayLike,
-        algorithmic_relaxation: npt.ArrayLike | float = 1,
+        A: npt.NDArray,
+        b: npt.NDArray,
+        algorithmic_relaxation: npt.NDArray | float = 1,
         relaxation: float = 1,
         weights: None | List[float] = None,
         proximity_flag: bool = True,
@@ -254,7 +254,7 @@ class SimultaneousAMSHyperplane(HyperplaneAMSAlgorithm):
         x += self.algorithmic_relaxation * (self.weights * self.inverse_row_norm * res @ self.A)
         return x
 
-    def _proximity(self, x: npt.ArrayLike, proximity_measures: List) -> float:
+    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> float:
         p = self.map(x)
         # residuals are positive  if constraints are met
         res = abs(self.b - p)
@@ -306,13 +306,13 @@ class BlockIterativeAMSHyperplane(HyperplaneAMSAlgorithm):
 
     Parameters
     ----------
-    A : npt.ArrayLike
+    A : npt.NDArray
         The matrix representing the linear constraints.
-    b : npt.ArrayLike
+    b : npt.NDArray
         Bound for linear inequalities
-    weights : List[List[float]] or List[npt.ArrayLike]
+    weights : List[List[float]] or List[npt.NDArray]
         A list of lists or arrays representing the weights for each block. Each list/array should sum to 1.
-    algorithmic_relaxation : npt.ArrayLike or float, optional
+    algorithmic_relaxation : npt.NDArray or float, optional
         The relaxation parameter for the algorithm, by default 1.
     relaxation : float, optional
         The relaxation parameter for the constraints, by default 1.
@@ -327,10 +327,10 @@ class BlockIterativeAMSHyperplane(HyperplaneAMSAlgorithm):
 
     def __init__(
         self,
-        A: npt.ArrayLike,
-        b: npt.ArrayLike,
-        weights: List[List[float]] | List[npt.ArrayLike],
-        algorithmic_relaxation: npt.ArrayLike | float = 1,
+        A: npt.NDArray,
+        b: npt.NDArray,
+        weights: List[List[float]] | List[npt.NDArray],
+        algorithmic_relaxation: npt.NDArray | float = 1,
         relaxation: float = 1,
         proximity_flag: bool = True,
     ):
@@ -368,7 +368,7 @@ class BlockIterativeAMSHyperplane(HyperplaneAMSAlgorithm):
             )
         return x
 
-    def _proximity(self, x: npt.ArrayLike, proximity_measures: List) -> float:
+    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> float:
         p = self.map(x)
         # residuals are positive  if constraints are met
         res = abs(self.b - p)
@@ -396,13 +396,13 @@ class StringAveragedAMSHyperplane(HyperplaneAMSAlgorithm):
 
     Parameters
     ----------
-    A : npt.ArrayLike
+    A : npt.NDArray
         The matrix A used in the algorithm.
-    b : npt.ArrayLike
+    b : npt.NDArray
         Bound for linear inequalities
     strings : List[List[int]]
         A list of lists, where each inner list represents a string of indices.
-    algorithmic_relaxation : npt.ArrayLike or float, optional
+    algorithmic_relaxation : npt.NDArray or float, optional
         The relaxation parameter for the algorithm, by default 1.
     relaxation : float, optional
         The relaxation parameter for the projection, by default 1.
@@ -414,10 +414,10 @@ class StringAveragedAMSHyperplane(HyperplaneAMSAlgorithm):
 
     def __init__(
         self,
-        A: npt.ArrayLike,
-        b: npt.ArrayLike,
+        A: npt.NDArray,
+        b: npt.NDArray,
         strings: List[List[int]],
-        algorithmic_relaxation: npt.ArrayLike | float = 1,
+        algorithmic_relaxation: npt.NDArray | float = 1,
         relaxation: float = 1,
         weights: None | List[float] = None,
         proximity_flag: bool = True,

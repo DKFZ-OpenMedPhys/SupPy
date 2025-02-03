@@ -40,7 +40,7 @@ class Bounds:
         If any lower bound is greater than the corresponding upper bound.
     """
 
-    def __init__(self, lb: None | npt.ArrayLike = None, ub: None | npt.ArrayLike = None):
+    def __init__(self, lb: None | npt.NDArray = None, ub: None | npt.NDArray = None):
         # TODO: Rework validity check? Should be possible to just pass a scaler
         # TODO: default values for lower and upper bounds and check
         if lb is None and ub is not None:
@@ -56,19 +56,19 @@ class Bounds:
         self.half_distance = self._half_distance()
         self.center = self._center()
 
-    def residual(self, x: npt.ArrayLike):
+    def residual(self, x: npt.NDArray):
         """
         Calculate the residuals between the input vector `x` and the bounds
         `l` and `u`.
 
         Parameters
         ----------
-        x : npt.ArrayLike
+        x : npt.NDArray
             Input vector for which the residuals are to be calculated.
 
         Returns
         -------
-        tuple of npt.ArrayLike
+        tuple of npt.NDArray
             A tuple containing two arrays:
             - The residuals between `x` and the lower bound `l`.
             - The residuals between the upper bound `u` and `x`.
@@ -94,20 +94,20 @@ class Bounds:
         """
         return x - self.l[i], self.u[i] - x
 
-    def indexed_residual(self, x: npt.ArrayLike, i: List[int] | npt.ArrayLike):
+    def indexed_residual(self, x: npt.NDArray, i: List[int] | npt.NDArray):
         """
         Compute the residuals for the given indices.
 
         Parameters
         ----------
-        x : npt.ArrayLike
+        x : npt.NDArray
             The input array.
-        i : List[int] or npt.ArrayLike
+        i : List[int] or npt.NDArray
             The indices for which to compute the residuals.
 
         Returns
         -------
-        tuple of npt.ArrayLike
+        tuple of npt.NDArray
             A tuple containing two arrays:
             - The residuals of `x` with respect to the lower bounds.
             - The residuals of `x` with respect to the upper bounds.
@@ -137,19 +137,19 @@ class Bounds:
         """
         return (self.u - self.l) / 2
 
-    def project(self, x: npt.ArrayLike):
+    def project(self, x: npt.NDArray):
         """
         Project the input array `x` onto the bounds defined by `self.l` and
         `self.u`.
 
         Parameters
         ----------
-        x : npt.ArrayLike
+        x : npt.NDArray
             Input array to be projected.
 
         Returns
         -------
-        npt.ArrayLike
+        npt.NDArray
             The projected array where each element is clipped to be within the bounds
             defined by `self.l` and `self.u`.
         """

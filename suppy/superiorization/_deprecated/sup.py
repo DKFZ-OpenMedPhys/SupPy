@@ -68,7 +68,7 @@ class StandardSuperiorize(BaseSuperiorize):
     @ensure_float_array
     def solve(
         self,
-        x0: npt.ArrayLike,
+        x0: npt.NDArray,
         N_red: int = 1,
         max_iter: int = 10,
         alpha=0.5,

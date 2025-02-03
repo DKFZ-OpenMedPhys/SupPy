@@ -98,7 +98,7 @@ class Superiorization(FeasibilityPerturbation, ABC):
         )  # array storing all objective function values achieved via the basic algorithm
 
     @ensure_float_array
-    def solve(self, x_0: npt.ArrayLike, max_iter: int = 10, storage=False):
+    def solve(self, x_0: npt.NDArray, max_iter: int = 10, storage=False):
         """
         Solve the superiorization problem.
 
@@ -273,7 +273,7 @@ class SplitSuperiorization(FeasibilityPerturbation, ABC):
         )  # array storing all objective function values achieved via the basic algorithm
 
     @ensure_float_array
-    def solve(self, x_0: npt.ArrayLike, max_iter: int = 10, storage=False):
+    def solve(self, x_0: npt.NDArray, max_iter: int = 10, storage=False):
         """
         Solve the superiorization problem.
 

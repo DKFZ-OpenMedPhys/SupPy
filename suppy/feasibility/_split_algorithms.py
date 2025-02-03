@@ -24,9 +24,9 @@ class SplitFeasibility(Feasibility, ABC):
 
     Parameters
     ----------
-    A : npt.ArrayLike
+    A : npt.NDArray
         Matrix connecting input and target space.
-    algorithmic_relaxation : npt.ArrayLike or float, optional
+    algorithmic_relaxation : npt.NDArray or float, optional
         Relaxation applied to the entire solution of the projection step, by default 1.
     proximity_flag : bool, optional
         A flag indicating whether to use this object for proximity calculations, by default True.
@@ -47,8 +47,8 @@ class SplitFeasibility(Feasibility, ABC):
 
     def __init__(
         self,
-        A: npt.ArrayLike | sparse.sparray,
-        algorithmic_relaxation: npt.ArrayLike | float = 1.0,
+        A: npt.NDArray | sparse.sparray,
+        algorithmic_relaxation: npt.NDArray | float = 1.0,
         proximity_flag: bool = True,
         _use_gpu: bool = False,
     ):
@@ -62,18 +62,18 @@ class SplitFeasibility(Feasibility, ABC):
     @ensure_float_array
     def solve(
         self,
-        x: npt.ArrayLike,
+        x: npt.NDArray,
         max_iter: int = 10,
         constr_tol: float = 1e-6,
         storage: bool = False,
         proximity_measures: List | None = None,
-    ) -> npt.ArrayLike:
+    ) -> npt.NDArray:
         """
         Solves the split feasibility problem for a given input array.
 
         Parameters
         ----------
-        x : npt.ArrayLike
+        x : npt.NDArray
             Starting point for the algorithm.
         max_iter : int, optional
             The maximum number of iterations (default is 10).
@@ -86,7 +86,7 @@ class SplitFeasibility(Feasibility, ABC):
 
         Returns
         -------
-        npt.ArrayLike
+        npt.NDArray
             The solution after applying the feasibility seeking algorithm.
         """
         if proximity_measures is None:
@@ -115,59 +115,59 @@ class SplitFeasibility(Feasibility, ABC):
             self.all_x = xp.array(self.all_x)
         return x
 
-    def project(self, x: npt.ArrayLike, y: npt.ArrayLike | None = None) -> npt.ArrayLike:
+    def project(self, x: npt.NDArray, y: npt.NDArray | None = None) -> npt.NDArray:
         """
         Projects the input array onto the feasible set.
 
         Parameters
         ----------
-        x : npt.ArrayLike
+        x : npt.NDArray
             The input array to project.
-        y : npt.ArrayLike, optional
+        y : npt.NDArray, optional
             An optional array for projection (default is None).
 
         Returns
         -------
-        npt.ArrayLike
+        npt.NDArray
             The projected array.
         """
 
         return self._project(x, y)
 
     @abstractmethod
-    def _project(self, x: npt.ArrayLike, y: npt.ArrayLike | None = None) -> npt.ArrayLike:
+    def _project(self, x: npt.NDArray, y: npt.NDArray | None = None) -> npt.NDArray:
         pass
 
-    def map(self, x: npt.ArrayLike) -> npt.ArrayLike:
+    def map(self, x: npt.NDArray) -> npt.NDArray:
         """
         Maps the input space array to the target space via matrix
         multiplication.
 
         Parameters
         ----------
-        x : npt.ArrayLike
+        x : npt.NDArray
             The input space array to be map.
 
         Returns
         -------
-        npt.ArrayLike
+        npt.NDArray
             The corresponding target space array.
         """
 
         return self.A @ x
 
-    def map_back(self, y: npt.ArrayLike) -> npt.ArrayLike:
+    def map_back(self, y: npt.NDArray) -> npt.NDArray:
         """
         Transposed map of the target space array to the input space.
 
         Parameters
         ----------
-        y : npt.ArrayLike
+        y : npt.NDArray
             The target space array to map.
 
         Returns
         -------
-        npt.ArrayLike
+        npt.NDArray
             The corresponding array in input space.
         """
 
@@ -180,13 +180,13 @@ class CQAlgorithm(SplitFeasibility):
 
     Parameters
     ----------
-    A : npt.ArrayLike
+    A : npt.NDArray
         Matrix connecting input and target space.
     C_projection : Projection
         The projection operator onto the set C.
     Q_projection : Projection
         The projection operator onto the set Q.
-    algorithmic_relaxation : npt.ArrayLike or float, optional
+    algorithmic_relaxation : npt.NDArray or float, optional
         Relaxation applied to the entire solution of the projection step, by default 1.
     proximity_flag : bool, optional
         A flag indicating whether to use this object for proximity calculations, by default True.
@@ -213,7 +213,7 @@ class CQAlgorithm(SplitFeasibility):
 
     def __init__(
         self,
-        A: npt.ArrayLike | sparse.sparray,
+        A: npt.NDArray | sparse.sparray,
         C_projection: Projection,
         Q_projection: Projection,
         algorithmic_relaxation: float = 1,
@@ -225,21 +225,21 @@ class CQAlgorithm(SplitFeasibility):
         self.C_projection = C_projection
         self.Q_projection = Q_projection
 
-    def _project(self, x: npt.ArrayLike, y: npt.ArrayLike | None = None) -> npt.ArrayLike:
+    def _project(self, x: npt.NDArray, y: npt.NDArray | None = None) -> npt.NDArray:
         """
         Perform one step of the CQ algorithm.
 
         Parameters
         ----------
-        x : npt.ArrayLike
+        x : npt.NDArray
             The point in the input space to be projected.
-        y : npt.ArrayLike or None, optional
+        y : npt.NDArray or None, optional
             The point in the target space to be projected, obtained through e.g. a perturbation step.
             If None, it is calculated from x.
 
         Returns
         -------
-        npt.ArrayLike
+        npt.NDArray
         """
         if y is None:
             y = self.map(x)
@@ -249,7 +249,7 @@ class CQAlgorithm(SplitFeasibility):
 
         return self.C_projection.project(x), y_p
 
-    def _proximity(self, x: npt.ArrayLike, proximity_measures: List) -> float:
+    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> float:
         p = self.map(x)
         return self.Q_projection.proximity(p, proximity_measures)
         # TODO: correct?
@@ -261,13 +261,13 @@ class CQAlgorithm(SplitFeasibility):
 
 #     Parameters
 #     ----------
-#     A : npt.ArrayLike
+#     A : npt.NDArray
 #         Matrix connecting input and target space.
-#     lb: npt.ArrayLike
+#     lb: npt.NDArray
 #         Lower bounds for the target space.
-#     ub: npt.ArrayLike
+#     ub: npt.NDArray
 #         Upper bounds for the target space.
-#     algorithmic_relaxation : npt.ArrayLike or float, optional
+#     algorithmic_relaxation : npt.NDArray or float, optional
 #         Relaxation applied to the entire solution of the projection step, by default 1.
 #     proximity_flag : bool, optional
 #         A flag indicating whether to use this object for proximity calculations, by default True.
@@ -275,27 +275,27 @@ class CQAlgorithm(SplitFeasibility):
 
 #     def __init__(
 #         self,
-#         A: npt.ArrayLike | sparse.sparray,
-#         lb: npt.ArrayLike,
-#         ub: npt.ArrayLike,
-#         algorithmic_relaxation: npt.ArrayLike | float = 1,
+#         A: npt.NDArray | sparse.sparray,
+#         lb: npt.NDArray,
+#         ub: npt.NDArray,
+#         algorithmic_relaxation: npt.NDArray | float = 1,
 #         proximity_flag=True,
 #     ):
 
 #         super().__init__(A, algorithmic_relaxation, proximity_flag)
 #         self.bounds = Bounds(lb, ub)
 
-#     def _project(self, x: npt.ArrayLike, y: npt.ArrayLike | None = None) -> npt.ArrayLike:
+#     def _project(self, x: npt.NDArray, y: npt.NDArray | None = None) -> npt.NDArray:
 #         """
 #         Perform one step of the linear extrapolated Landweber algorithm.
 
 #         Parameters
 #         ----------
-#         x : npt.ArrayLike
+#         x : npt.NDArray
 #             The point in the input space to be projected.
 #         Returns
 #         -------
-#         npt.ArrayLike
+#         npt.NDArray
 #         """
 #         p = self.map(x)
 #         (res_u, res_l) = self.bounds.residual(p)
@@ -303,13 +303,13 @@ class CQAlgorithm(SplitFeasibility):
 #         x -= self.algorithmic_relaxation *
 
 
-#     def _proximity(self, x: npt.ArrayLike) -> float:
+#     def _proximity(self, x: npt.NDArray) -> float:
 #         """
 #         Calculate the proximity of a point to the set Q.
 
 #         Parameters
 #         ----------
-#         x : npt.ArrayLike
+#         x : npt.NDArray
 #             The point in the input space.
 
 #         Returns
@@ -329,13 +329,13 @@ class ProductSpaceAlgorithm(SplitFeasibility):
 
     Parameters
     ----------
-    A : npt.ArrayLike
+    A : npt.NDArray
         Matrix connecting input and target space.
     C_projection : Projection
         The projection operator onto the set C.
     Q_projection : Projection
         The projection operator onto the set Q.
-    algorithmic_relaxation : npt.ArrayLike or float, optional
+    algorithmic_relaxation : npt.NDArray or float, optional
         Relaxation applied to the entire solution of the projection step, by default 1.
     proximity_flag : bool, optional
         A flag indicating whether to use this object for proximity calculations, by default True.
@@ -343,10 +343,10 @@ class ProductSpaceAlgorithm(SplitFeasibility):
 
     def __init__(
         self,
-        A: npt.ArrayLike | sparse.sparray,
+        A: npt.NDArray | sparse.sparray,
         C_projections: List[Projection],
         Q_projections: List[Projection],
-        algorithmic_relaxation: npt.ArrayLike | float = 1,
+        algorithmic_relaxation: npt.NDArray | float = 1,
         proximity_flag=True,
     ):
 
@@ -364,21 +364,21 @@ class ProductSpaceAlgorithm(SplitFeasibility):
         self.xs = []
         self.ys = []
 
-    def _project(self, x: npt.ArrayLike, y: npt.ArrayLike | None = None) -> npt.ArrayLike:
+    def _project(self, x: npt.NDArray, y: npt.NDArray | None = None) -> npt.NDArray:
         """
         Perform one step of the product space algorithm.
 
         Parameters
         ----------
-        x : npt.ArrayLike
+        x : npt.NDArray
             The point in the input space to be projected.
-        y : npt.ArrayLike or None, optional
+        y : npt.NDArray or None, optional
             The point in the target space to be projected, obtained through e.g. a perturbation step.
             If None, it is calculated from x.
 
         Returns
         -------
-        npt.ArrayLike
+        npt.NDArray
         """
         if y is None:
             y = self.map(x)

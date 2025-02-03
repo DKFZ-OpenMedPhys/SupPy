@@ -290,15 +290,25 @@ class SimultaneousAMSHyperslab(HyperslabAMSAlgorithm):
 
         return x
 
-    def _proximity(self, x: npt.ArrayLike) -> float:
+    def _proximity(self, x: npt.ArrayLike, proximity_measures: List[str]) -> float:
         p = self.map(x)
-        # residuals are positive  if constraints are met
-        (res_u, res_l) = self.Bounds.residual(p)
-        d_idx = res_u < 0
-        c_idx = res_l < 0
-        return (self.weights[d_idx] * res_u[d_idx] ** 2).sum() + (
-            self.weights[c_idx] * res_l[c_idx] ** 2
-        ).sum()
+        # residuals are positive if constraints are met
+        (res_l, res_u) = self.Bounds.residual(p)
+        res_u[res_u > 0] = 0
+        res_l[res_l > 0] = 0
+        res = -res_u - res_l
+        measures = []
+        for measure in proximity_measures:
+            if isinstance(measure, tuple):
+                if measure[0] == "p_norm":
+                    measures.append(self.weights @ (res ** measure[1]))
+                else:
+                    raise ValueError("Invalid proximity measure")
+            elif isinstance(measure, str) and measure == "max_norm":
+                measures.append(res.max())
+            else:
+                raise ValueError("Invalid proximity measure)")
+        return measures
 
 
 class ExtrapolatedLandweber(SimultaneousAMSHyperslab):
@@ -416,14 +426,25 @@ class BlockIterativeAMSHyperslab(HyperslabAMSAlgorithm):
 
         return x
 
-    def _proximity(self, x: npt.ArrayLike) -> float:
+    def _proximity(self, x: npt.ArrayLike, proximity_measures: List[str]) -> float:
         p = self.map(x)
-        (res_u, res_l) = self.Bounds.residual(p)  # residuals are positive  if constraints are met
-        d_idx = res_u < 0
-        c_idx = res_l < 0
-        return (self.total_weights[d_idx] * res_u[d_idx] ** 2).sum() + (
-            self.total_weights[c_idx] * res_l[c_idx] ** 2
-        ).sum()
+        # residuals are positive if constraints are met
+        (res_l, res_u) = self.Bounds.residual(p)
+        res_u[res_u > 0] = 0
+        res_l[res_l > 0] = 0
+        res = -res_u - res_l
+        measures = []
+        for measure in proximity_measures:
+            if isinstance(measure, tuple):
+                if measure[0] == "p_norm":
+                    measures.append(self.total_weights @ (res ** measure[1]))
+                else:
+                    raise ValueError("Invalid proximity measure")
+            elif isinstance(measure, str) and measure == "max_norm":
+                measures.append(res.max())
+            else:
+                raise ValueError("Invalid proximity measure)")
+        return measures
 
 
 class StringAveragedAMSHyperslab(HyperslabAMSAlgorithm):

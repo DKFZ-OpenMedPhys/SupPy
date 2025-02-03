@@ -258,8 +258,68 @@ def test_SimultaneousAMSHalfspace_proximity(get_full_variables):
     x_4 = np.array([-2.0, -2.0])
     x_5 = np.array([2.0, -2.0])
 
-    assert np.abs(alg.proximity(x_1) - 0.02) < 1e-10
-    assert np.abs(alg.proximity(x_2) - 9 / 16) < 1e-10
-    assert np.abs(alg.proximity(x_3) - 0.02) < 1e-10
-    assert np.abs(alg.proximity(x_4) - 9 / 16) < 1e-10
-    assert np.abs(alg.proximity(x_5) - 9 / 16) < 1e-10
+    prox_measures = []
+    no_prox = alg.proximity(x_1, prox_measures)
+    assert no_prox.size == 0
+
+    prox_measures = [("p_norm", 2), "max_norm"]
+    prox_1 = alg.proximity(x_1, prox_measures)
+    prox_2 = alg.proximity(x_2, prox_measures)
+    prox_3 = alg.proximity(x_3, prox_measures)
+    prox_4 = alg.proximity(x_4, prox_measures)
+    prox_5 = alg.proximity(x_5, prox_measures)
+
+    assert np.abs(prox_1[0] - 0.02) < 1e-10
+    assert np.abs(prox_1[1] - 0.4) < 1e-10
+
+    assert np.abs(prox_2[0] - 9 / 16) < 1e-10
+    assert np.abs(prox_2[1] - 2) < 1e-10
+
+    assert np.abs(prox_3[0] - 0.02) < 1e-10
+    assert np.abs(prox_3[1] - 0.4) < 1e-10
+
+    assert np.abs(prox_4[0] - 9 / 16) < 1e-10
+    assert np.abs(prox_4[1] - 2) < 1e-10
+
+    assert np.abs(prox_5[0] - 9 / 16) < 1e-10
+    assert np.abs(prox_5[1] - 2) < 1e-10
+
+
+def test_SimultaneousAMSHalfspace_proximity_weighted(get_full_variables):
+    A, b = get_full_variables
+    alg = SimultaneousAMSHalfspace(
+        A, b, weights=np.array([1 / 4, 1 / 8, 1 / 16, 1 / 16, 1 / 4, 1 / 8, 1 / 16, 1 / 16])
+    )
+
+    x_1 = np.array([1.2, 1.2])
+    x_2 = np.array([2.0, 2.0])
+    x_3 = np.array([-1.2, -1.2])
+    x_4 = np.array([-2.0, -2.0])
+    x_5 = np.array([2.0, -2.0])
+
+    prox_measures = []
+    no_prox = alg.proximity(x_1, prox_measures)
+    assert no_prox.size == 0
+
+    prox_measures = [("p_norm", 2), "max_norm"]
+    print(alg.A, alg.b, alg.weights)
+    prox_1 = alg.proximity(x_1, prox_measures)
+    prox_2 = alg.proximity(x_2, prox_measures)
+    prox_3 = alg.proximity(x_3, prox_measures)
+    prox_4 = alg.proximity(x_4, prox_measures)
+    prox_5 = alg.proximity(x_5, prox_measures)
+
+    assert np.abs(prox_1[0] - 0.04) < 1e-10
+    assert np.abs(prox_1[1] - 0.4) < 1e-10
+    print(prox_2)
+    assert np.abs(prox_2[0] - 33 / 32) < 1e-10
+    assert np.abs(prox_2[1] - 2) < 1e-10
+
+    assert np.abs(prox_3[0] - 0.04) < 1e-10
+    assert np.abs(prox_3[1] - 0.4) < 1e-10
+
+    assert np.abs(prox_4[0] - 33 / 32) < 1e-10
+    assert np.abs(prox_4[1] - 2) < 1e-10
+
+    assert np.abs(prox_5[0] - 17 / 32) < 1e-10
+    assert np.abs(prox_5[1] - 2) < 1e-10

@@ -61,7 +61,12 @@ class SplitFeasibility(Feasibility, ABC):
 
     @ensure_float_array
     def solve(
-        self, x: npt.ArrayLike, max_iter: int = 10, constr_tol: float = 1e-6, storage: bool = False
+        self,
+        x: npt.ArrayLike,
+        max_iter: int = 10,
+        constr_tol: float = 1e-6,
+        storage: bool = False,
+        proximity_measures: List | None = None,
     ) -> npt.ArrayLike:
         """
         Solves the split feasibility problem for a given input array.
@@ -72,16 +77,22 @@ class SplitFeasibility(Feasibility, ABC):
             Starting point for the algorithm.
         max_iter : int, optional
             The maximum number of iterations (default is 10).
-        prox_tol : float, optional
+        constr_tol : float, optional
             Stopping criterium for the feasibility seeking algorithm. Solution deemed feasible if the proximity drops below this value (default is 1e-6).
+        storage : bool, optional
+            A flag indicating whether to store all intermediate solutions (default is False).
+        proximity_measure : List, optional
+            The proximity measures to calculate, by default None. Right now only the first in the list is used to check the feasibility.
 
         Returns
         -------
         npt.ArrayLike
             The solution after applying the feasibility seeking algorithm.
         """
+        if proximity_measures is None:
+            proximity_measures = [("p_norm", 2)]
         xp = cp if isinstance(x, cp.ndarray) else np
-        self.proximities = [self.proximity(x)]
+        self.proximities = [self.proximity(x, proximity_measures)]
         i = 0
         feasible = False
 
@@ -93,10 +104,10 @@ class SplitFeasibility(Feasibility, ABC):
             x, _ = self.step(x)
             if storage is True:
                 self.all_x.append(x.copy())
-            self.proximities.append(self.proximity(x))
+            self.proximities.append(self.proximity(x, proximity_measures))
 
             # TODO: If proximity changes x some potential issues!
-            if self.proximities[-1] < constr_tol:
+            if self.proximities[-1][0] < constr_tol:
 
                 feasible = True
             i += 1
@@ -238,22 +249,9 @@ class CQAlgorithm(SplitFeasibility):
 
         return self.C_projection.project(x), y_p
 
-    def _proximity(self, x: npt.ArrayLike) -> float:
-        """
-        Calculate the proximity of a point to the set Q.
-
-        Parameters
-        ----------
-        x : npt.ArrayLike
-            The point in the input space.
-
-        Returns
-        -------
-        float
-            The proximity measure.
-        """
+    def _proximity(self, x: npt.ArrayLike, proximity_measures: List) -> float:
         p = self.map(x)
-        return self.Q_projection.proximity(p)
+        return self.Q_projection.proximity(p, proximity_measures)
         # TODO: correct?
 
 
@@ -394,4 +392,4 @@ class ProductSpaceAlgorithm(SplitFeasibility):
         return xy[: len(x)]  # ,xy[len(x):]
 
     def _proximity(self, x):
-        pass
+        raise NotImplementedError("Proximity not implemented for ProductSpaceAlgorithm.")

@@ -10,7 +10,7 @@ try:
 
 except ImportError:
     no_gpu = True
-    cp = None
+    cp = np
 
 from suppy.feasibility._linear_algorithms import HyperplaneFeasibility
 from suppy.utils import LinearMapping

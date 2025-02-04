@@ -10,7 +10,7 @@ try:
 
 except ImportError:
     no_gpu = True
-    cp = None
+    cp = np
 
 from suppy.utils import LinearMapping
 from suppy.utils import ensure_float_array

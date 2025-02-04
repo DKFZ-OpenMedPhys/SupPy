@@ -65,8 +65,9 @@ tests:
         policy: pull
     script:
         - source .venv/bin/activate
-        - pip install coverage pytest pytest-cov
+        - pip install coverage pytest pytest-cov nbmake
         - pytest tests --junitxml=.testreports/report.xml --cov=suppy --cov-report term --cov-report xml:.testreports/coverage.xml --cov-report html:.testreports/html
+        - pytest examples --nbmake
     artifacts:
         when: always
         reports:

@@ -5,9 +5,9 @@ import numpy.typing as npt
 import matplotlib.pyplot as plt
 
 
-def plot2D_linear_constraints(x: npt.NDArray, A: npt.NDArray, lb: npt.NDArray, ub: npt.NDArray):
+def plot2d_linear_constraints(x: npt.NDArray, A: npt.NDArray, lb: npt.NDArray, ub: npt.NDArray):
     """
-    Plots the linear 2D constraints defined by lb <= A_0*x+A_1*y <= ub.
+    Plots the linear 2d constraints defined by lb <= A_0*x+A_1*y <= ub.
 
     Parameters:
     x (array-like): The x-values for the plot.
@@ -63,7 +63,7 @@ def get_linear_constraint_bounds(x: npt.NDArray, A: npt.NDArray, lb: npt.NDArray
     return x_all, np.concatenate((y_l, y_u), axis=1)
 
 
-def plot3D_linconstrained_function(func, A, x, lb, ub, func_args=()):
+def plot3d_linconstrained_function(func, A, x, lb, ub, func_args=()):
     """
     For given x values finds the associated y values (giving the linear
     constrained bounds)
@@ -105,8 +105,8 @@ def plot3d_general_objects(func, objects, func_args=(), x: None | npt.NDArray = 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection="3d")
 
-    for object in objects:
-        xy = object.get_xy()  # should return a 2xn array
+    for el in objects:
+        xy = el.get_xy()  # should return a 2xn array
         ax.plot(xy[0, :], xy[1, :], func(xy, *func_args), color="xkcd:black")
 
     if x is None:

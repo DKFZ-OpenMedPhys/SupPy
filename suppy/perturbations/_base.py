@@ -1,15 +1,16 @@
+"""Base class for perturbations applied to feasibility seeking algorithms."""
 from abc import ABC, abstractmethod
 from typing import Callable, List
-from suppy.utils import FuncWrapper
 import numpy as np
 import numpy.typing as npt
+from suppy.utils import FuncWrapper
 
 try:
     import cupy as cp
 
-    no_gpu = False
+    NO_GPU = False
 except ImportError:
-    no_gpu = True
+    NO_GPU = True
     cp = np
 
 
@@ -34,7 +35,6 @@ class Perturbation(ABC):
         npt.NDArray
             The perturbed array.
         """
-        pass
 
 
 class ObjectivePerturbation(Perturbation, ABC):
@@ -105,7 +105,6 @@ class ObjectivePerturbation(Perturbation, ABC):
         npt.NDArray
             The array after the reduction step has been applied.
         """
-        pass
 
     def pre_step(self):
         """
@@ -115,7 +114,6 @@ class ObjectivePerturbation(Perturbation, ABC):
         This method is intended to be overridden by subclasses to implement
         specific pre-step logic. By default, it does nothing.
         """
-        pass
 
 
 class GradientPerturbation(ObjectivePerturbation, ABC):
@@ -215,6 +213,7 @@ class PowerSeriesGradientPerturbation(GradientPerturbation):
             y_ln = self.func(x_ln)
             if y_ln <= func_eval:
                 return x_ln
+        return x_ln
 
     def pre_step(self):
         """
@@ -224,7 +223,7 @@ class PowerSeriesGradientPerturbation(GradientPerturbation):
         -------
         None
         """
-        if not (self._k > 0):
+        if self._k <= 0:
             return
         # possibly restart the power series
         if self._k % self.n_restart == 0:

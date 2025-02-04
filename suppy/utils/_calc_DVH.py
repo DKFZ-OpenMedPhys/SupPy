@@ -1,8 +1,7 @@
 import numpy as np
-import matplotlib.pyplot as plt
 
 
-def calc_DVH(dose, idxs: list):
+def calc_dvh(dose, idxs: list):
     """"""
 
     d_min = np.min(dose)

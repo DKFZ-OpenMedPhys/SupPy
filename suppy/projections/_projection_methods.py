@@ -1,3 +1,7 @@
+"""
+General implementation for sequential, simultaneous, block iterative and
+string averaged projection methods.
+"""
 from abc import ABC
 from typing import List
 import numpy as np
@@ -6,10 +10,10 @@ import numpy.typing as npt
 try:
     import cupy as cp
 
-    no_gpu = False
+    NO_GPU = False
 except ImportError:
     cp = np
-    no_gpu = True
+    NO_GPU = True
 
 from suppy.projections._projections import Projection, BasicProjection
 from suppy.utils import ensure_float_array
@@ -73,7 +77,7 @@ class ProjectionMethod(Projection, ABC):
         max_iter: int = 500,
         storage: bool = False,
         constr_tol: float = 1e-6,
-        proximity_measure: List | None = None,
+        proximity_measures: List | None = None,
     ) -> npt.NDArray:
         """
         Solves the optimization problem using an iterative approach.
@@ -88,7 +92,7 @@ class ProjectionMethod(Projection, ABC):
             Flag indicating whether to store the intermediate solutions, by default False.
         constr_tol : float, optional
             The tolerance for the constraints, by default 1e-6.
-        proximity_measure : List, optional
+        proximity_measures : List, optional
             The proximity measures to calculate, by default None. Right now only the first in the list is used to check the feasibility.
 
         Returns
@@ -97,7 +101,7 @@ class ProjectionMethod(Projection, ABC):
             The solution after the iterative process.
         """
         xp = cp if isinstance(x, cp.ndarray) else np
-        if proximity_measure is None:
+        if proximity_measures is None:
             proximity_measures = [("p_norm", 2)]
         else:
             # TODO: Check if the proximity measures are valid

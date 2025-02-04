@@ -6,10 +6,10 @@ import numpy.typing as npt
 try:
     import cupy as cp
 
-    no_gpu = False
+    NO_GPU = False
 
 except ImportError:
-    no_gpu = True
+    NO_GPU = True
     cp = np
 
 from suppy.utils import LinearMapping

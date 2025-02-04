@@ -1,6 +1,8 @@
+"""File that includes somme decorators used throughout the module."""
+
 import warnings
-import numpy as np
 from typing import Callable
+import numpy as np
 
 
 def ensure_float_array(func: Callable) -> Callable:

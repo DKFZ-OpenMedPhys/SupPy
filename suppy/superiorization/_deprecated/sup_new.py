@@ -9,9 +9,9 @@ from suppy.utils import ensure_float_array
 try:
     import cupy as cp
 
-    no_gpu = False
+    NO_GPU = False
 except ImportError:
-    no_gpu = True
+    NO_GPU = True
     cp = np
 
 

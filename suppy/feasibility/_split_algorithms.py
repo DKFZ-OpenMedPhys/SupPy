@@ -1,8 +1,9 @@
+"""Algorithms for split feasibility problem."""
 from abc import ABC, abstractmethod
 from typing import List
 import numpy as np
 import numpy.typing as npt
-import scipy.sparse as sparse
+from scipy import sparse
 
 try:
     import cupy as cp
@@ -11,7 +12,6 @@ except ImportError:
 
 from suppy.utils import LinearMapping
 from suppy.utils import ensure_float_array
-from suppy.utils import Bounds
 from suppy.projections._projections import Projection
 
 # from ._algorithms import Feasibility
@@ -78,11 +78,13 @@ class SplitFeasibility(Feasibility, ABC):
         max_iter : int, optional
             The maximum number of iterations (default is 10).
         constr_tol : float, optional
-            Stopping criterium for the feasibility seeking algorithm. Solution deemed feasible if the proximity drops below this value (default is 1e-6).
+            Stopping criterium for the feasibility seeking algorithm.
+            Solution deemed feasible if the proximity drops below this value (default is 1e-6).
         storage : bool, optional
             A flag indicating whether to store all intermediate solutions (default is False).
-        proximity_measure : List, optional
-            The proximity measures to calculate, by default None. Right now only the first in the list is used to check the feasibility.
+        proximity_measures : List, optional
+            The proximity measures to calculate, by default None.
+            Right now only the first in the list is used to check the feasibility.
 
         Returns
         -------
@@ -222,8 +224,8 @@ class CQAlgorithm(SplitFeasibility):
     ):
 
         super().__init__(A, algorithmic_relaxation, proximity_flag, use_gpu)
-        self.C_projection = C_projection
-        self.Q_projection = Q_projection
+        self.c_projection = C_projection
+        self.q_projection = Q_projection
 
     def _project(self, x: npt.NDArray, y: npt.NDArray | None = None) -> npt.NDArray:
         """
@@ -234,7 +236,8 @@ class CQAlgorithm(SplitFeasibility):
         x : npt.NDArray
             The point in the input space to be projected.
         y : npt.NDArray or None, optional
-            The point in the target space to be projected, obtained through e.g. a perturbation step.
+            The point in the target space to be projected,
+            obtained through e.g. a perturbation step.
             If None, it is calculated from x.
 
         Returns
@@ -244,14 +247,14 @@ class CQAlgorithm(SplitFeasibility):
         if y is None:
             y = self.map(x)
 
-        y_p = self.Q_projection.project(y.copy())
+        y_p = self.q_projection.project(y.copy())
         x = x - self.algorithmic_relaxation * self.map_back(y - y_p)
 
-        return self.C_projection.project(x), y_p
+        return self.c_projection.project(x), y_p
 
     def _proximity(self, x: npt.NDArray, proximity_measures: List) -> float:
         p = self.map(x)
-        return self.Q_projection.proximity(p, proximity_measures)
+        return self.q_projection.proximity(p, proximity_measures)
         # TODO: correct?
 
 
@@ -318,7 +321,7 @@ class CQAlgorithm(SplitFeasibility):
 #             The proximity measure.
 #         """
 #         p = self.map(x)
-#         return self.Q_projection.proximity(p)
+#         return self.q_projection.proximity(p)
 
 
 class ProductSpaceAlgorithm(SplitFeasibility):
@@ -351,8 +354,8 @@ class ProductSpaceAlgorithm(SplitFeasibility):
     ):
 
         super().__init__(A, algorithmic_relaxation, proximity_flag)
-        self.C_projections = C_projections
-        self.Q_projections = Q_projections
+        self.c_projections = C_projections
+        self.q_projections = Q_projections
 
         # calculate projection back into Ax=b space
         Z = np.concatenate([A, -1 * np.eye(A.shape[0])], axis=1)
@@ -382,9 +385,9 @@ class ProductSpaceAlgorithm(SplitFeasibility):
         """
         if y is None:
             y = self.map(x)
-        for el in self.C_projections:
+        for el in self.c_projections:
             x = el.project(x)
-        for el in self.Q_projections:
+        for el in self.q_projections:
             y = el.project(y)
         xy = self.Pv @ np.concatenate([x, y])
         self.xs.append(xy[: len(x)].copy())

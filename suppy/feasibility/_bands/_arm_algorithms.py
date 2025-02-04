@@ -8,10 +8,10 @@ from suppy.feasibility._linear_algorithms import HyperslabFeasibility
 try:
     import cupy as cp
 
-    no_gpu = False
+    NO_GPU = False
 
 except ImportError:
-    no_gpu = True
+    NO_GPU = True
     cp = np
 
 

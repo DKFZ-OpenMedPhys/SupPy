@@ -1,9 +1,9 @@
+"""Simple projection objects."""
 import math
+from typing import List
 import numpy as np
 import numpy.typing as npt
-from typing import List, Callable
 import matplotlib.pyplot as plt
-from suppy.utils import Bounds
 from matplotlib import patches
 
 from suppy.projections._projections import BasicProjection
@@ -11,9 +11,9 @@ from suppy.projections._projections import BasicProjection
 try:
     import cupy as cp
 
-    no_gpu = False
+    NO_GPU = False
 except ImportError:
-    no_gpu = True
+    NO_GPU = True
     cp = np
 
 # from suppy.utils.decorators import ensure_float_array
@@ -38,7 +38,8 @@ class BoxProjection(BasicProjection):
     relaxation : float, optional
         Relaxation parameter for the projection, by default 1.
     proximity_flag : bool
-        Flag to indicate whether to take this object into account when calculating proximity, by default True.
+        Flag to indicate whether to take this object into account when calculating proximity,
+        by default True.
 
     Attributes
     ----------
@@ -732,9 +733,9 @@ class BallProjection(BasicProjection):
             The projected array.
         """
         xp = cp if isinstance(x, cp.ndarray) else np
-        if np.linalg.norm(x[self.idx] - self.center) > self.radius:
+        if xp.linalg.norm(x[self.idx] - self.center) > self.radius:
             x[self.idx] -= (x[self.idx] - self.center) * (
-                1 - self.radius / np.linalg.norm(x[self.idx] - self.center)
+                1 - self.radius / xp.linalg.norm(x[self.idx] - self.center)
             )
 
         return x
@@ -854,8 +855,8 @@ class MaxDVHProjection(BasicProjection):
         """
         if isinstance(self.idx, slice):
             return self._project_all(x)
-        else:
-            return self._project_subset(x)
+
+        return self._project_subset(x)
 
     def _project_all(self, x: npt.NDArray) -> npt.NDArray:
         n = len(x)
@@ -918,7 +919,7 @@ class MaxDVHProjection(BasicProjection):
 
     #     return x
 
-    def _proximity(self, x: npt.NDArray) -> float:
+    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> float:
         """
         Calculate the proximity of the given array to a specified maximum
         percentage.
@@ -979,8 +980,8 @@ class MinDVHProjection(BasicProjection):
         """
         if isinstance(self.idx, slice):
             return self._project_all(x)
-        else:
-            return self._project_subset(x)
+
+        return self._project_subset(x)
 
     def _project_all(self, x: npt.NDArray) -> npt.NDArray:
         n = len(x)
@@ -1009,7 +1010,7 @@ class MinDVHProjection(BasicProjection):
 
         return x
 
-    def _proximity(self, x: npt.NDArray) -> float:
+    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> float:
         """
         Calculate the proximity of the given array to a specified maximum
         percentage.
@@ -1026,21 +1027,3 @@ class MinDVHProjection(BasicProjection):
         """
         # TODO: Find appropriate proximity measure
         raise NotImplementedError
-        # n = len(x) if isinstance(self.idx, slice) else self.idx.sum()
-        # return abs((1 / n * (x[self.idx] < self.d_min).sum()) - self.min_percentage) * 100
-
-    # def _project_argpartition(self, x: npt.NDArray) -> npt.NDArray:
-    # print(WARNING: This function is not working properly!)
-    #         # percentage of elements that should receive a dose lower than d_max
-    # n = self.idx.sum()
-    # am = math.floor(self.max_percentage * n)
-
-    # # number of elements in structure with dose greater than d_max
-    # l = (x[self.idx] > self.d_max).sum()
-
-    # z = l - am  # number of elements that need to be reduced
-
-    # if z > 0:
-    #     x[x.argpartition(-z)[-z:]] = self.d_max
-
-    # return x

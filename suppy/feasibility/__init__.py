@@ -1,3 +1,4 @@
+"""Module for linear feasibility and split feasibility algorithms."""
 from suppy.utils import Bounds
 from ._bands._ams_algorithms import (
     SequentialAMSHyperslab,

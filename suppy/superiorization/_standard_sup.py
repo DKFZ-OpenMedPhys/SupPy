@@ -21,10 +21,6 @@ class Superiorization(FeasibilityPerturbation):
         The underlying feasibility seeking algorithm.
     perturbation_scheme : Perturbation
         The perturbation scheme to be used for superiorization.
-    objective_tol : float, optional
-        Tolerance for the objective function value change to determine stopping criteria, by default 1e-4.
-    constr_tol : float, optional
-        Tolerance for the constraint proximity value change to determine stopping criteria, by default 1e-6.
 
     Attributes
     ----------
@@ -208,14 +204,14 @@ class Superiorization(FeasibilityPerturbation):
         stop = abs(f_temp - self.f_k) < objective_tol and p_temp[0] < constr_tol
         return stop
 
-    def _additional_action(self, x):
+    def _additional_action(self, x: npt.NDArray):
         """
         Perform an additional action on the input, in case it is needed.
 
         Parameters
         ----------
-        x : any
-            The input on which the additional action is performed.
+        x : npt.NDArray
+            The current iterate
 
         Returns
         -------
@@ -254,13 +250,13 @@ class Superiorization(FeasibilityPerturbation):
         self.all_function_values.append(f)
         self.all_proximity_values.append(p)
 
-    def _storage_function_reduction(self, x, f, p):
+    def _storage_function_reduction(self, x: npt.NDArray, f: float, p: float):
         """
         Stores the given values of x and f into the corresponding lists.
 
         Parameters
         ----------
-        x : array-like
+        x : npt.NDArray
             The current value of the variable x to be stored.
         f : float
             The current value of the function f to be stored.
@@ -280,7 +276,7 @@ class Superiorization(FeasibilityPerturbation):
         self.all_proximity_values_function_reduction.append(p)
         self.all_proximity_values.append(p)
 
-    def _storage_basic_step(self, x, f, p):
+    def _storage_basic_step(self, x: npt.NDArray, f: float, p: float):
         """
         Stores the current values of x and f in the respective lists.
 

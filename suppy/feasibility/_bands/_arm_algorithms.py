@@ -12,7 +12,7 @@ try:
 
 except ImportError:
     no_gpu = True
-    cp = None
+    cp = np
 
 
 class ARMAlgorithm(HyperslabFeasibility, ABC):

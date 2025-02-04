@@ -42,7 +42,7 @@ lint:
         - return_code=0
         - flake8 --format gl-codeclimate --output-file gl-code-quality-report.json --toml-config ./pyproject.toml || return_code=$(($return_code + $?))
         - black --check . 2> >(tee black-report.txt >&2) || return_code=$(($return_code + $?))
-        - pylint --output-format=json:pylint.txt,colorized suppy suppy.py || return_code=$(($return_code + $?))
+        - pylint --output-format=json:pylint.txt,colorized suppy || return_code=$(($return_code + $?))
         - exit $return_code
     artifacts:
         reports:

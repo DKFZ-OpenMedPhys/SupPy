@@ -211,6 +211,7 @@ class LinearMapping:
 
         if self.flag in ["scipy_sparse", "cupy_sparse"]:
             return self.A[idx] @ x
+
         raise ValueError("Unknown flag.")
 
     def update_step(self, x, c, i):
@@ -218,11 +219,11 @@ class LinearMapping:
         if self.flag in ["numpy", "cupy_full"]:
             x += self.A[i] * c
 
-        if self.flag in ["scipy_sparse", "cupy_sparse"]:
+        elif self.flag in ["scipy_sparse", "cupy_sparse"]:
             idx1, idx2 = self.A.indptr[i], self.A.indptr[i + 1]
             x[self.A.indices[idx1:idx2]] += self.A.data[idx1:idx2] * c
-
-        raise ValueError("Unknown flag.")
+        else:
+            raise ValueError("Unknown flag.")
 
     def getrow(self, i):
         """Get a row of the matrix."""

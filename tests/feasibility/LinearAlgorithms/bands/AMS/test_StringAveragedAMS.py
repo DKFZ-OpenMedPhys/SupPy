@@ -28,8 +28,8 @@ def test_StringAveragedAMSHyperslab_constructor_full(get_full_variables):
 
     assert isinstance(alg.A, LinearMapping)
     assert np.array_equal(alg.A, A)
-    assert np.array_equal(alg.Bounds.l, lb)
-    assert np.array_equal(alg.Bounds.u, ub)
+    assert np.array_equal(alg.bounds.l, lb)
+    assert np.array_equal(alg.bounds.u, ub)
     assert alg.strings == [[0, 1, 2, 3]]
     assert np.array_equal(alg.weights, np.ones(1))
     assert alg.relaxation == 1.0
@@ -47,8 +47,8 @@ def test_StringAveragedAMSHyperslab_constructor_sparse(get_sparse_variables):
 
     assert isinstance(alg.A, LinearMapping)
     assert np.array_equal(alg.A.todense(), A.todense())
-    assert np.array_equal(alg.Bounds.l, lb)
-    assert np.array_equal(alg.Bounds.u, ub)
+    assert np.array_equal(alg.bounds.l, lb)
+    assert np.array_equal(alg.bounds.u, ub)
     assert alg.strings == [[0, 1, 2, 3]]
     assert np.array_equal(alg.weights, np.ones(1))
     assert alg.relaxation == 1.0

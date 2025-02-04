@@ -17,8 +17,8 @@ def test_cq_constructor(get_simple_cq):
     cq, _, _, _ = get_simple_cq
     assert isinstance(cq, CQAlgorithm)
     assert isinstance(cq.A, LinearMapping)
-    assert isinstance(cq.C_projection, BoxProjection)
-    assert isinstance(cq.Q_projection, BoxProjection)
+    assert isinstance(cq.c_projection, BoxProjection)
+    assert isinstance(cq.q_projection, BoxProjection)
     assert cq.relaxation == 1
     assert cq.algorithmic_relaxation == 1
     assert cq.proximities == []

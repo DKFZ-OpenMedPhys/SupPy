@@ -30,8 +30,8 @@
 #     alg = SimultaneousART3plus(A, lb, ub)
 #     assert isinstance(alg.A, LinearMapping)
 #     assert np.array_equal(alg.A, A)
-#     assert np.array_equal(alg.Bounds.l, lb)
-#     assert np.array_equal(alg.Bounds.u, ub)
+#     assert np.array_equal(alg.bounds.l, lb)
+#     assert np.array_equal(alg.bounds.u, ub)
 #     assert np.array_equal(alg.weights, [1 / 2, 1 / 2])
 #     assert alg._feasible == True
 
@@ -43,8 +43,8 @@
 
 #     assert isinstance(alg.A, LinearMapping)
 #     assert np.array_equal(alg.A.todense(), A.todense())
-#     assert np.array_equal(alg.Bounds.l, lb)
-#     assert np.array_equal(alg.Bounds.u, ub)
+#     assert np.array_equal(alg.bounds.l, lb)
+#     assert np.array_equal(alg.bounds.u, ub)
 #     assert np.array_equal(alg.weights, [1 / 2, 1 / 2])
 #     assert alg._feasible == True
 

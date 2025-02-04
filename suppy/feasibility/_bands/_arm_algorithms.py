@@ -96,8 +96,8 @@ class SequentialARM(ARMAlgorithm):
 
         for i in self.cs:
             p_i = self.single_map(x, i)
-            d = p_i - self.Bounds.center[i]
-            psi = (self.Bounds.u[i] - self.Bounds.l[i]) / 2
+            d = p_i - self.bounds.center[i]
+            psi = (self.bounds.u[i] - self.bounds.l[i]) / 2
             if xp.abs(d) > psi:
                 self.A.update_step(
                     x,
@@ -169,8 +169,8 @@ class SimultaneousARM(ARMAlgorithm):
         xp = cp if self._use_gpu else np
         # simultaneous projection
         p = self.map(x)
-        d = p - self.Bounds.center
-        psi = self.Bounds.half_distance
+        d = p - self.bounds.center
+        psi = self.bounds.half_distance
         d_idx = xp.abs(d) > psi
         x -= (
             self.algorithmic_relaxation**self._k
@@ -189,7 +189,7 @@ class SimultaneousARM(ARMAlgorithm):
     def _proximity(self, x: npt.NDArray, proximity_measures: List[str]) -> float:
         p = self.map(x)
         # residuals are positive if constraints are met
-        (res_l, res_u) = self.Bounds.residual(p)
+        (res_l, res_u) = self.bounds.residual(p)
         res_u[res_u > 0] = 0
         res_l[res_l > 0] = 0
         res = -res_u - res_l
@@ -264,8 +264,8 @@ class BIPARM(ARMAlgorithm):
     def _project(self, x):
         # simultaneous projection
         p = self.map(x)
-        d = p - self.Bounds.center
-        psi = self.Bounds.half_distance
+        d = p - self.bounds.center
+        psi = self.bounds.half_distance
         d_idx = abs(d) > psi
         x -= (
             self.algorithmic_relaxation**self._k
@@ -284,7 +284,7 @@ class BIPARM(ARMAlgorithm):
     def _proximity(self, x: npt.NDArray, proximity_measures: List[str]) -> float:
         p = self.map(x)
         # residuals are positive if constraints are met
-        (res_l, res_u) = self.Bounds.residual(p)
+        (res_l, res_u) = self.bounds.residual(p)
         res_u[res_u > 0] = 0
         res_l[res_l > 0] = 0
         res = -res_u - res_l
@@ -376,8 +376,8 @@ class StringAveragedARM(ARMAlgorithm):
             x_s = x_c.copy()  # generate a copy for individual strings
             for i in string:
                 p_i = self.single_map(x_s, i)
-                d = p_i - self.Bounds.center[i]
-                psi = (self.Bounds.u[i] - self.Bounds.l[i]) / 2
+                d = p_i - self.bounds.center[i]
+                psi = (self.bounds.u[i] - self.bounds.l[i]) / 2
                 if xp.abs(d) > psi:
                     self.A.update_step(
                         x_s,

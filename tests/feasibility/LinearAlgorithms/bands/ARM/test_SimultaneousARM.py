@@ -37,8 +37,8 @@ def test_SimultaneousARM_constructor_full(get_ARM_variables_full):
     assert np.array_equal(alg.weights, np.ones(len(A)) / len(A))
 
     assert np.array_equal(alg.A, A)
-    assert np.array_equal(alg.Bounds.l, lb)
-    assert np.array_equal(alg.Bounds.u, ub)
+    assert np.array_equal(alg.bounds.l, lb)
+    assert np.array_equal(alg.bounds.u, ub)
     assert alg.relaxation == 1.0
     assert alg.algorithmic_relaxation == 1.0
 
@@ -59,8 +59,8 @@ def test_SimultaneousARM_constructor_sparse(get_ARM_variables_sparse):
     assert np.array_equal(alg.weights, np.ones(A.shape[0]) / A.shape[0])
 
     assert np.array_equal(alg.A.todense(), A.todense())
-    assert np.array_equal(alg.Bounds.l, lb)
-    assert np.array_equal(alg.Bounds.u, ub)
+    assert np.array_equal(alg.bounds.l, lb)
+    assert np.array_equal(alg.bounds.u, ub)
     assert alg.relaxation == 1.0
     assert alg.algorithmic_relaxation == 1.0
 

@@ -67,8 +67,8 @@ def test_BlockIterativeAMSHyperslab_sequential_constructor_full(
 
     assert isinstance(alg.A, LinearMapping)
     assert np.array_equal(alg.A, A)
-    assert np.array_equal(alg.Bounds.l, lb)
-    assert np.array_equal(alg.Bounds.u, ub)
+    assert np.array_equal(alg.bounds.l, lb)
+    assert np.array_equal(alg.bounds.u, ub)
     assert np.array_equal(alg.weights, np.array([[1], [1], [1], [1]]))
     assert np.array_equal(alg.block_idxs, np.array([[0], [1], [2], [3]]))
     assert alg.relaxation == 1.0
@@ -87,8 +87,8 @@ def test_BlockIterativeAMSHyperslab_simultaneous_constructor_full(
 
     assert isinstance(alg.A, LinearMapping)
     assert np.array_equal(alg.A, A)
-    assert np.array_equal(alg.Bounds.l, lb)
-    assert np.array_equal(alg.Bounds.u, ub)
+    assert np.array_equal(alg.bounds.l, lb)
+    assert np.array_equal(alg.bounds.u, ub)
     assert np.array_equal(alg.weights, np.array([[1 / 4, 1 / 4, 1 / 4, 1 / 4]]))
     assert np.array_equal(alg.block_idxs, np.array([[0, 1, 2, 3]]))
     assert alg.relaxation == 1.0
@@ -107,8 +107,8 @@ def test_BlockIterativeAMSHyperslab_sequential_constructor_sparse(
 
     assert isinstance(alg.A, LinearMapping)
     assert np.array_equal(alg.A.todense(), A.todense())
-    assert np.array_equal(alg.Bounds.l, lb)
-    assert np.array_equal(alg.Bounds.u, ub)
+    assert np.array_equal(alg.bounds.l, lb)
+    assert np.array_equal(alg.bounds.u, ub)
     assert np.array_equal(alg.weights, np.array([[1], [1], [1], [1]]))
     assert np.array_equal(alg.block_idxs, np.array([[0], [1], [2], [3]]))
     assert alg.relaxation == 1.0
@@ -127,8 +127,8 @@ def test_BlockIterativeAMSHyperslab_simultaneous_constructor_sparse(
 
     assert isinstance(alg.A, LinearMapping)
     assert np.array_equal(alg.A.todense(), A.todense())
-    assert np.array_equal(alg.Bounds.l, lb)
-    assert np.array_equal(alg.Bounds.u, ub)
+    assert np.array_equal(alg.bounds.l, lb)
+    assert np.array_equal(alg.bounds.u, ub)
     assert np.array_equal(alg.weights, np.array([[1 / 4, 1 / 4, 1 / 4, 1 / 4]]))
     assert np.array_equal(alg.block_idxs, np.array([[0, 1, 2, 3]]))
     assert alg.relaxation == 1.0

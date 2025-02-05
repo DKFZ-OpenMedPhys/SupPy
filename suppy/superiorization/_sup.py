@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Callable
 import numpy.typing as npt
-from suppy.perturbations import Perturbation, PowerSeriesGradientPerturbation
 
 
 class FeasibilityPerturbation(ABC):
@@ -39,4 +38,3 @@ class FeasibilityPerturbation(ABC):
         None
             This method should be overridden by subclasses to provide the actual implementation.
         """
-        pass

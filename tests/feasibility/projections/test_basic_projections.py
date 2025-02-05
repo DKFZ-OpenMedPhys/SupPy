@@ -21,7 +21,7 @@ def test_BoxProjection_datatype_error():
     Box_Proj_error = BoxProjection(lb, ub)  # without relaxation
 
     x = np.array([0, 2])
-    # with pytest.raises(np.core_exceptions._UFuncOutputCastingError):
+    # with pytest.raises(np._core_exceptions._UFuncOutputCastingError):
     proj = Box_Proj_error.project(x)
     assert np.all(proj == np.array([0, 1]))  # mathematically wrong, result is because of int array
 
@@ -139,7 +139,7 @@ def test_HalfspaceProjection_datatype_error():
     x = np.array([1, 1, 1])
     Halfspace_Proj = HalfspaceProjection(a, b)
     # with pytest.raises(_UFuncOutputCastingError):
-    with pytest.raises(np.core._exceptions._UFuncOutputCastingError):
+    with pytest.raises(np._core._exceptions._UFuncOutputCastingError):
         proj = Halfspace_Proj.project(x)
 
 
@@ -221,7 +221,7 @@ def test_BandProjection_datatype_error():
     ub = 2
     x = np.array([1, 1, 1])
     Band_Proj = BandProjection(a, lb, ub)
-    with pytest.raises(np.core._exceptions._UFuncOutputCastingError):
+    with pytest.raises(np._core._exceptions._UFuncOutputCastingError):
         proj = Band_Proj.project(x)
 
 
@@ -291,7 +291,7 @@ def test_BallProjection_datatype_error():
     x = np.array([0, 0])
     Ball_Proj = BallProjection(center, radius)
 
-    with pytest.raises(np.core._exceptions._UFuncOutputCastingError):
+    with pytest.raises(np._core._exceptions._UFuncOutputCastingError):
         proj = Ball_Proj.project(x)
 
 

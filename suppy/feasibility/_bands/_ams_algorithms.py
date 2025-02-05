@@ -6,10 +6,10 @@ import numpy.typing as npt
 try:
     import cupy as cp
 
-    no_gpu = False
+    NO_GPU = False
 
 except ImportError:
-    no_gpu = True
+    NO_GPU = True
     cp = np
 
 from suppy.feasibility._linear_algorithms import HyperslabFeasibility
@@ -109,7 +109,7 @@ class SequentialAMSHyperslab(HyperslabAMSAlgorithm):
 
         for i in self.cs:
             p_i = self.single_map(x, i)
-            (res_li, res_ui) = self.Bounds.single_residual(p_i, i)  # returns floats
+            (res_li, res_ui) = self.bounds.single_residual(p_i, i)  # returns floats
             # check if constraints are violated
 
             # weights should be 1s!
@@ -213,7 +213,7 @@ class SequentialWeightedAMSHyperslab(SequentialAMSHyperslab):
 
             p_i = self.single_map(x, i)
 
-            (res_li, res_ui) = self.Bounds.single_residual(p_i, i)  # returns floats
+            (res_li, res_ui) = self.bounds.single_residual(p_i, i)  # returns floats
             # check if constraints are violated
 
             if res_ui < 0:
@@ -280,7 +280,7 @@ class SimultaneousAMSHyperslab(HyperslabAMSAlgorithm):
     def _project(self, x):
         # simultaneous projection
         p = self.map(x)
-        (res_l, res_u) = self.Bounds.residual(p)
+        (res_l, res_u) = self.bounds.residual(p)
         d_idx = res_u < 0
         c_idx = res_l < 0
         x += self.algorithmic_relaxation * (
@@ -293,7 +293,7 @@ class SimultaneousAMSHyperslab(HyperslabAMSAlgorithm):
     def _proximity(self, x: npt.NDArray, proximity_measures: List[str]) -> float:
         p = self.map(x)
         # residuals are positive if constraints are met
-        (res_l, res_u) = self.Bounds.residual(p)
+        (res_l, res_u) = self.bounds.residual(p)
         res_u[res_u > 0] = 0
         res_l[res_l > 0] = 0
         res = -res_u - res_l
@@ -323,7 +323,7 @@ class ExtrapolatedLandweber(SimultaneousAMSHyperslab):
     def _project(self, x):
         xp = cp if self._use_gpu else np
         p = self.map(x)
-        (res_l, res_u) = self.Bounds.residual(p)
+        (res_l, res_u) = self.bounds.residual(p)
         d_idx = res_u < 0
         c_idx = res_l < 0
         if not (xp.any(d_idx) or xp.any(c_idx)):
@@ -408,7 +408,7 @@ class BlockIterativeAMSHyperslab(HyperslabAMSAlgorithm):
 
         for el, block_idx in zip(self.weights, self.block_idxs):  # get mask and associated weights
             p = self.indexed_map(x, block_idx)
-            (res_l, res_u) = self.Bounds.indexed_residual(p, block_idx)
+            (res_l, res_u) = self.bounds.indexed_residual(p, block_idx)
             d_idx = res_u < 0
             c_idx = res_l < 0
             full_d_idx = block_idx[d_idx]
@@ -430,7 +430,7 @@ class BlockIterativeAMSHyperslab(HyperslabAMSAlgorithm):
     def _proximity(self, x: npt.NDArray, proximity_measures: List[str]) -> float:
         p = self.map(x)
         # residuals are positive if constraints are met
-        (res_l, res_u) = self.Bounds.residual(p)
+        (res_l, res_u) = self.bounds.residual(p)
         res_u[res_u > 0] = 0
         res_l[res_l > 0] = 0
         res = -res_u - res_l
@@ -509,7 +509,7 @@ class StringAveragedAMSHyperslab(HyperslabAMSAlgorithm):
             x_s = x_c.copy()  # generate a copy for individual strings
             for i in string:
                 p_i = self.single_map(x_s, i)
-                (res_li, res_ui) = self.Bounds.single_residual(p_i, i)
+                (res_li, res_ui) = self.bounds.single_residual(p_i, i)
                 if res_ui < 0:
                     self.A.update_step(
                         x_s, self.algorithmic_relaxation * self.inverse_row_norm[i] * res_ui, i

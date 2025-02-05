@@ -28,7 +28,7 @@ class LevelSet:
             relaxation=1.2,
         )
         # TODO: shold be choosable or simultaneous?
-        self.C_projection = SequentialProjection(projections)
+        self.c_projection = SequentialProjection(projections)
 
         self.save_hist = save_hist
         self.all_x = []
@@ -54,7 +54,7 @@ class LevelSet:
         if f_init is not None:
             self.func_projection.level = f_init
         else:  # find a feasible point
-            x = self.C_projection.solve(x)
+            x = self.c_projection.solve(x)
             f_x = self.func_projection.func_call(x)
             self.func_projection.level = f_x - max(
                 epsilon, abs(f_x) * epsilon
@@ -73,7 +73,7 @@ class LevelSet:
                 # x_n = x.copy()
 
                 # #project onto constraint set
-                x = self.C_projection.project(x)
+                x = self.c_projection.project(x)
                 # project onto objective set
                 x = self.func_projection.project(x)
 
@@ -82,7 +82,7 @@ class LevelSet:
                 level_diff = self.func_projection.level_diff(x)
 
                 # get current constraint proximity
-                c_proximity = self.C_projection.proximity(x)
+                c_proximity = self.c_projection.proximity(x)
 
                 # level set reached and constraints are satisfied
                 if level_diff < 0 and c_proximity < constr_tol:

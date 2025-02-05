@@ -45,8 +45,8 @@ def test_SequentialWeightedAMSHyperslab_constructor_no_weights_full(
 
     alg = SequentialWeightedAMSHyperslab(A, lb, ub, algorithmic_relaxation=1.5)
     assert np.array_equal(alg.A, A)
-    assert np.array_equal(alg.Bounds.l, lb)
-    assert np.array_equal(alg.Bounds.u, ub)
+    assert np.array_equal(alg.bounds.l, lb)
+    assert np.array_equal(alg.bounds.u, ub)
     assert np.array_equal(alg.cs, np.arange(len(A)))
     assert alg.algorithmic_relaxation == 1.5
     assert alg.relaxation == 1.0
@@ -67,8 +67,8 @@ def test_SequentialWeightedAMSHyperslab_constructor_no_weights_sparse(
 
     assert isinstance(alg.A, LinearMapping)
     assert np.array_equal(alg.A.todense(), A.todense())
-    assert np.array_equal(alg.Bounds.l, lb)
-    assert np.array_equal(alg.Bounds.u, ub)
+    assert np.array_equal(alg.bounds.l, lb)
+    assert np.array_equal(alg.bounds.u, ub)
     assert np.array_equal(alg.cs, np.arange(A.shape[0]))
     assert alg.algorithmic_relaxation == 1.5
     assert alg.relaxation == 1.0
@@ -84,8 +84,8 @@ def test_SequentialWeightedAMSHyperslab_constructor_custom_weights(get_full_vari
 
     assert isinstance(alg.A, LinearMapping)
     assert np.array_equal(alg.A, A)
-    assert np.array_equal(alg.Bounds.l, lb)
-    assert np.array_equal(alg.Bounds.u, ub)
+    assert np.array_equal(alg.bounds.l, lb)
+    assert np.array_equal(alg.bounds.u, ub)
     assert np.array_equal(alg.cs, np.arange(len(A)))
     assert alg.algorithmic_relaxation == 1.5
     assert alg.relaxation == 1.0

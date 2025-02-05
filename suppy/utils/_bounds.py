@@ -1,13 +1,14 @@
+from typing import List
+
 import numpy as np
 import numpy.typing as npt
-from typing import List
 
 try:
     import cupy as cp
 
-    no_gpu = False
+    NO_GPU = False
 except ImportError:
-    no_gpu = True
+    NO_GPU = True
     cp = np
 
 

@@ -6,10 +6,10 @@ import numpy.typing as npt
 try:
     import cupy as cp
 
-    no_gpu = False
+    NO_GPU = False
 
 except ImportError:
-    no_gpu = True
+    NO_GPU = True
     cp = np
 
 from suppy.utils import LinearMapping
@@ -110,27 +110,27 @@ class SequentialART3plus(ART3plusAlgorithm):
             p_i = self.single_map(x, i)
             # should be precomputed
             if (
-                3 / 2 * self.Bounds.l[i] - 1 / 2 * self.Bounds.u[i] <= p_i < self.Bounds.l[i]
+                3 / 2 * self.bounds.l[i] - 1 / 2 * self.bounds.u[i] <= p_i < self.bounds.l[i]
             ):  # lowe bound reflection
                 self.A.update_step(
-                    x, 2 * self.inverse_row_norm[i] * (self.Bounds.l[i] - p_i), i
+                    x, 2 * self.inverse_row_norm[i] * (self.bounds.l[i] - p_i), i
                 )  # reflection
                 self._feasible = False
 
             elif (
-                self.Bounds.u[i] < p_i <= 3 / 2 * self.Bounds.u[i] - 1 / 2 * self.Bounds.l[i]
+                self.bounds.u[i] < p_i <= 3 / 2 * self.bounds.u[i] - 1 / 2 * self.bounds.l[i]
             ):  # upper bound reflection
                 self.A.update_step(
-                    x, 2 * self.inverse_row_norm[i] * (self.Bounds.u[i] - p_i), i
+                    x, 2 * self.inverse_row_norm[i] * (self.bounds.u[i] - p_i), i
                 )  # reflection
                 self._feasible = False
 
-            elif self.Bounds.u[i] - self.Bounds.l[i] < abs(
-                p_i - (self.Bounds.l[i] + self.Bounds.u[i]) / 2
+            elif self.bounds.u[i] - self.bounds.l[i] < abs(
+                p_i - (self.bounds.l[i] + self.bounds.u[i]) / 2
             ):
                 self.A.update_step(
                     x,
-                    self.inverse_row_norm[i] * (self.Bounds.l[i] + self.Bounds.u[i]) / 2 - p_i,
+                    self.inverse_row_norm[i] * (self.bounds.l[i] + self.bounds.u[i]) / 2 - p_i,
                     i,
                 )  # projection onto center of hyperslab
                 self._feasible = False
@@ -230,8 +230,8 @@ class SimultaneousART3plus(ART3plusAlgorithm):
         """
         p = self.map(x)
         p = p[self._not_met]
-        l_redux = self.Bounds.l[self._not_met]
-        u_redux = self.Bounds.u[self._not_met]
+        l_redux = self.bounds.l[self._not_met]
+        u_redux = self.bounds.u[self._not_met]
 
         # following calculations are performed on subarrays
         # assign different subsets
@@ -274,7 +274,7 @@ class SimultaneousART3plus(ART3plusAlgorithm):
 
     def proximity(self, x: npt.NDArray) -> float:
         p = self.map(x)
-        (res_l, res_u) = self.Bounds.residual(p)  # residuals are positive  if constraints are met
+        (res_l, res_u) = self.bounds.residual(p)  # residuals are positive  if constraints are met
         d_idx = res_u < 0
         c_idx = res_l < 0
         return (self.weights[d_idx] * res_u[d_idx] ** 2).sum() + (

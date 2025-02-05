@@ -1,3 +1,4 @@
+"""Normal superiorization algorithm."""
 from typing import List
 import numpy as np
 import numpy.typing as npt
@@ -111,7 +112,7 @@ class Superiorization(FeasibilityPerturbation):
             If True, store intermediate results (default is False).
         constr_tol : float, optional
             Tolerance for the constraint function value to determine stopping criteria, by default 1e-6.
-        proximity_measure : List, optional
+        proximity_measures : List, optional
             The proximity measures to calculate, by default None. Right now only the first in the list is used to check the feasibility.
         objective_tol : float, optional
             Tolernace for the objective function value to determine stopping criteria, by default 1e-6.
@@ -217,7 +218,6 @@ class Superiorization(FeasibilityPerturbation):
         -------
         None
         """
-        pass
 
     def _initial_storage(self, x, f, p):
         """

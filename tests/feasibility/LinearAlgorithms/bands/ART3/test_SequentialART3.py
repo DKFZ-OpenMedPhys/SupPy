@@ -30,8 +30,8 @@ def test_SequentialART3plus_constructor_full(get_ART3_variables_full):
     alg = SequentialART3plus(A, lb, ub)
     assert isinstance(alg.A, LinearMapping)
     assert np.array_equal(alg.A, A)
-    assert np.array_equal(alg.Bounds.l, lb)
-    assert np.array_equal(alg.Bounds.u, ub)
+    assert np.array_equal(alg.bounds.l, lb)
+    assert np.array_equal(alg.bounds.u, ub)
     assert np.array_equal(alg.cs, np.arange(len(A)))
     assert alg._feasible == True
 
@@ -43,8 +43,8 @@ def test_SequentialART3plus_constructor_sparse(get_ART3_variables_sparse):
 
     assert isinstance(alg.A, LinearMapping)
     assert np.array_equal(alg.A.todense(), A.todense())
-    assert np.array_equal(alg.Bounds.l, lb)
-    assert np.array_equal(alg.Bounds.u, ub)
+    assert np.array_equal(alg.bounds.l, lb)
+    assert np.array_equal(alg.bounds.u, ub)
     assert np.array_equal(alg.cs, np.arange(A.shape[0]))
     assert alg._feasible == True
 

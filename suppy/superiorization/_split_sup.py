@@ -1,5 +1,4 @@
 from typing import List
-import numpy as np
 import numpy.typing as npt
 from suppy.utils import ensure_float_array
 from suppy.perturbations import Perturbation
@@ -236,7 +235,6 @@ class SplitSuperiorization(FeasibilityPerturbation):
         -------
         None
         """
-        pass
 
     # def _initial_storage(self,x,f_input,f_target):
     #     """

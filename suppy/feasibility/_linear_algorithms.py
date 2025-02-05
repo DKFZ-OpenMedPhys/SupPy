@@ -1,4 +1,5 @@
-from abc import ABC, abstractmethod
+"""Base classes for linear feasibility problems."""
+from abc import ABC
 from typing import List
 import numpy as np
 import numpy.typing as npt
@@ -13,10 +14,10 @@ from suppy.projections._projections import Projection
 try:
     import cupy as cp
 
-    no_gpu = False
+    NO_GPU = False
 
 except ImportError:
-    no_gpu = True
+    NO_GPU = True
     cp = np
 
 
@@ -54,15 +55,16 @@ class Feasibility(Projection, ABC):
         super().__init__(relaxation, proximity_flag, _use_gpu)
         self.algorithmic_relaxation = algorithmic_relaxation
         self.all_x = None
+        self.proximities = None
 
     @ensure_float_array
     def solve(
         self,
         x: npt.NDArray,
         max_iter: int = 500,
-        storage: bool = False,
         constr_tol: float = 1e-6,
-        proximity_measure: List | None = None,
+        storage: bool = False,
+        proximity_measures: List | None = None,
     ) -> npt.NDArray:
         """
         Solves the optimization problem using an iterative approach.
@@ -77,7 +79,7 @@ class Feasibility(Projection, ABC):
             Flag indicating whether to store the intermediate solutions, by default False.
         constr_tol : float, optional
             The tolerance for the constraints, by default 1e-6.
-        proximity_measure : List, optional
+        proximity_measures : List, optional
             The proximity measures to calculate, by default None. Right now only the first in the list is used to check the feasibility.
 
         Returns
@@ -86,7 +88,7 @@ class Feasibility(Projection, ABC):
             The solution after the iterative process.
         """
         xp = cp if isinstance(x, cp.ndarray) else np
-        if proximity_measure is None:
+        if proximity_measures is None:
             proximity_measures = [("p_norm", 2)]
         else:
             # TODO: Check if the proximity measures are valid
@@ -265,9 +267,9 @@ class HyperplaneFeasibility(LinearFeasibility, ABC):
                 raise ValueError("Matrix A and vector b must have the same number of rows.")
         except TypeError:
             # create an array for b if it is a scalar
-            if self.A.flag == "numpy" or self.A.flag == "scipy_sparse":
+            if not self.A.gpu:
                 b = np.ones(A.shape[0]) * b
-            elif self.A.flag == "cupy_full" or self.A.flag == "cupy_sparse":
+            else:
                 b = cp.ones(A.shape[0]) * b
         self.b = b
 
@@ -337,9 +339,9 @@ class HalfspaceFeasibility(LinearFeasibility, ABC):
                 raise ValueError("Matrix A and vector b must have the same number of rows.")
         except TypeError:
             # create an array for b if it is a scalar
-            if self.A.flag == "numpy" or self.A.flag == "scipy_sparse":
+            if not self.A.gpu:
                 b = np.ones(A.shape[0]) * b
-            elif self.A.flag == "cupy_full" or self.A.flag == "cupy_sparse":
+            else:
                 b = cp.ones(A.shape[0]) * b
         self.b = b
 
@@ -386,7 +388,7 @@ class HyperslabFeasibility(LinearFeasibility, ABC):
 
     Attributes
     ----------
-    Bounds : Bounds
+    bounds : bounds
         Objective for handling the upper and lower bounds of the hyperslab.
     A : LinearMapping
         Matrix for linear system (stored in internal LinearMapping object).
@@ -410,8 +412,8 @@ class HyperslabFeasibility(LinearFeasibility, ABC):
         proximity_flag=True,
     ):
         super().__init__(A, algorithmic_relaxation, relaxation, proximity_flag)
-        self.Bounds = Bounds(lb, ub)
-        if self.A.shape[0] != len(self.Bounds.l):
+        self.bounds = Bounds(lb, ub)
+        if self.A.shape[0] != len(self.bounds.l):
             raise ValueError("Matrix A and bound vector must have the same number of rows.")
 
     def _proximity(self, x: npt.NDArray, proximity_measures: List) -> float:
@@ -419,7 +421,7 @@ class HyperslabFeasibility(LinearFeasibility, ABC):
         p = self.map(x)
 
         # residuals are positive if constraints are met
-        (res_l, res_u) = self.Bounds.residual(p)
+        (res_l, res_u) = self.bounds.residual(p)
         res_l[res_l > 0] = 0
         res_u[res_u > 0] = 0
         res = -res_l - res_u

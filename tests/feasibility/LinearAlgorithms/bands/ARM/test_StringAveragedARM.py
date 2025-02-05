@@ -30,8 +30,8 @@ def test_StringAveragedARM_constructor_full(get_ARM_variables_full):
     alg = StringAveragedARM(A, lb, ub, strings=[[0, 1]])  # sequential like
     assert isinstance(alg.A, LinearMapping)
     assert np.array_equal(alg.A, A)
-    assert np.array_equal(alg.Bounds.l, lb)
-    assert np.array_equal(alg.Bounds.u, ub)
+    assert np.array_equal(alg.bounds.l, lb)
+    assert np.array_equal(alg.bounds.u, ub)
     assert alg.strings == [[0, 1]]
     assert np.array_equal(alg.weights, np.ones(1))
     assert alg.relaxation == 1.0
@@ -51,8 +51,8 @@ def test_StringAveragedARM_constructor_sparse(get_ARM_variables_sparse):
     alg = StringAveragedARM(A, lb, ub, strings=[[0, 1]])  # sequential like
     assert isinstance(alg.A, LinearMapping)
     assert np.array_equal(alg.A.todense(), A.todense())
-    assert np.array_equal(alg.Bounds.l, lb)
-    assert np.array_equal(alg.Bounds.u, ub)
+    assert np.array_equal(alg.bounds.l, lb)
+    assert np.array_equal(alg.bounds.u, ub)
     assert alg.strings == [[0, 1]]
     assert np.array_equal(alg.weights, np.ones(1))
     assert alg.relaxation == 1.0

@@ -1,14 +1,15 @@
+"""Base classes for all projection objects."""
 from abc import ABC, abstractmethod
-from typing import List, Callable
+from typing import List
 import numpy as np
 import numpy.typing as npt
 
 try:
     import cupy as cp
 
-    no_gpu = False
+    NO_GPU = False
 except ImportError:
-    no_gpu = True
+    NO_GPU = True
     cp = np
 
 
@@ -73,8 +74,8 @@ class Projection(ABC):
         """
         if self.relaxation == 1:
             return self._project(x)
-        else:
-            return x.copy() * (1 - self.relaxation) + self.relaxation * (self._project(x))
+
+        return x.copy() * (1 - self.relaxation) + self.relaxation * (self._project(x))
 
     @abstractmethod
     def _project(self, x: npt.NDArray) -> npt.NDArray:
@@ -97,8 +98,8 @@ class Projection(ABC):
         xp = cp if isinstance(x, cp.ndarray) else np
         if self.proximity_flag:
             return xp.array(self._proximity(x, proximity_measures))
-        else:
-            return xp.zeros(len(proximity_measures))
+
+        return xp.zeros(len(proximity_measures))
 
     @abstractmethod
     def _proximity(self, x: npt.NDArray, proximity_measures: List) -> float:

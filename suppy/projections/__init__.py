@@ -1,3 +1,4 @@
+"""Module for simple projection objects."""
 from ._basic_projections import (
     BoxProjection,
     WeightedBoxProjection,
@@ -12,9 +13,8 @@ from ._projection_methods import (
     SimultaneousProjection,
     BlockIterativeProjection,
     StringAveragedProjection,
-    SimultaneousMultiBallProjection,
-    SequentialMultiBallProjection,
 )
+
 from ._subgradient_projections import SubgradientProjection, EUDProjection
 
 __all__ = [
@@ -29,8 +29,6 @@ __all__ = [
     "SimultaneousProjection",
     "BlockIterativeProjection",
     "StringAveragedProjection",
-    "SimultaneousMultiBallProjection",
-    "SequentialMultiBallProjection",
     "SubgradientProjection",
     "EUDProjection",
 ]

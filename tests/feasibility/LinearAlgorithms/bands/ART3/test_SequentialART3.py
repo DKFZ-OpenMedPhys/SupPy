@@ -30,10 +30,9 @@ def test_SequentialART3plus_constructor_full(get_ART3_variables_full):
     alg = SequentialART3plus(A, lb, ub)
     assert isinstance(alg.A, LinearMapping)
     assert np.array_equal(alg.A, A)
-    assert np.array_equal(alg.Bounds.l, lb)
-    assert np.array_equal(alg.Bounds.u, ub)
+    assert np.array_equal(alg.bounds.l, lb)
+    assert np.array_equal(alg.bounds.u, ub)
     assert np.array_equal(alg.cs, np.arange(len(A)))
-    assert alg._feasible == True
 
 
 def test_SequentialART3plus_constructor_sparse(get_ART3_variables_sparse):
@@ -43,10 +42,9 @@ def test_SequentialART3plus_constructor_sparse(get_ART3_variables_sparse):
 
     assert isinstance(alg.A, LinearMapping)
     assert np.array_equal(alg.A.todense(), A.todense())
-    assert np.array_equal(alg.Bounds.l, lb)
-    assert np.array_equal(alg.Bounds.u, ub)
+    assert np.array_equal(alg.bounds.l, lb)
+    assert np.array_equal(alg.bounds.u, ub)
     assert np.array_equal(alg.cs, np.arange(A.shape[0]))
-    assert alg._feasible == True
 
 
 def test_SequentialART3plus_step_full(get_ART3_variables_full):
@@ -157,8 +155,14 @@ def test_SequentialART3plus_step_sparse(get_ART3_variables_sparse):
     assert np.array_equal(x_n, np.array([0, 0.5]))
 
 
-if __name__ == "__main__":
-    A = np.array([[1, 0], [0, 1]])
-    lb = np.array([-1, -1])
-    ub = np.array([1, 1])
-    test_SequentialART3plus_step_full((A, lb, ub))
+def test_SequentialART3plus_solve(get_ART3_variables_full):
+    _, lb, ub = get_ART3_variables_full
+    A = np.array([[1, 0], [-1, 1]])
+    alg = SequentialART3plus(A, lb, ub)
+    x_0 = np.array([0, 0])
+    x = alg.solve(x_0)
+    assert np.array_equal(x, np.array([0, 0]))
+    x_1 = np.array([10.0, 20.0])
+    x = alg.solve(x_1, storage=True)
+    print(x)
+    assert np.all(abs(x - np.array([0.75, 1.25])) <= 1e-10)

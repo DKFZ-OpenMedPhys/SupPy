@@ -1,8 +1,17 @@
+"""Base class for perturbations applied to feasibility seeking algorithms."""
 from abc import ABC, abstractmethod
-from typing import Callable, List, Tuple
-from suppy.utils import FuncWrapper
+from typing import Callable, List
 import numpy as np
 import numpy.typing as npt
+from suppy.utils import FuncWrapper
+
+try:
+    import cupy as cp
+
+    NO_GPU = False
+except ImportError:
+    NO_GPU = True
+    cp = np
 
 
 class Perturbation(ABC):
@@ -12,21 +21,20 @@ class Perturbation(ABC):
     """
 
     @abstractmethod
-    def perturbation_step(self, x: npt.ArrayLike) -> npt.ArrayLike:
+    def perturbation_step(self, x: npt.NDArray) -> npt.NDArray:
         """
         Perform a perturbation step.
 
         Parameters
         ----------
-        x : npt.ArrayLike
+        x : npt.NDArray
             The input array to be perturbed.
 
         Returns
         -------
-        npt.ArrayLike
+        npt.NDArray
             The perturbed array.
         """
-        pass
 
 
 class ObjectivePerturbation(Perturbation, ABC):
@@ -58,18 +66,18 @@ class ObjectivePerturbation(Perturbation, ABC):
         self.n_red = n_red
         self._k = 0  # keeps track of the number of performed perturbations
 
-    def perturbation_step(self, x: npt.ArrayLike) -> npt.ArrayLike:
+    def perturbation_step(self, x: npt.NDArray) -> npt.NDArray:
         """
         Perform n_red perturbation steps on the input array.
 
         Parameters
         ----------
-        x : npt.ArrayLike
+        x : npt.NDArray
             The input array to be perturbed.
 
         Returns
         -------
-        npt.ArrayLike
+        npt.NDArray
             The perturbed array after applying the reduction steps.
         """
 
@@ -81,7 +89,7 @@ class ObjectivePerturbation(Perturbation, ABC):
         return x
 
     @abstractmethod
-    def _function_reduction_step(self, x: npt.ArrayLike) -> npt.ArrayLike:
+    def _function_reduction_step(self, x: npt.NDArray) -> npt.NDArray:
         """
         Abstract method to perform that should implement the individual
         function reduction steps on the input array.
@@ -89,15 +97,14 @@ class ObjectivePerturbation(Perturbation, ABC):
 
         Parameters
         ----------
-        x : npt.ArrayLike
+        x : npt.NDArray
             Input array on which the reduction step is to be performed.
 
         Returns
         -------
-        npt.ArrayLike
+        npt.NDArray
             The array after the reduction step has been applied.
         """
-        pass
 
     def pre_step(self):
         """
@@ -107,7 +114,6 @@ class ObjectivePerturbation(Perturbation, ABC):
         This method is intended to be overridden by subclasses to implement
         specific pre-step logic. By default, it does nothing.
         """
-        pass
 
 
 class GradientPerturbation(ObjectivePerturbation, ABC):
@@ -183,29 +189,31 @@ class PowerSeriesGradientPerturbation(GradientPerturbation):
         self._l = -1
         self.n_restart = np.inf if n_restart == -1 else n_restart
 
-    def _function_reduction_step(self, x: npt.ArrayLike) -> npt.ArrayLike:
+    def _function_reduction_step(self, x: npt.NDArray) -> npt.NDArray:
         """
         Perform a function reduction step using gradient descent.
 
         Parameters
         ----------
-        x : npt.ArrayLike
+        x : npt.NDArray
             The current point in the optimization process.
 
         Returns
         -------
-        npt.ArrayLike
+        npt.NDArray
             The updated point after performing the reduction step.
         """
+        xp = cp if isinstance(x, cp.ndarray) else np
         grad_eval = self.grad(x)
         func_eval = self.func(x)
         loop = True
         while loop:
             self._l += 1
-            x_ln = x - self.step_size**self._l * grad_eval / (np.linalg.norm(grad_eval))
+            x_ln = x - self.step_size**self._l * grad_eval / (xp.linalg.norm(grad_eval))
             y_ln = self.func(x_ln)
             if y_ln <= func_eval:
                 return x_ln
+        return x_ln
 
     def pre_step(self):
         """
@@ -215,7 +223,7 @@ class PowerSeriesGradientPerturbation(GradientPerturbation):
         -------
         None
         """
-        if not (self._k > 0):
+        if self._k <= 0:
             return
         # possibly restart the power series
         if self._k % self.n_restart == 0:

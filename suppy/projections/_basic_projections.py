@@ -1,9 +1,9 @@
+"""Simple projection objects."""
 import math
+from typing import List
 import numpy as np
 import numpy.typing as npt
-
 import matplotlib.pyplot as plt
-from suppy.utils import Bounds
 from matplotlib import patches
 
 from suppy.projections._projections import BasicProjection
@@ -11,9 +11,9 @@ from suppy.projections._projections import BasicProjection
 try:
     import cupy as cp
 
-    no_gpu = False
+    NO_GPU = False
 except ImportError:
-    no_gpu = True
+    NO_GPU = True
     cp = np
 
 # from suppy.utils.decorators import ensure_float_array
@@ -29,37 +29,38 @@ class BoxProjection(BasicProjection):
 
     Parameters
     ----------
-    lb : npt.ArrayLike
+    lb : npt.NDArray
         Lower bounds of the box.
-    ub : npt.ArrayLike
+    ub : npt.NDArray
         Upper bounds of the box.
-    idx : npt.ArrayLike or None
+    idx : npt.NDArray or None
         Subset of the input vector to apply the projection on.
     relaxation : float, optional
         Relaxation parameter for the projection, by default 1.
     proximity_flag : bool
-        Flag to indicate whether to take this object into account when calculating proximity, by default True.
+        Flag to indicate whether to take this object into account when calculating proximity,
+        by default True.
 
     Attributes
     ----------
-    lb : npt.ArrayLike
+    lb : npt.NDArray
         Lower bounds of the box.
-    ub : npt.ArrayLike
+    ub : npt.NDArray
         Upper bounds of the box.
     relaxation : float
         Relaxation parameter for the projection.
     proximity_flag : bool
         Flag to indicate whether to take this object into account when calculating proximity.
-    idx : npt.ArrayLike
+    idx : npt.NDArray
         Subset of the input vector to apply the projection on.
     """
 
     def __init__(
         self,
-        lb: npt.ArrayLike,
-        ub: npt.ArrayLike,
+        lb: npt.NDArray,
+        ub: npt.NDArray,
         relaxation: float = 1,
-        idx: npt.ArrayLike | None = None,
+        idx: npt.NDArray | None = None,
         proximity_flag=True,
         use_gpu=False,
     ):
@@ -68,19 +69,19 @@ class BoxProjection(BasicProjection):
         self.lb = lb
         self.ub = ub
 
-    def _project(self, x: npt.ArrayLike) -> npt.ArrayLike:
+    def _project(self, x: npt.NDArray) -> npt.NDArray:
         """
         Projects the input array `x` onto the bounds defined by `self.lb`
         and `self.ub`.
 
         Parameters
         ----------
-        x : npt.ArrayLike
+        x : npt.NDArray
             Input array to be projected. Can be a NumPy array or a CuPy array.
 
         Returns
         -------
-        npt.ArrayLike
+        npt.NDArray
             The projected array with values clipped to the specified bounds.
 
         Notes
@@ -91,22 +92,20 @@ class BoxProjection(BasicProjection):
         x[self.idx] = xp.maximum(self.lb, xp.minimum(self.ub, x[self.idx]))
         return x
 
-    def _proximity(self, x: npt.ArrayLike) -> float:
-        """
-        Calculate the proximity measure for the given array.
-
-        Parameters
-        ----------
-        x : npt.ArrayLike
-            Input array for which the proximity is to be calculated.
-
-        Returns
-        -------
-        float
-            The calculated proximity measure.
-        """
-        # probably should have some option to choose the distance
-        return 1 / len(x) * ((x - self._project(x.copy())) ** 2).sum()
+    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> float:
+        res = abs(x[self.idx] - self._project(x.copy())[self.idx])
+        measures = []
+        for measure in proximity_measures:
+            if isinstance(measure, tuple):
+                if measure[0] == "p_norm":
+                    measures.append(1 / len(res) * (res ** measure[1]).sum())
+                else:
+                    raise ValueError("Invalid proximity measure")
+            elif isinstance(measure, str) and measure == "max_norm":
+                measures.append(res.max())
+            else:
+                raise ValueError("Invalid proximity measure")
+        return measures
 
     def visualize(self, ax: plt.Axes | None = None, color=None):
         """
@@ -149,7 +148,7 @@ class BoxProjection(BasicProjection):
 
         Returns
         -------
-        np.ndarray
+        npt.NDArray
             A 2D array of shape (2, 400) containing the concatenated coordinates of the four edges.
 
         Raises
@@ -174,15 +173,15 @@ class WeightedBoxProjection(BasicProjection):
 
     Parameters
     ----------
-    lb : npt.ArrayLike
+    lb : npt.NDArray
         Lower bounds of the box.
-    ub : npt.ArrayLike
+    ub : npt.NDArray
         Upper bounds of the box.
-    weights : npt.ArrayLike
+    weights : npt.NDArray
         Weights for the projection.
     relaxation : float, optional
         Relaxation parameter, by default 1.
-    idx : npt.ArrayLike or None
+    idx : npt.NDArray or None
         Subset of the input vector to apply the projection on.
     proximity_flag : bool, optional
         Flag to indicate if proximity should be calculated, by default True.
@@ -191,25 +190,25 @@ class WeightedBoxProjection(BasicProjection):
 
     Attributes
     ----------
-    lb : npt.ArrayLike
+    lb : npt.NDArray
         Lower bounds of the box.
-    ub : npt.ArrayLike
+    ub : npt.NDArray
         Upper bounds of the box.
     relaxation : float
         Relaxation parameter for the projection.
     proximity_flag : bool
         Flag to indicate whether to take this object into account when calculating proximity.
-    idx : npt.ArrayLike
+    idx : npt.NDArray
         Subset of the input vector to apply the projection on.
     """
 
     def __init__(
         self,
-        lb: npt.ArrayLike,
-        ub: npt.ArrayLike,
-        weights: npt.ArrayLike,
+        lb: npt.NDArray,
+        ub: npt.NDArray,
+        weights: npt.NDArray,
         relaxation: float = 1,
-        idx: npt.ArrayLike | None = None,
+        idx: npt.NDArray | None = None,
         proximity_flag=True,
         use_gpu=False,
     ):
@@ -219,18 +218,18 @@ class WeightedBoxProjection(BasicProjection):
         self.ub = ub
         self.weights = weights / weights.sum()
 
-    def _project(self, x: npt.ArrayLike) -> npt.ArrayLike:
+    def _project(self, x: npt.NDArray) -> npt.NDArray:
         """
         Projects the input array `x`.
 
         Parameters
         ----------
-        x : npt.ArrayLike
+        x : npt.NDArray
             The input array to be projected.
 
         Returns
         -------
-        npt.ArrayLike
+        npt.NDArray
             The projected array.
 
         Notes
@@ -243,19 +242,19 @@ class WeightedBoxProjection(BasicProjection):
         )
         return x
 
-    def _full_project(self, x: npt.ArrayLike) -> npt.ArrayLike:
+    def _full_project(self, x: npt.NDArray) -> npt.NDArray:
         """
         Projects the elements of the input array `x` within the specified
         bounds.
 
         Parameters
         ----------
-        x : npt.ArrayLike
+        x : npt.NDArray
             Input array to be projected.
 
         Returns
         -------
-        npt.ArrayLike
+        npt.NDArray
             The projected array with elements constrained within the bounds.
         """
         xp = cp if isinstance(x, cp.ndarray) else np
@@ -263,22 +262,20 @@ class WeightedBoxProjection(BasicProjection):
 
         return x
 
-    def _proximity(self, x: npt.ArrayLike) -> float:
-        """
-        Calculate the proximity of point `x` to set.
-
-        Parameters
-        ----------
-        x : npt.ArrayLike
-            Input array for which the proximity measure is to be calculated.
-
-        Returns
-        -------
-        float
-            The proximity measure of the input array `x`.
-        """
-        # probably should have some option to choose the distance
-        return (self.weights * ((x[self.idx] - self._full_project(x.copy())[self.idx]) ** 2)).sum()
+    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> float:
+        res = abs(x[self.idx] - self._project(x.copy())[self.idx])
+        measures = []
+        for measure in proximity_measures:
+            if isinstance(measure, tuple):
+                if measure[0] == "p_norm":
+                    measures.append(self.weights @ (res ** measure[1]))
+                else:
+                    raise ValueError("Invalid proximity measure")
+            elif isinstance(measure, str) and measure == "max_norm":
+                measures.append(res.max())
+            else:
+                raise ValueError("Invalid proximity measure")
+        return measures
 
     def visualize(self, ax: plt.Axes | None = None, color=None):
         """
@@ -345,13 +342,13 @@ class HalfspaceProjection(BasicProjection):
 
     Parameters
     ----------
-    a : npt.ArrayLike
+    a : npt.NDArray
         The normal vector defining the halfspace.
     b : float
         The offset value defining the halfspace.
     relaxation : float, optional
         The relaxation parameter, by default 1.
-    idx : npt.ArrayLike or None
+    idx : npt.NDArray or None
         Subset of the input vector to apply the projection on.
     proximity_flag : bool, optional
         Flag to indicate whether to take this object into account when calculating proximity, by default True.
@@ -360,9 +357,9 @@ class HalfspaceProjection(BasicProjection):
 
     Attributes
     ----------
-    a : npt.ArrayLike
+    a : npt.NDArray
         The normal vector defining the halfspace.
-    a_norm : npt.ArrayLike
+    a_norm : npt.NDArray
         The normalized normal vector.
     b : float
         The offset value defining the halfspace.
@@ -370,16 +367,16 @@ class HalfspaceProjection(BasicProjection):
         The relaxation parameter for the projection.
     proximity_flag : bool
         Flag to indicate whether to take this object into account when calculating proximity.
-    idx : npt.ArrayLike
+    idx : npt.NDArray
         Subset of the input vector to apply the projection on.
     """
 
     def __init__(
         self,
-        a: npt.ArrayLike,
+        a: npt.NDArray,
         b: float,
         relaxation: float = 1,
-        idx: npt.ArrayLike | None = None,
+        idx: npt.NDArray | None = None,
         proximity_flag=True,
         use_gpu=False,
     ):
@@ -392,18 +389,18 @@ class HalfspaceProjection(BasicProjection):
     def _linear_map(self, x):
         return self.a @ x
 
-    def _project(self, x: npt.ArrayLike) -> npt.ArrayLike:
+    def _project(self, x: npt.NDArray) -> npt.NDArray:
         """
         Projects the input array `x`.
 
         Parameters
         ----------
-        x : npt.ArrayLike
+        x : npt.NDArray
             The input array to be projected.
 
         Returns
         -------
-        npt.ArrayLike
+        npt.NDArray
             The projected array.
 
         Notes
@@ -419,13 +416,13 @@ class HalfspaceProjection(BasicProjection):
 
         return x
 
-    def get_xy(self, x: npt.ArrayLike | None = None):
+    def get_xy(self, x: npt.NDArray | None = None):
         """
         Generate x and y coordinates for visualization of 2D halfspaces.
 
         Parameters
         ----------
-        x : npt.ArrayLike or None, optional
+        x : npt.NDArray or None, optional
             The x-coordinates for which to compute the corresponding y-coordinates.
             If None, a default range of x values from -10 to 10 is used.
 
@@ -455,8 +452,8 @@ class HalfspaceProjection(BasicProjection):
     def visualize(
         self,
         ax: plt.Axes | None = None,
-        x: npt.ArrayLike | None = None,
-        y_fill: npt.ArrayLike | None = None,
+        x: npt.NDArray | None = None,
+        y_fill: npt.NDArray | None = None,
         color=None,
     ):
         """
@@ -520,24 +517,24 @@ class BandProjection(BasicProjection):
 
     Parameters
     ----------
-    a : npt.ArrayLike
+    a : npt.NDArray
         The normal vector defining the halfspace.
     lb : float
         The lower bound of the band.
     ub : float
         The upper bound of the band.
-    idx : npt.ArrayLike or None
+    idx : npt.NDArray or None
         Subset of the input vector to apply the projection on.
     relaxation : float, optional
         The relaxation parameter, by default 1.
-    idx : npt.ArrayLike or None
+    idx : npt.NDArray or None
         Subset of the input vector to apply the projection on.
 
     Attributes
     ----------
-    a : npt.ArrayLike
+    a : npt.NDArray
         The normal vector defining the halfspace.
-    a_norm : npt.ArrayLike
+    a_norm : npt.NDArray
         The normalized normal vector.
     lb : float
         The lower bound of the band.
@@ -547,17 +544,17 @@ class BandProjection(BasicProjection):
         The relaxation parameter for the projection.
     proximity_flag : bool
         Flag to indicate whether to take this object into account when calculating proximity.
-    idx : npt.ArrayLike
+    idx : npt.NDArray
         Subset of the input vector to apply the projection on.
     """
 
     def __init__(
         self,
-        a: npt.ArrayLike,
+        a: npt.NDArray,
         lb: float,
         ub: float,
         relaxation: float = 1,
-        idx: npt.ArrayLike | None = None,
+        idx: npt.NDArray | None = None,
         proximity_flag=True,
         use_gpu=False,
     ):
@@ -568,18 +565,18 @@ class BandProjection(BasicProjection):
         self.lb = lb
         self.ub = ub
 
-    def _project(self, x: npt.ArrayLike) -> npt.ArrayLike:
+    def _project(self, x: npt.NDArray) -> npt.NDArray:
         """
         Projects the input array `x`.
 
         Parameters
         ----------
-        x : npt.ArrayLike
+        x : npt.NDArray
             The input array to be projected.
 
         Returns
         -------
-        npt.ArrayLike
+        npt.NDArray
             The projected array.
 
         Notes
@@ -595,14 +592,14 @@ class BandProjection(BasicProjection):
 
         return x
 
-    def get_xy(self, x: npt.ArrayLike | None = None):
+    def get_xy(self, x: npt.NDArray | None = None):
         """
         Calculate the x and y coordinates for the lower and upper bounds of
         a 2D band.
 
         Parameters
         ----------
-        x : npt.ArrayLike or None, optional
+        x : npt.NDArray or None, optional
             The x-coordinates at which to evaluate the bounds. If None, a default range
             from -10 to 10 with 100 points is used.
 
@@ -632,7 +629,7 @@ class BandProjection(BasicProjection):
             y_ub = (self.ub - self.a[0] * x) / self.a[1]
         return np.array([x, y_lb]), np.array([x, y_ub])
 
-    def visualize(self, ax: plt.Axes | None = None, x: npt.ArrayLike | None = None, color=None):
+    def visualize(self, ax: plt.Axes | None = None, x: npt.NDArray | None = None, color=None):
         """
         Visualize the band if it is 2D on a given matplotlib Axes.
 
@@ -680,13 +677,13 @@ class BallProjection(BasicProjection):
 
     Parameters
     ----------
-    center : npt.ArrayLike
+    center : npt.NDArray
         The center of the ball.
     radius : float
         The radius of the ball.
     relaxation : float, optional
         The relaxation parameter (default is 1).
-    idx : npt.ArrayLike or None
+    idx : npt.NDArray or None
         Subset of the input vector to apply the projection on.
     proximity_flag : bool, optional
         Flag to indicate whether to take this object into account when calculating proximity, by default True.
@@ -695,7 +692,7 @@ class BallProjection(BasicProjection):
 
     Attributes
     ----------
-    center : npt.ArrayLike
+    center : npt.NDArray
         The center of the ball.
     radius : float
         The radius of the ball.
@@ -703,16 +700,16 @@ class BallProjection(BasicProjection):
         The relaxation parameter for the projection.
     proximity_flag : bool
         Flag to indicate whether to take this object into account when calculating proximity.
-    idx : npt.ArrayLike
+    idx : npt.NDArray
         Subset of the input vector to apply the projection on.
     """
 
     def __init__(
         self,
-        center: npt.ArrayLike,
+        center: npt.NDArray,
         radius: float,
         relaxation: float = 1,
-        idx: npt.ArrayLike | None = None,
+        idx: npt.NDArray | None = None,
         proximity_flag=True,
         use_gpu=False,
     ):
@@ -721,24 +718,24 @@ class BallProjection(BasicProjection):
         self.center = center
         self.radius = radius
 
-    def _project(self, x: npt.ArrayLike) -> npt.ArrayLike:
+    def _project(self, x: npt.NDArray) -> npt.NDArray:
         """
         Projects the input array `x` onto the surface of the ball.
 
         Parameters
         ----------
-        x : npt.ArrayLike
+        x : npt.NDArray
             The input array to be projected.
 
         Returns
         -------
-        npt.ArrayLike
+        npt.NDArray
             The projected array.
         """
-
-        if np.linalg.norm(x[self.idx] - self.center) > self.radius:
+        xp = cp if isinstance(x, cp.ndarray) else np
+        if xp.linalg.norm(x[self.idx] - self.center) > self.radius:
             x[self.idx] -= (x[self.idx] - self.center) * (
-                1 - self.radius / np.linalg.norm(x[self.idx] - self.center)
+                1 - self.radius / xp.linalg.norm(x[self.idx] - self.center)
             )
 
         return x
@@ -810,7 +807,7 @@ class MaxDVHProjection(BasicProjection):
         The maximum dose value.
     max_percentage : float
         The maximum percentage of elements allowed to exceed d_max.
-    idx : npt.ArrayLike or None
+    idx : npt.NDArray or None
         Subset of the input vector to apply the projection on.
 
     Attributes
@@ -825,7 +822,7 @@ class MaxDVHProjection(BasicProjection):
         self,
         d_max: float,
         max_percentage: float,
-        idx: npt.ArrayLike | None = None,
+        idx: npt.NDArray | None = None,
         proximity_flag=True,
         use_gpu=False,
     ):
@@ -837,34 +834,31 @@ class MaxDVHProjection(BasicProjection):
 
         if isinstance(self.idx, slice):
             self._idx_indices = None
-
+        elif self.idx.dtype == bool:
+            raise ValueError("Boolean indexing is not supported for this projection.")
         else:
-            if cp:
-                xp = cp if self._use_gpu else np
-            else:
-                xp = np
-            self._idx_indices = xp.where(self.idx)[0]
+            self._idx_indices = self.idx
 
-    def _project(self, x: npt.ArrayLike) -> npt.ArrayLike:
+    def _project(self, x: npt.NDArray) -> npt.NDArray:
         """
         Projects the input array `x` onto the DVH constraint.
 
         Parameters
         ----------
-        x : npt.ArrayLike
+        x : npt.NDArray
             The input array to be projected.
 
         Returns
         -------
-        npt.ArrayLike
+        npt.NDArray
             The projected array.
         """
         if isinstance(self.idx, slice):
             return self._project_all(x)
-        else:
-            return self._project_subset(x)
 
-    def _project_all(self, x: npt.ArrayLike) -> npt.ArrayLike:
+        return self._project_subset(x)
+
+    def _project_all(self, x: npt.NDArray) -> npt.NDArray:
         n = len(x)
         am = math.floor(self.max_percentage * n)
 
@@ -876,9 +870,9 @@ class MaxDVHProjection(BasicProjection):
             x[x.argsort()[n - l : n - am]] = self.d_max
         return x
 
-    def _project_subset(self, x: npt.ArrayLike) -> npt.ArrayLike:
+    def _project_subset(self, x: npt.NDArray) -> npt.NDArray:
 
-        n = self.idx.sum()
+        n = self.idx.sum() if self.idx.dtype == bool else len(self.idx)
 
         am = math.floor(self.max_percentage * n)
 
@@ -891,18 +885,18 @@ class MaxDVHProjection(BasicProjection):
 
         return x
 
-    # def _project(self, x: npt.ArrayLike) -> npt.ArrayLike:
+    # def _project(self, x: npt.NDArray) -> npt.NDArray:
     #     """
     #     Projects the input array `x` onto the DVH constraint.
 
     #     Parameters
     #     ----------
-    #     x : npt.ArrayLike
+    #     x : npt.NDArray
     #         The input array to be projected.
 
     #     Returns
     #     -------
-    #     npt.ArrayLike
+    #     npt.NDArray
     #         The projected array.
 
     #     Notes
@@ -925,14 +919,14 @@ class MaxDVHProjection(BasicProjection):
 
     #     return x
 
-    def _proximity(self, x: npt.ArrayLike) -> float:
+    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> float:
         """
         Calculate the proximity of the given array to a specified maximum
         percentage.
 
         Parameters
         ----------
-        x : npt.ArrayLike
+        x : npt.NDArray
             Input array to be evaluated.
 
         Returns
@@ -940,8 +934,11 @@ class MaxDVHProjection(BasicProjection):
         float
             The proximity value as a percentage.
         """
-        n = len(x) if isinstance(self.idx, slice) else self.idx.sum()
-        return abs((1 / n * (x[self.idx] > self.d_max).sum()) - self.max_percentage) * 100
+        # TODO: Find appropriate proximity measure
+        raise NotImplementedError
+
+        # n = len(x) if isinstance(self.idx, slice) else self.idx.sum()
+        # return abs((1 / n * (x[self.idx] > self.d_max).sum()) - self.max_percentage) * 100
 
 
 class MinDVHProjection(BasicProjection):
@@ -951,7 +948,7 @@ class MinDVHProjection(BasicProjection):
         self,
         d_min: float,
         min_percentage: float,
-        idx: npt.ArrayLike | None = None,
+        idx: npt.NDArray | None = None,
         proximity_flag=True,
         use_gpu=False,
     ):
@@ -962,34 +959,31 @@ class MinDVHProjection(BasicProjection):
         self.d_min = d_min
         if isinstance(self.idx, slice):
             self._idx_indices = None
-
+        elif self.idx.dtype == bool:
+            raise ValueError("Boolean indexing is not supported for this projection.")
         else:
-            if cp:
-                xp = cp if self._use_gpu else np
-            else:
-                xp = np
-            self._idx_indices = xp.where(self.idx)[0]
+            self._idx_indices = self.idx
 
-    def _project(self, x: npt.ArrayLike) -> npt.ArrayLike:
+    def _project(self, x: npt.NDArray) -> npt.NDArray:
         """
         Projects the input array `x` onto the DVH constraint.
 
         Parameters
         ----------
-        x : npt.ArrayLike
+        x : npt.NDArray
             The input array to be projected.
 
         Returns
         -------
-        npt.ArrayLike
+        npt.NDArray
             The projected array.
         """
         if isinstance(self.idx, slice):
             return self._project_all(x)
-        else:
-            return self._project_subset(x)
 
-    def _project_all(self, x: npt.ArrayLike) -> npt.ArrayLike:
+        return self._project_subset(x)
+
+    def _project_all(self, x: npt.NDArray) -> npt.NDArray:
         n = len(x)
         am = math.ceil(self.min_percentage * n)
 
@@ -1001,9 +995,9 @@ class MinDVHProjection(BasicProjection):
             x[x.argsort()[n - am : n - l]] = self.d_min
         return x
 
-    def _project_subset(self, x: npt.ArrayLike) -> npt.ArrayLike:
+    def _project_subset(self, x: npt.NDArray) -> npt.NDArray:
 
-        n = self.idx.sum()
+        n = self.idx.sum() if self.idx.dtype == bool else len(self.idx)
 
         am = math.ceil(self.min_percentage * n)
 
@@ -1016,14 +1010,14 @@ class MinDVHProjection(BasicProjection):
 
         return x
 
-    def _proximity(self, x: npt.ArrayLike) -> float:
+    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> float:
         """
         Calculate the proximity of the given array to a specified maximum
         percentage.
 
         Parameters
         ----------
-        x : npt.ArrayLike
+        x : npt.NDArray
             Input array to be evaluated.
 
         Returns
@@ -1031,21 +1025,5 @@ class MinDVHProjection(BasicProjection):
         float
             The proximity value as a percentage.
         """
-        n = len(x) if isinstance(self.idx, slice) else self.idx.sum()
-        return abs((1 / n * (x[self.idx] < self.d_min).sum()) - self.min_percentage) * 100
-
-    # def _project_argpartition(self, x: npt.ArrayLike) -> npt.ArrayLike:
-    # print(WARNING: This function is not working properly!)
-    #         # percentage of elements that should receive a dose lower than d_max
-    # n = self.idx.sum()
-    # am = math.floor(self.max_percentage * n)
-
-    # # number of elements in structure with dose greater than d_max
-    # l = (x[self.idx] > self.d_max).sum()
-
-    # z = l - am  # number of elements that need to be reduced
-
-    # if z > 0:
-    #     x[x.argpartition(-z)[-z:]] = self.d_max
-
-    # return x
+        # TODO: Find appropriate proximity measure
+        raise NotImplementedError

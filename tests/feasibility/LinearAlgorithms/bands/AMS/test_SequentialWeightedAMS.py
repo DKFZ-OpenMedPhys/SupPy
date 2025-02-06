@@ -45,8 +45,8 @@ def test_SequentialWeightedAMSHyperslab_constructor_no_weights_full(
 
     alg = SequentialWeightedAMSHyperslab(A, lb, ub, algorithmic_relaxation=1.5)
     assert np.array_equal(alg.A, A)
-    assert np.array_equal(alg.Bounds.l, lb)
-    assert np.array_equal(alg.Bounds.u, ub)
+    assert np.array_equal(alg.bounds.l, lb)
+    assert np.array_equal(alg.bounds.u, ub)
     assert np.array_equal(alg.cs, np.arange(len(A)))
     assert alg.algorithmic_relaxation == 1.5
     assert alg.relaxation == 1.0
@@ -67,8 +67,8 @@ def test_SequentialWeightedAMSHyperslab_constructor_no_weights_sparse(
 
     assert isinstance(alg.A, LinearMapping)
     assert np.array_equal(alg.A.todense(), A.todense())
-    assert np.array_equal(alg.Bounds.l, lb)
-    assert np.array_equal(alg.Bounds.u, ub)
+    assert np.array_equal(alg.bounds.l, lb)
+    assert np.array_equal(alg.bounds.u, ub)
     assert np.array_equal(alg.cs, np.arange(A.shape[0]))
     assert alg.algorithmic_relaxation == 1.5
     assert alg.relaxation == 1.0
@@ -84,8 +84,8 @@ def test_SequentialWeightedAMSHyperslab_constructor_custom_weights(get_full_vari
 
     assert isinstance(alg.A, LinearMapping)
     assert np.array_equal(alg.A, A)
-    assert np.array_equal(alg.Bounds.l, lb)
-    assert np.array_equal(alg.Bounds.u, ub)
+    assert np.array_equal(alg.bounds.l, lb)
+    assert np.array_equal(alg.bounds.u, ub)
     assert np.array_equal(alg.cs, np.arange(len(A)))
     assert alg.algorithmic_relaxation == 1.5
     assert alg.relaxation == 1.0
@@ -102,7 +102,7 @@ def test_SequentialWeightedAMSHyperslab_weight_decay_full(get_full_variables):
 
     x_1 = np.array([2.0, 2.0])
     x_n = alg.step(x_1)
-    assert np.all(np.abs(x_n - np.array([1, 1])) < 1e-10)
+    assert np.all(abs(x_n - np.array([1, 1])) < 1e-10)
     assert np.array_equal(x_n, x_1)
     assert alg.temp_weight_decay == 0.5
 
@@ -114,7 +114,7 @@ def test_SequentialWeightedAMSHyperslab_weight_decay_sparse(get_sparse_variables
 
     x_1 = np.array([2.0, 2.0])
     x_n = alg.step(x_1)
-    assert np.all(np.abs(x_n - np.array([1, 1])) < 1e-10)
+    assert np.all(abs(x_n - np.array([1, 1])) < 1e-10)
     assert np.array_equal(x_n, x_1)
     assert alg.temp_weight_decay == 0.5
 
@@ -135,30 +135,30 @@ def test_SequentialWeightedAMSHyperslab_weight_decay_step_full(get_full_variable
     x_5 = np.array([-3.0, 0.0])
 
     x_n = alg.step(x_1)
-    assert np.all(np.abs(x_n - np.array([1, 1])) < 1e-10)
+    assert np.all(abs(x_n - np.array([1, 1])) < 1e-10)
     assert np.array_equal(x_n, x_1)
 
     # check that project gives the same result as step
     x_1 = np.array([2.0, 2.0])
     x_proj = alg.project(x_1)
-    assert np.all(np.abs(x_proj - np.array([1, 1])) < 1e-10)
+    assert np.all(abs(x_proj - np.array([1, 1])) < 1e-10)
     assert np.array_equal(x_proj, x_1)
     assert np.array_equal(x_proj, x_n)
 
     x_n = alg.step(x_2)
-    assert np.all(np.abs(x_n - np.array([0, 1.5]) < 1e-10))
+    assert np.all(abs(x_n - np.array([0, 1.5]) < 1e-10))
     assert np.array_equal(x_n, x_2)
 
     x_n = alg.step(x_3)
-    assert np.all(np.abs(x_n - np.array([0, 1.5]) < 1e-10))
+    assert np.all(abs(x_n - np.array([0, 1.5]) < 1e-10))
     assert np.array_equal(x_n, x_3)
 
     x_n = alg.step(x_4)
-    assert np.all(np.abs(x_n - np.array([-1, 1]) < 1e-10))
+    assert np.all(abs(x_n - np.array([-1, 1]) < 1e-10))
     assert np.array_equal(x_n, x_4)
 
     x_n = alg.step(x_5)
-    assert np.all(np.abs(x_n - np.array([-1.5, 0]) < 1e-10))
+    assert np.all(abs(x_n - np.array([-1.5, 0]) < 1e-10))
     assert np.array_equal(x_n, x_5)
 
 
@@ -178,28 +178,28 @@ def test_SequentialWeightedAMSHyperslab_weight_decay_step_sparse(get_sparse_vari
     x_5 = np.array([-3.0, 0.0])
 
     x_n = alg.step(x_1)
-    assert np.all(np.abs(x_n - np.array([1, 1])) < 1e-10)
+    assert np.all(abs(x_n - np.array([1, 1])) < 1e-10)
     assert np.array_equal(x_n, x_1)
 
     # check that project gives the same result as step
     x_1 = np.array([2.0, 2.0])
     x_proj = alg.project(x_1)
-    assert np.all(np.abs(x_proj - np.array([1, 1])) < 1e-10)
+    assert np.all(abs(x_proj - np.array([1, 1])) < 1e-10)
     assert np.array_equal(x_proj, x_1)
     assert np.array_equal(x_proj, x_n)
 
     x_n = alg.step(x_2)
-    assert np.all(np.abs(x_n - np.array([0, 1.5]) < 1e-10))
+    assert np.all(abs(x_n - np.array([0, 1.5]) < 1e-10))
     assert np.array_equal(x_n, x_2)
 
     x_n = alg.step(x_3)
-    assert np.all(np.abs(x_n - np.array([0, 1.5]) < 1e-10))
+    assert np.all(abs(x_n - np.array([0, 1.5]) < 1e-10))
     assert np.array_equal(x_n, x_3)
 
     x_n = alg.step(x_4)
-    assert np.all(np.abs(x_n - np.array([-1, 1]) < 1e-10))
+    assert np.all(abs(x_n - np.array([-1, 1]) < 1e-10))
     assert np.array_equal(x_n, x_4)
 
     x_n = alg.step(x_5)
-    assert np.all(np.abs(x_n - np.array([-1.5, 0]) < 1e-10))
+    assert np.all(abs(x_n - np.array([-1.5, 0]) < 1e-10))
     assert np.array_equal(x_n, x_5)

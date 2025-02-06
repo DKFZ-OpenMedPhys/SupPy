@@ -23,9 +23,14 @@ def get_SequentialProjection_input():
 
 def test_SequentialProjection_proximity(get_SequentialProjection_input):
     """Test the proximity function of the SequentialProjection class."""
+    proximity_measures = [("p_norm", 2), "max_norm"]
     x0, seq_proj = get_SequentialProjection_input
 
-    assert seq_proj.proximity(x0) == 6 * (1 - 1 / np.sqrt(2))  # check distance
+    assert seq_proj.proximity(x0, proximity_measures)[0] == 6 * (
+        1 - 1 / np.sqrt(2)
+    )  # check distance
+    assert seq_proj.proximity(x0, proximity_measures)[1] == (2 * np.sqrt(2) - 1)  # check distance
+
     assert np.array_equal(
         x0, np.array([2, 2], dtype=np.float64)
     )  # make sure that proximity call did not change x0
@@ -84,8 +89,9 @@ def get_SimultaneousProjection_input():
 def test_SimultaneousProjection_proximity(get_SimultaneousProjection_input):
     """Test the proximity function of the SimultaneousProjection class."""
     x0, sim_proj = get_SimultaneousProjection_input
-
-    assert sim_proj.proximity(x0) == 2.5  # check distance
+    proximity_measures = [("p_norm", 2), "max_norm"]
+    assert sim_proj.proximity(x0, proximity_measures)[0] == 2.5  # check distance
+    assert sim_proj.proximity(x0, proximity_measures)[1] == 2  # check distance
     assert np.array_equal(
         x0, np.array([0, 3], dtype=np.float64)
     )  # make sure that proximity call did not change x0
@@ -122,7 +128,7 @@ def get_simultaneous_BlockIterativeProjection_input():
 
     return x0, BlockIterativeProjection(
         [BallProjection(center_1, radius), BallProjection(center_2, radius)],
-        weights=[[1 / 2, 1 / 2]],
+        weights=np.array([[1 / 2, 1 / 2]]),
     )
 
 
@@ -131,8 +137,13 @@ def test_sequential_BlockIterativeProjection_proximity(
 ):
     """Test the proximity function of the BlockIterativeProjection class."""
     x0, BlockIterProj = get_sequential_BlockIterativeProjection_input
-
-    assert BlockIterProj.proximity(x0) == 6 * (1 - 1 / np.sqrt(2))  # check distance
+    proximity_measures = [("p_norm", 2), "max_norm"]
+    assert BlockIterProj.proximity(x0, proximity_measures)[0] == 6 * (
+        1 - 1 / np.sqrt(2)
+    )  # check distance
+    assert BlockIterProj.proximity(x0, proximity_measures)[1] == (
+        2 * np.sqrt(2) - 1
+    )  # check distance
     assert np.array_equal(
         x0, np.array([2, 2], dtype=np.float64)
     )  # make sure that proximity call did not change x0
@@ -152,8 +163,9 @@ def test_simultaneous_BlockIterativeProjection_proximity(
 ):
     """Test the proximity function of the BlockIterativeProjection class."""
     x0, BlockIterProj = get_simultaneous_BlockIterativeProjection_input
-
-    assert BlockIterProj.proximity(x0) == 2.5  # check distance
+    proximity_measures = [("p_norm", 2), "max_norm"]
+    assert BlockIterProj.proximity(x0, proximity_measures)[0] == 2.5  # check distance
+    assert BlockIterProj.proximity(x0, proximity_measures)[1] == 2  # check distance
     assert np.array_equal(
         x0, np.array([0, 3], dtype=np.float64)
     )  # make sure that proximity call did not change x0

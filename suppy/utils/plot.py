@@ -5,11 +5,9 @@ import numpy.typing as npt
 import matplotlib.pyplot as plt
 
 
-def plot2D_linear_constraints(
-    x: npt.ArrayLike, A: npt.ArrayLike, lb: npt.ArrayLike, ub: npt.ArrayLike
-):
+def plot2d_linear_constraints(x: npt.NDArray, A: npt.NDArray, lb: npt.NDArray, ub: npt.NDArray):
     """
-    Plots the linear 2D constraints defined by lb <= A_0*x+A_1*y <= ub.
+    Plots the linear 2d constraints defined by lb <= A_0*x+A_1*y <= ub.
 
     Parameters:
     x (array-like): The x-values for the plot.
@@ -39,22 +37,20 @@ def plot2D_linear_constraints(
     return plt.gca()
 
 
-def get_linear_constraint_bounds(
-    x: npt.ArrayLike, A: npt.ArrayLike, lb: npt.ArrayLike, ub: npt.ArrayLike
-):
+def get_linear_constraint_bounds(x: npt.NDArray, A: npt.NDArray, lb: npt.NDArray, ub: npt.NDArray):
     """
     For a given 1D array x and linear constraints defined by lb <=
     A_0*x+A_1*y <= ub, this function returns the associated y values.
 
     Parameters:
-    x (npt.ArrayLike): Array-like object representing the x values.
-    A (npt.ArrayLike): Array-like object representing the coefficients of the linear constraints.
-    lb (npt.ArrayLike): Array-like object representing the lower bounds of the constraints.
-    ub (npt.ArrayLike): Array-like object representing the upper bounds of the constraints.
+    x (npt.NDArray): Array-like object representing the x values.
+    A (npt.NDArray): Array-like object representing the coefficients of the linear constraints.
+    lb (npt.NDArray): Array-like object representing the lower bounds of the constraints.
+    ub (npt.NDArray): Array-like object representing the upper bounds of the constraints.
 
     Returns:
-    x_all (npt.ArrayLike): Array-like object with size (len(x), len(lb)*2) storing all x values for all constraints (lower and upper bounds)
-    y_all (npt.ArrayLike): Array-like object storing all associated y values
+    x_all (npt.NDArray): Array-like object with size (len(x), len(lb)*2) storing all x values for all constraints (lower and upper bounds)
+    y_all (npt.NDArray): Array-like object storing all associated y values
     """
     y_l = (lb - A[:, 0] * x[:, None]) / A[
         :, 1
@@ -67,17 +63,17 @@ def get_linear_constraint_bounds(
     return x_all, np.concatenate((y_l, y_u), axis=1)
 
 
-def plot3D_linconstrained_function(func, A, x, lb, ub, func_args=()):
+def plot3d_linconstrained_function(func, A, x, lb, ub, func_args=()):
     """
     For given x values finds the associated y values (giving the linear
     constrained bounds)
     and plots the 2D surface of a function with linear constraints.
 
     Parameters:
-    A (npt.ArrayLike): Array-like object representing the coefficients of the linear constraints.
-    x (npt.ArrayLike): Array-like object representing the x values.
-    lb (npt.ArrayLike): Array-like object representing the lower bounds of the constraints.
-    ub (npt.ArrayLike): Array-like object representing the upper bounds
+    A (npt.NDArray): Array-like object representing the coefficients of the linear constraints.
+    x (npt.NDArray): Array-like object representing the x values.
+    lb (npt.NDArray): Array-like object representing the lower bounds of the constraints.
+    ub (npt.NDArray): Array-like object representing the upper bounds
     """
     x_1, x_2 = get_linear_constraint_bounds(x, A, lb, ub)
 
@@ -104,13 +100,13 @@ def plot3D_linconstrained_function(func, A, x, lb, ub, func_args=()):
     return fig, ax
 
 
-def plot3d_general_objects(func, objects, func_args=(), x: None | npt.ArrayLike = None):
+def plot3d_general_objects(func, objects, func_args=(), x: None | npt.NDArray = None):
     """PLots a 3D function with multiple objects."""
     fig = plt.figure()
     ax = fig.add_subplot(111, projection="3d")
 
-    for object in objects:
-        xy = object.get_xy()  # should return a 2xn array
+    for el in objects:
+        xy = el.get_xy()  # should return a 2xn array
         ax.plot(xy[0, :], xy[1, :], func(xy, *func_args), color="xkcd:black")
 
     if x is None:

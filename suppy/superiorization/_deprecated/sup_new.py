@@ -6,6 +6,14 @@ import numpy.typing as npt
 from suppy.utils import FuncWrapper
 from suppy.utils import ensure_float_array
 
+try:
+    import cupy as cp
+
+    NO_GPU = False
+except ImportError:
+    NO_GPU = True
+    cp = np
+
 
 class BaseSuperiorization(ABC):
     """
@@ -105,7 +113,7 @@ class Superiorization(BaseSuperiorization, ABC):
         )  # array storing all objective function values achieved via the basic algorithm
 
     @ensure_float_array
-    def solve(self, x_0: npt.ArrayLike, max_iter: int = 10, storage=False):
+    def solve(self, x_0: npt.NDArray, max_iter: int = 10, storage=False):
         """
         Solve the superiorization problem.
 
@@ -178,8 +186,8 @@ class Superiorization(BaseSuperiorization, ABC):
         - stop: A boolean indicating whether to stop the algorithm or not.
         """
         stop = (
-            np.abs(f_temp - self.f_k) < self.objective_tol
-            and np.abs(p_temp - self.p_k) < self.constr_tol
+            abs(f_temp - self.f_k) < self.objective_tol
+            and abs(p_temp - self.p_k) < self.constr_tol
         )
         return stop
 
@@ -330,7 +338,7 @@ class PowerSeriesGradientSuperiorization(GradientSuperiorization):
         Returns:
             The updated solution vector after performing the function reduction step.
         """
-
+        xp = cp if isinstance(x, cp.ndarray) else np
         # perform the gradient step
         grad = self.wrapped_grad(x)
         y = self.wrapped_func(x)
@@ -339,7 +347,7 @@ class PowerSeriesGradientSuperiorization(GradientSuperiorization):
             self._l += 1
 
             # calculate temporary results
-            x_ln = x - self.alpha ** (self._l) * grad / np.sqrt(np.sum(grad**2))
+            x_ln = x - self.alpha ** (self._l) * grad / xp.sqrt((grad**2).sum())
             y_ln = self.wrapped_func(x_ln)
 
             if y_ln < y:
@@ -395,7 +403,7 @@ class SplitSuperiorization(BaseSuperiorization, ABC):
         self.constr_tol = constr_tol
 
     @ensure_float_array
-    def solve(self, x_0: npt.ArrayLike, max_iter: int = 10):
+    def solve(self, x_0: npt.NDArray, max_iter: int = 10):
         """
         Solve the superiorization problem.
 
@@ -463,9 +471,9 @@ class SplitSuperiorization(BaseSuperiorization, ABC):
 
     def _stopping_criteria(self, input_f_temp, target_f_temp, p_temp) -> bool:
         # three stopping criteria have to be met
-        input_crit = np.abs(input_f_temp - self.input_f_k) < self.input_func_tol
-        target_crit = np.abs(target_f_temp - self.target_f_k) < self.target_func_tol
-        constr_crit = np.abs(p_temp - self.p_k) < self.constr_tol
+        input_crit = abs(input_f_temp - self.input_f_k) < self.input_func_tol
+        target_crit = abs(target_f_temp - self.target_f_k) < self.target_func_tol
+        constr_crit = abs(p_temp - self.p_k) < self.constr_tol
         stop = input_crit and target_crit and constr_crit
         return stop
 
@@ -573,6 +581,7 @@ class PowerSeriesGradientSplitSuperiorization(SplitGradientSuperiorization):
         Perform the function reduction step for the Power series gradient
         superiorization algorithm.
         """
+        xp = cp if isinstance(x, cp.ndarray) else np
         # perform the gradient step
         y = self.basic.map(x)
 
@@ -595,7 +604,7 @@ class PowerSeriesGradientSplitSuperiorization(SplitGradientSuperiorization):
 
             # gradient step in input space
             if self.wrapped_input_func is not None:
-                x_ln = x - self.alpha ** (self._l) * input_f / np.sqrt(np.sum(input_f**2))
+                x_ln = x - self.alpha ** (self._l) * input_f / xp.sqrt((input_f**2).sum)
                 if self.wrapped_input_func(x_ln) > input_g:
                     decreasing = False
             else:
@@ -603,7 +612,7 @@ class PowerSeriesGradientSplitSuperiorization(SplitGradientSuperiorization):
 
             # gradient step in target space
             if self.wrapped_target_func is not None:
-                y_ln = y - self.alpha ** (self._l) * target_f / np.sqrt(np.sum(target_f**2))
+                y_ln = y - self.alpha ** (self._l) * target_f / xp.sqrt((input_f**2).sum)
                 if self.wrapped_target_func(y_ln) > target_g:
                     decreasing = False
             else:

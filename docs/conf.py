@@ -46,7 +46,7 @@ autodoc_default_options = {
     "inherited-members": True,  # Include inherited members
 }
 autodoc_type_aliases = {
-    "npt.ArrayLike": "npt.ArrayLike",
+    "npt.NDArray": "npt.NDArray",
 }
 
 autodoc_inherit_docstrings = True

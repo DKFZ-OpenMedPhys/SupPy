@@ -1,4 +1,5 @@
-from abc import ABC, abstractmethod
+"""Base classes for linear feasibility problems."""
+from abc import ABC
 from typing import List
 import numpy as np
 import numpy.typing as npt
@@ -13,18 +14,18 @@ from suppy.projections._projections import Projection
 try:
     import cupy as cp
 
-    no_gpu = False
+    NO_GPU = False
 
 except ImportError:
-    no_gpu = True
-    cp = None
+    NO_GPU = True
+    cp = np
 
 
 class Feasibility(Projection, ABC):
     """
     Parameters
     ----------
-    algorithmic_relaxation : npt.ArrayLike or float, optional
+    algorithmic_relaxation : npt.NDArray or float, optional
         The relaxation parameter for the algorithm, by default 1.0.
     relaxation : float, optional
         The relaxation parameter for the projection, by default 1.0.
@@ -34,7 +35,7 @@ class Feasibility(Projection, ABC):
 
     Attributes
     ----------
-    algorithmic_relaxation : npt.ArrayLike or float, optional
+    algorithmic_relaxation : npt.NDArray or float, optional
         The relaxation parameter for the algorithm, by default 1.0.
     relaxation : float, optional
         The relaxation parameter for the projection, by default 1.0.
@@ -46,7 +47,7 @@ class Feasibility(Projection, ABC):
 
     def __init__(
         self,
-        algorithmic_relaxation: npt.ArrayLike | float = 1.0,
+        algorithmic_relaxation: npt.NDArray | float = 1.0,
         relaxation: float = 1.0,
         proximity_flag: bool = True,
         _use_gpu: bool = False,
@@ -54,38 +55,45 @@ class Feasibility(Projection, ABC):
         super().__init__(relaxation, proximity_flag, _use_gpu)
         self.algorithmic_relaxation = algorithmic_relaxation
         self.all_x = None
+        self.proximities = None
 
     @ensure_float_array
     def solve(
-        self, x: npt.ArrayLike, max_iter: int, storage: bool = False, constr_tol: float = 1e-6
-    ) -> npt.ArrayLike:
+        self,
+        x: npt.NDArray,
+        max_iter: int = 500,
+        constr_tol: float = 1e-6,
+        storage: bool = False,
+        proximity_measures: List | None = None,
+    ) -> npt.NDArray:
         """
         Solves the optimization problem using an iterative approach.
 
         Parameters
         ----------
-        x : npt.ArrayLike
+        x : npt.NDArray
             Initial guess for the solution.
-        max_iter : int
+        max_iter : int, optional
             Maximum number of iterations to perform.
         storage : bool, optional
             Flag indicating whether to store the intermediate solutions, by default False.
         constr_tol : float, optional
             The tolerance for the constraints, by default 1e-6.
+        proximity_measures : List, optional
+            The proximity measures to calculate, by default None. Right now only the first in the list is used to check the feasibility.
 
         Returns
         -------
-        npt.ArrayLike
+        npt.NDArray
             The solution after the iterative process.
-
-        Notes
-        -----
-        The method iteratively updates the solution `x` using the `step` method
-        until the maximum number of iterations `max_iter` is reached or the change
-        in proximity is less than a threshold (1e-6). Progress is printed every
-        1000 iterations.
         """
         xp = cp if isinstance(x, cp.ndarray) else np
+        if proximity_measures is None:
+            proximity_measures = [("p_norm", 2)]
+        else:
+            # TODO: Check if the proximity measures are valid
+            _ = None
+
         self.proximities = []
         i = 0
         feasible = False
@@ -98,10 +106,10 @@ class Feasibility(Projection, ABC):
             x = self.project(x)
             if storage is True:
                 self.all_x.append(x.copy())
-            self.proximities.append(self.proximity(x))
+            self.proximities.append(self.proximity(x, proximity_measures))
 
             # TODO: If proximity changes x some potential issues!
-            if self.proximities[-1] < constr_tol:
+            if self.proximities[-1][0] < constr_tol:
 
                 feasible = True
             i += 1
@@ -116,9 +124,9 @@ class LinearFeasibility(Feasibility, ABC):
 
     Parameters
     ----------
-    A : npt.ArrayLike or sparse.sparray
+    A : npt.NDArray or sparse.sparray
         Matrix for linear inequalities
-    algorithmic_relaxation : npt.ArrayLike or float, optional
+    algorithmic_relaxation : npt.NDArray or float, optional
         The relaxation parameter for the algorithm, by default 1.0.
     relaxation : float, optional
         The relaxation parameter, by default 1.0.
@@ -129,7 +137,7 @@ class LinearFeasibility(Feasibility, ABC):
     ----------
     A : LinearMapping
         Matrix for linear system (stored in internal LinearMapping object).
-    algorithmic_relaxation : npt.ArrayLike or float, optional
+    algorithmic_relaxation : npt.NDArray or float, optional
         The relaxation parameter for the algorithm, by default 1.0.
     relaxation : float, optional
         The relaxation parameter for the projection, by default 1.0.
@@ -141,8 +149,8 @@ class LinearFeasibility(Feasibility, ABC):
 
     def __init__(
         self,
-        A: npt.ArrayLike | sparse.sparray,
-        algorithmic_relaxation: npt.ArrayLike | float = 1.0,
+        A: npt.NDArray | sparse.sparray,
+        algorithmic_relaxation: npt.NDArray | float = 1.0,
         relaxation: float = 1.0,
         proximity_flag: bool = True,
     ):
@@ -151,42 +159,42 @@ class LinearFeasibility(Feasibility, ABC):
         self.A = LinearMapping(A)
         self.inverse_row_norm = 1 / self.A.row_norm(2, 2)
 
-    def map(self, x: npt.ArrayLike) -> npt.ArrayLike:
+    def map(self, x: npt.NDArray) -> npt.NDArray:
         """
         Applies the linear mapping to the input array x.
 
         Parameters
         ----------
-        x : npt.ArrayLike
+        x : npt.NDArray
             The input array to which the linear mapping is applied.
 
         Returns
         -------
-        npt.ArrayLike
+        npt.NDArray
             The result of applying the linear mapping to the input array.
         """
         return self.A @ x
 
-    def single_map(self, x: npt.ArrayLike, i: int) -> npt.ArrayLike:
+    def single_map(self, x: npt.NDArray, i: int) -> npt.NDArray:
         """
         Applies the linear mapping to the input array x at a specific index
         i.
 
         Parameters
         ----------
-        x : npt.ArrayLike
+        x : npt.NDArray
             The input array to which the linear mapping is applied.
         i : int
             The specific index at which the linear mapping is applied.
 
         Returns
         -------
-        npt.ArrayLike
+        npt.NDArray
             The result of applying the linear mapping to the input array at the specified index.
         """
         return self.A.single_map(x, i)
 
-    def indexed_map(self, x: npt.ArrayLike, idx: List[int] | npt.ArrayLike) -> npt.ArrayLike:
+    def indexed_map(self, x: npt.NDArray, idx: List[int] | npt.NDArray) -> npt.NDArray:
         """
         Applies the linear mapping to the input array x at multiple
         specified
@@ -194,20 +202,20 @@ class LinearFeasibility(Feasibility, ABC):
 
         Parameters
         ----------
-        x : npt.ArrayLike
+        x : npt.NDArray
             The input array to which the linear mapping is applied.
-        idx : List[int] or npt.ArrayLike
+        idx : List[int] or npt.NDArray
             The indices at which the linear mapping is applied.
 
         Returns
         -------
-        npt.ArrayLike
+        npt.NDArray
             The result of applying the linear mapping to the input array at the specified indices.
         """
         return self.A.index_map(x, idx)
 
     # @abstractmethodpass
-    # def project(self, x: npt.ArrayLike) -> npt.ArrayLike:
+    # def project(self, x: npt.NDArray) -> npt.NDArray:
     #
 
 
@@ -217,11 +225,11 @@ class HyperplaneFeasibility(LinearFeasibility, ABC):
 
     Parameters
     ----------
-    A : npt.ArrayLike or sparse.sparray
+    A : npt.NDArray or sparse.sparray
         Matrix for linear inequalities
-    b : npt.ArrayLike
+    b : npt.NDArray
         Bound for linear inequalities
-    algorithmic_relaxation : npt.ArrayLike or float, optional
+    algorithmic_relaxation : npt.NDArray or float, optional
         The relaxation parameter for the algorithm, by default 1.0.
     relaxation : float, optional
         The relaxation parameter, by default 1.0.
@@ -232,9 +240,9 @@ class HyperplaneFeasibility(LinearFeasibility, ABC):
     ----------
     A : LinearMapping
         Matrix for linear system (stored in internal LinearMapping object).
-    b : npt.ArrayLike
+    b : npt.NDArray
         Bound for linear inequalities
-    algorithmic_relaxation : npt.ArrayLike or float, optional
+    algorithmic_relaxation : npt.NDArray or float, optional
         The relaxation parameter for the algorithm, by default 1.0.
     relaxation : float, optional
         The relaxation parameter for the projection, by default 1.0.
@@ -246,9 +254,9 @@ class HyperplaneFeasibility(LinearFeasibility, ABC):
 
     def __init__(
         self,
-        A: npt.ArrayLike | sparse.sparray,
-        b: npt.ArrayLike,
-        algorithmic_relaxation: npt.ArrayLike | float = 1.0,
+        A: npt.NDArray | sparse.sparray,
+        b: npt.NDArray,
+        algorithmic_relaxation: npt.NDArray | float = 1.0,
         relaxation: float = 1.0,
         proximity_flag: bool = True,
     ):
@@ -259,30 +267,28 @@ class HyperplaneFeasibility(LinearFeasibility, ABC):
                 raise ValueError("Matrix A and vector b must have the same number of rows.")
         except TypeError:
             # create an array for b if it is a scalar
-            if self.A.flag == "numpy" or self.A.flag == "scipy_sparse":
+            if not self.A.gpu:
                 b = np.ones(A.shape[0]) * b
-            elif self.A.flag == "cupy_full" or self.A.flag == "cupy_sparse":
+            else:
                 b = cp.ones(A.shape[0]) * b
         self.b = b
 
-    def _proximity(self, x: npt.ArrayLike) -> float:
-        """
-        Calculate the proximity of point `x` to the hyperslabs.
-
-        Parameters
-        ----------
-        x : npt.ArrayLike
-            Input array for which the proximity measure is to be calculated.
-
-        Returns
-        -------
-        float
-            The proximity measure of the input array `x`.
-        """
+    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> float:
         p = self.map(x)
         # residuals are positive  if constraints are met
-        res = self.b - p
-        return 1 / len(p) * ((res**2).sum())
+        res = abs(self.b - p)
+        measures = []
+        for measure in proximity_measures:
+            if isinstance(measure, tuple):
+                if measure[0] == "p_norm":
+                    measures.append(1 / len(res) * (res ** measure[1]).sum())
+                else:
+                    raise ValueError("Invalid proximity measure")
+            elif isinstance(measure, str) and measure == "max_norm":
+                measures.append(res.max())
+            else:
+                raise ValueError("Invalid proximity measure")
+        return measures
 
 
 class HalfspaceFeasibility(LinearFeasibility, ABC):
@@ -291,11 +297,11 @@ class HalfspaceFeasibility(LinearFeasibility, ABC):
 
     Parameters
     ----------
-    A : npt.ArrayLike or sparse.sparray
+    A : npt.NDArray or sparse.sparray
         Matrix for linear inequalities
-    b : npt.ArrayLike
+    b : npt.NDArray
         Bound for linear inequalities
-    algorithmic_relaxation : npt.ArrayLike or float, optional
+    algorithmic_relaxation : npt.NDArray or float, optional
         The relaxation parameter for the algorithm, by default 1.0.
     relaxation : float, optional
         The relaxation parameter, by default 1.0.
@@ -306,9 +312,9 @@ class HalfspaceFeasibility(LinearFeasibility, ABC):
     ----------
     A : LinearMapping
         Matrix for linear system (stored in internal LinearMapping object).
-    b : npt.ArrayLike
+    b : npt.NDArray
         Bound for linear inequalities
-    algorithmic_relaxation : npt.ArrayLike or float, optional
+    algorithmic_relaxation : npt.NDArray or float, optional
         The relaxation parameter for the algorithm, by default 1.0.
     relaxation : float, optional
         The relaxation parameter for the projection, by default 1.0.
@@ -320,9 +326,9 @@ class HalfspaceFeasibility(LinearFeasibility, ABC):
 
     def __init__(
         self,
-        A: npt.ArrayLike | sparse.sparray,
-        b: npt.ArrayLike,
-        algorithmic_relaxation: npt.ArrayLike | float = 1.0,
+        A: npt.NDArray | sparse.sparray,
+        b: npt.NDArray,
+        algorithmic_relaxation: npt.NDArray | float = 1.0,
         relaxation: float = 1.0,
         proximity_flag: bool = True,
     ):
@@ -333,31 +339,32 @@ class HalfspaceFeasibility(LinearFeasibility, ABC):
                 raise ValueError("Matrix A and vector b must have the same number of rows.")
         except TypeError:
             # create an array for b if it is a scalar
-            if self.A.flag == "numpy" or self.A.flag == "scipy_sparse":
+            if not self.A.gpu:
                 b = np.ones(A.shape[0]) * b
-            elif self.A.flag == "cupy_full" or self.A.flag == "cupy_sparse":
+            else:
                 b = cp.ones(A.shape[0]) * b
         self.b = b
 
-    def _proximity(self, x: npt.ArrayLike) -> float:
-        """
-        Calculate the proximity of point `x` to the hyperslabs.
+    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> float:
 
-        Parameters
-        ----------
-        x : npt.ArrayLike
-            Input array for which the proximity measure is to be calculated.
-
-        Returns
-        -------
-        float
-            The proximity measure of the input array `x`.
-        """
         p = self.map(x)
         # residuals are positive  if constraints are met
         res = self.b - p
-        idx = res < 0
-        return 1 / len(p) * ((res[idx] ** 2).sum())
+        res[res > 0] = 0
+        res = -res
+
+        measures = []
+        for measure in proximity_measures:
+            if isinstance(measure, tuple):
+                if measure[0] == "p_norm":
+                    measures.append(1 / len(res) * (res ** measure[1]).sum())
+                else:
+                    raise ValueError("Invalid proximity measure")
+            elif isinstance(measure, str) and measure == "max_norm":
+                measures.append(res.max())
+            else:
+                raise ValueError("Invalid proximity measure)")
+        return measures
 
 
 class HyperslabFeasibility(LinearFeasibility, ABC):
@@ -366,13 +373,13 @@ class HyperslabFeasibility(LinearFeasibility, ABC):
 
     Parameters
     ----------
-    A : npt.ArrayLike
+    A : npt.NDArray
         The matrix representing the linear system.
-    lb : npt.ArrayLike
+    lb : npt.NDArray
         The lower bounds for the hyperslab.
-    ub : npt.ArrayLike
+    ub : npt.NDArray
         The upper bounds for the hyperslab.
-    algorithmic_relaxation : npt.ArrayLike or float, optional
+    algorithmic_relaxation : npt.NDArray or float, optional
         The relaxation parameter for the algorithm, by default 1.0.
     relaxation : int, optional
         The relaxation parameter, by default 1.
@@ -381,11 +388,11 @@ class HyperslabFeasibility(LinearFeasibility, ABC):
 
     Attributes
     ----------
-    Bounds : Bounds
+    bounds : bounds
         Objective for handling the upper and lower bounds of the hyperslab.
     A : LinearMapping
         Matrix for linear system (stored in internal LinearMapping object).
-    algorithmic_relaxation : npt.ArrayLike or float, optional
+    algorithmic_relaxation : npt.NDArray or float, optional
         The relaxation parameter for the algorithm, by default 1.0.
     relaxation : float, optional
         The relaxation parameter for the projection, by default 1.0.
@@ -397,35 +404,37 @@ class HyperslabFeasibility(LinearFeasibility, ABC):
 
     def __init__(
         self,
-        A: npt.ArrayLike,
-        lb: npt.ArrayLike,
-        ub: npt.ArrayLike,
-        algorithmic_relaxation: npt.ArrayLike | float = 1.0,
+        A: npt.NDArray,
+        lb: npt.NDArray,
+        ub: npt.NDArray,
+        algorithmic_relaxation: npt.NDArray | float = 1.0,
         relaxation=1,
         proximity_flag=True,
     ):
         super().__init__(A, algorithmic_relaxation, relaxation, proximity_flag)
-        self.Bounds = Bounds(lb, ub)
-        if self.A.shape[0] != len(self.Bounds.l):
+        self.bounds = Bounds(lb, ub)
+        if self.A.shape[0] != len(self.bounds.l):
             raise ValueError("Matrix A and bound vector must have the same number of rows.")
 
-    def _proximity(self, x: npt.ArrayLike) -> float:
-        """
-        Calculate the proximity of point `x` to the hyperslabs.
+    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> float:
 
-        Parameters
-        ----------
-        x : npt.ArrayLike
-            Input array for which the proximity measure is to be calculated.
-
-        Returns
-        -------
-        float
-            The proximity measure of the input array `x`.
-        """
         p = self.map(x)
-        # residuals are positive  if constraints are met
-        (res_u, res_l) = self.Bounds.residual(p)
-        d_idx = res_u < 0
-        c_idx = res_l < 0
-        return 1 / len(p) * ((res_u[d_idx] ** 2).sum() + (res_l[c_idx] ** 2).sum())
+
+        # residuals are positive if constraints are met
+        (res_l, res_u) = self.bounds.residual(p)
+        res_l[res_l > 0] = 0
+        res_u[res_u > 0] = 0
+        res = -res_l - res_u
+
+        measures = []
+        for measure in proximity_measures:
+            if isinstance(measure, tuple):
+                if measure[0] == "p_norm":
+                    measures.append(1 / len(res) * (res ** measure[1]).sum())
+                else:
+                    raise ValueError("Invalid proximity measure")
+            elif isinstance(measure, str) and measure == "max_norm":
+                measures.append(res.max())
+            else:
+                raise ValueError("Invalid proximity measure)")
+        return measures

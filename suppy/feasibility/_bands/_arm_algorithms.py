@@ -8,11 +8,11 @@ from suppy.feasibility._linear_algorithms import HyperslabFeasibility
 try:
     import cupy as cp
 
-    no_gpu = False
+    NO_GPU = False
 
 except ImportError:
-    no_gpu = True
-    cp = None
+    NO_GPU = True
+    cp = np
 
 
 class ARMAlgorithm(HyperslabFeasibility, ABC):
@@ -22,13 +22,13 @@ class ARMAlgorithm(HyperslabFeasibility, ABC):
 
     Parameters
     ----------
-    A : npt.ArrayLike
+    A : npt.NDArray
         The matrix representing the linear mapping.
-    lb : npt.ArrayLike
+    lb : npt.NDArray
         The lower bounds for the feasibility problem.
-    ub : npt.ArrayLike
+    ub : npt.NDArray
         The upper bounds for the feasibility problem.
-    algorithmic_relaxation : npt.ArrayLike or float, optional
+    algorithmic_relaxation : npt.NDArray or float, optional
         The relaxation parameter specific to the algorithm, by default 1.
     relaxation : float, optional
         The general relaxation parameter, by default 1.
@@ -38,10 +38,10 @@ class ARMAlgorithm(HyperslabFeasibility, ABC):
 
     def __init__(
         self,
-        A: npt.ArrayLike,
-        lb: npt.ArrayLike,
-        ub: npt.ArrayLike,
-        algorithmic_relaxation: npt.ArrayLike | float = 1,
+        A: npt.NDArray,
+        lb: npt.NDArray,
+        ub: npt.NDArray,
+        algorithmic_relaxation: npt.NDArray | float = 1,
         relaxation: float = 1,
         proximity_flag=True,
     ):
@@ -56,13 +56,13 @@ class SequentialARM(ARMAlgorithm):
 
     Parameters
     ----------
-    A : npt.ArrayLike
+    A : npt.NDArray
         The matrix A used in the ARM algorithm.
-    lb : npt.ArrayLike
+    lb : npt.NDArray
         The lower bounds for the variables.
-    ub : npt.ArrayLike
+    ub : npt.NDArray
         The upper bounds for the variables.
-    algorithmic_relaxation : npt.ArrayLike or float, optional
+    algorithmic_relaxation : npt.NDArray or float, optional
         The relaxation parameter for the algorithm, by default 1.
     relaxation : float, optional
         The relaxation parameter, by default 1.
@@ -74,10 +74,10 @@ class SequentialARM(ARMAlgorithm):
 
     def __init__(
         self,
-        A: npt.ArrayLike,
-        lb: npt.ArrayLike,
-        ub: npt.ArrayLike,
-        algorithmic_relaxation: npt.ArrayLike | float = 1,
+        A: npt.NDArray,
+        lb: npt.NDArray,
+        ub: npt.NDArray,
+        algorithmic_relaxation: npt.NDArray | float = 1,
         relaxation: float = 1,
         cs: None | List[int] = None,
         proximity_flag=True,
@@ -91,13 +91,13 @@ class SequentialARM(ARMAlgorithm):
         else:
             self.cs = cs
 
-    def _project(self, x: npt.ArrayLike) -> npt.ArrayLike:
+    def _project(self, x: npt.NDArray) -> npt.NDArray:
         xp = cp if self._use_gpu else np
 
         for i in self.cs:
             p_i = self.single_map(x, i)
-            d = p_i - self.Bounds.center[i]
-            psi = (self.Bounds.u[i] - self.Bounds.l[i]) / 2
+            d = p_i - self.bounds.center[i]
+            psi = (self.bounds.u[i] - self.bounds.l[i]) / 2
             if xp.abs(d) > psi:
                 self.A.update_step(
                     x,
@@ -119,17 +119,17 @@ class SimultaneousARM(ARMAlgorithm):
 
     Parameters
     ----------
-    A : npt.ArrayLike
+    A : npt.NDArray
         The matrix representing the constraints.
-    lb : npt.ArrayLike
+    lb : npt.NDArray
         The lower bounds for the constraints.
-    ub : npt.ArrayLike
+    ub : npt.NDArray
         The upper bounds for the constraints.
-    algorithmic_relaxation : npt.ArrayLike or float, optional
+    algorithmic_relaxation : npt.NDArray or float, optional
         The relaxation parameter for the algorithm. Default is 1.
     relaxation : float, optional
         The relaxation parameter for the constraints. Default is 1.
-    weights : None, List[float], or npt.ArrayLike, optional
+    weights : None, List[float], or npt.NDArray, optional
         The weights for the constraints. If None, weights are set to be uniform. Default is None.
     proximity_flag : bool, optional
         Flag to indicate whether to use proximity in the algorithm. Default is True.
@@ -144,12 +144,12 @@ class SimultaneousARM(ARMAlgorithm):
 
     def __init__(
         self,
-        A: npt.ArrayLike,
-        lb: npt.ArrayLike,
-        ub: npt.ArrayLike,
-        algorithmic_relaxation: npt.ArrayLike | float = 1,
+        A: npt.NDArray,
+        lb: npt.NDArray,
+        ub: npt.NDArray,
+        algorithmic_relaxation: npt.NDArray | float = 1,
         relaxation: float = 1,
-        weights: None | List[float] | npt.ArrayLike = None,
+        weights: None | List[float] | npt.NDArray = None,
         proximity_flag=True,
     ):
 
@@ -169,8 +169,8 @@ class SimultaneousARM(ARMAlgorithm):
         xp = cp if self._use_gpu else np
         # simultaneous projection
         p = self.map(x)
-        d = p - self.Bounds.center
-        psi = self.Bounds.half_distance
+        d = p - self.bounds.center
+        psi = self.bounds.half_distance
         d_idx = xp.abs(d) > psi
         x -= (
             self.algorithmic_relaxation**self._k
@@ -186,16 +186,25 @@ class SimultaneousARM(ARMAlgorithm):
         self._k += 1
         return x
 
-    def _proximity(self, x: npt.ArrayLike) -> float:
-        xp = cp if self._use_gpu else np
+    def _proximity(self, x: npt.NDArray, proximity_measures: List[str]) -> float:
         p = self.map(x)
-        # residuals are positive  if constraints are met
-        (res_u, res_l) = self.Bounds.residual(p)
-        d_idx = res_u < 0
-        c_idx = res_l < 0
-        return xp.sum(self.weights[d_idx] * res_u[d_idx] ** 2) + xp.sum(
-            self.weights[c_idx] * res_l[c_idx] ** 2
-        )
+        # residuals are positive if constraints are met
+        (res_l, res_u) = self.bounds.residual(p)
+        res_u[res_u > 0] = 0
+        res_l[res_l > 0] = 0
+        res = -res_u - res_l
+        measures = []
+        for measure in proximity_measures:
+            if isinstance(measure, tuple):
+                if measure[0] == "p_norm":
+                    measures.append(self.weights @ (res ** measure[1]))
+                else:
+                    raise ValueError("Invalid proximity measure")
+            elif isinstance(measure, str) and measure == "max_norm":
+                measures.append(res.max())
+            else:
+                raise ValueError("Invalid proximity measure)")
+        return measures
 
 
 class BIPARM(ARMAlgorithm):
@@ -204,17 +213,17 @@ class BIPARM(ARMAlgorithm):
 
     Parameters
     ----------
-    A : npt.ArrayLike
+    A : npt.NDArray
         The matrix representing the constraints.
-    lb : npt.ArrayLike
+    lb : npt.NDArray
         The lower bounds for the constraints.
-    ub : npt.ArrayLike
+    ub : npt.NDArray
         The upper bounds for the constraints.
-    algorithmic_relaxation : npt.ArrayLike or float, optional
+    algorithmic_relaxation : npt.NDArray or float, optional
         The relaxation parameter for the algorithm, by default 1.
     relaxation : float, optional
         The relaxation parameter for the projections, by default 1.
-    weights : None, List[float], or npt.ArrayLike, optional
+    weights : None, List[float], or npt.NDArray, optional
         The weights for the constraints, by default None.
     proximity_flag : bool, optional
         Flag to indicate if proximity should be considered, by default True.
@@ -229,12 +238,12 @@ class BIPARM(ARMAlgorithm):
 
     def __init__(
         self,
-        A: npt.ArrayLike,
-        lb: npt.ArrayLike,
-        ub: npt.ArrayLike,
-        algorithmic_relaxation: npt.ArrayLike | float = 1,
+        A: npt.NDArray,
+        lb: npt.NDArray,
+        ub: npt.NDArray,
+        algorithmic_relaxation: npt.NDArray | float = 1,
         relaxation: float = 1,
-        weights: None | List[float] | npt.ArrayLike = None,
+        weights: None | List[float] | npt.NDArray = None,
         proximity_flag=True,
     ):
 
@@ -255,9 +264,9 @@ class BIPARM(ARMAlgorithm):
     def _project(self, x):
         # simultaneous projection
         p = self.map(x)
-        d = p - self.Bounds.center
-        psi = self.Bounds.half_distance
-        d_idx = np.abs(d) > psi
+        d = p - self.bounds.center
+        psi = self.bounds.half_distance
+        d_idx = abs(d) > psi
         x -= (
             self.algorithmic_relaxation**self._k
             / 2
@@ -272,14 +281,25 @@ class BIPARM(ARMAlgorithm):
         self._k += 1
         return x
 
-    def _proximity(self, x: npt.ArrayLike) -> float:
+    def _proximity(self, x: npt.NDArray, proximity_measures: List[str]) -> float:
         p = self.map(x)
-        (res_u, res_l) = self.Bounds.residual(p)  # residuals are positive  if constraints are met
-        d_idx = res_u < 0
-        c_idx = res_l < 0
-        return np.sum(self.weights[d_idx] * res_u[d_idx] ** 2) + np.sum(
-            self.weights[c_idx] * res_l[c_idx] ** 2
-        )
+        # residuals are positive if constraints are met
+        (res_l, res_u) = self.bounds.residual(p)
+        res_u[res_u > 0] = 0
+        res_l[res_l > 0] = 0
+        res = -res_u - res_l
+        measures = []
+        for measure in proximity_measures:
+            if isinstance(measure, tuple):
+                if measure[0] == "p_norm":
+                    measures.append(1 / len(res) * self.total_weights @ (res ** measure[1]))
+                else:
+                    raise ValueError("Invalid proximity measure")
+            elif isinstance(measure, str) and measure == "max_norm":
+                measures.append(res.max())
+            else:
+                raise ValueError("Invalid proximity measure)")
+        return measures
 
 
 class StringAveragedARM(ARMAlgorithm):
@@ -291,15 +311,15 @@ class StringAveragedARM(ARMAlgorithm):
 
     Parameters
     ----------
-    A : npt.ArrayLike
+    A : npt.NDArray
         The matrix A involved in the feasibility problem.
-    lb : npt.ArrayLike
+    lb : npt.NDArray
         The lower bounds for the feasibility problem.
-    ub : npt.ArrayLike
+    ub : npt.NDArray
         The upper bounds for the feasibility problem.
     strings : List[List[int]]
         A list of lists, where each inner list represents a string of indices.
-    algorithmic_relaxation : npt.ArrayLike or float, optional
+    algorithmic_relaxation : npt.NDArray or float, optional
         The algorithmic relaxation parameter, by default 1.
     relaxation : float, optional
         The relaxation parameter, by default 1.
@@ -321,11 +341,11 @@ class StringAveragedARM(ARMAlgorithm):
 
     def __init__(
         self,
-        A: npt.ArrayLike,
-        lb: npt.ArrayLike,
-        ub: npt.ArrayLike,
+        A: npt.NDArray,
+        lb: npt.NDArray,
+        ub: npt.NDArray,
         strings: List[List[int]],
-        algorithmic_relaxation: npt.ArrayLike | float = 1,
+        algorithmic_relaxation: npt.NDArray | float = 1,
         relaxation: float = 1,
         weights: None | List[float] = None,
         proximity_flag=True,
@@ -356,8 +376,8 @@ class StringAveragedARM(ARMAlgorithm):
             x_s = x_c.copy()  # generate a copy for individual strings
             for i in string:
                 p_i = self.single_map(x_s, i)
-                d = p_i - self.Bounds.center[i]
-                psi = (self.Bounds.u[i] - self.Bounds.l[i]) / 2
+                d = p_i - self.bounds.center[i]
+                psi = (self.bounds.u[i] - self.bounds.l[i]) / 2
                 if xp.abs(d) > psi:
                     self.A.update_step(
                         x_s,

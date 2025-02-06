@@ -1,3 +1,4 @@
+"""Module for linear feasibility and split feasibility algorithms."""
 from suppy.utils import Bounds
 from ._bands._ams_algorithms import (
     SequentialAMSHyperslab,
@@ -25,7 +26,7 @@ from ._hyperplanes._ams_algorithms import (
     BlockIterativeAMSHyperplane,
 )
 
-from ._split_algorithms import CQAlgorithm, ProductSpaceAlgorithm
+from ._split_algorithms import CQAlgorithm
 
 __all__ = [
     "SequentialAMSHyperslab",
@@ -48,5 +49,4 @@ __all__ = [
     "StringAveragedARM",
     "SequentialART3plus",
     "CQAlgorithm",
-    "ProductSpaceAlgorithm",
 ]

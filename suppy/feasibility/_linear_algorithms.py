@@ -73,7 +73,7 @@ class Feasibility(Projection, ABC):
         ----------
         x : npt.NDArray
             Initial guess for the solution.
-        max_iter : int
+        max_iter : int, optional
             Maximum number of iterations to perform.
         storage : bool, optional
             Flag indicating whether to store the intermediate solutions, by default False.

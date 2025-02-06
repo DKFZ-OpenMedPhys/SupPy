@@ -197,7 +197,7 @@ class SimultaneousARM(ARMAlgorithm):
         for measure in proximity_measures:
             if isinstance(measure, tuple):
                 if measure[0] == "p_norm":
-                    measures.append(1 / len(res) * self.weights @ (res ** measure[1]))
+                    measures.append(self.weights @ (res ** measure[1]))
                 else:
                     raise ValueError("Invalid proximity measure")
             elif isinstance(measure, str) and measure == "max_norm":

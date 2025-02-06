@@ -383,3 +383,11 @@ def test_SequentialAMSHyperslab_proximity(get_SequentialAMSHyperslab_input_full)
 
     assert np.abs(prox_5[0] - 9 / 8) < 1e-10
     assert np.abs(prox_5[1] - 2) < 1e-10
+
+
+def test_SequentialAMS_solve(get_SequentialAMSHyperslab_input_full):
+    """Test the solve function of the SequentialAMSHyperslab class."""
+    alg, _, _, _ = get_SequentialAMSHyperslab_input_full
+    x_1 = np.array([2.0, 2.0])
+    x_n = alg.solve(x_1)
+    assert np.all(np.abs(x_n - np.array([1.0, 1.0])) < 1e-10)

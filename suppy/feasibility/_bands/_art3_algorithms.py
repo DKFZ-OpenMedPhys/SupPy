@@ -12,7 +12,6 @@ except ImportError:
     NO_GPU = True
     cp = np
 
-from suppy.utils import LinearMapping
 from suppy.utils import ensure_float_array
 from suppy.feasibility._linear_algorithms import HyperslabFeasibility
 
@@ -101,7 +100,6 @@ class SequentialART3plus(ART3plusAlgorithm):
             self.initial_cs = cs
 
         self.cs = self.initial_cs.copy()
-        self._feasible = True
 
     def _project(self, x: npt.NDArray) -> npt.NDArray:
         to_remove = []
@@ -115,7 +113,6 @@ class SequentialART3plus(ART3plusAlgorithm):
                 self.A.update_step(
                     x, 2 * self.inverse_row_norm[i] * (self.bounds.l[i] - p_i), i
                 )  # reflection
-                self._feasible = False
 
             elif (
                 self.bounds.u[i] < p_i <= 3 / 2 * self.bounds.u[i] - 1 / 2 * self.bounds.l[i]
@@ -123,17 +120,15 @@ class SequentialART3plus(ART3plusAlgorithm):
                 self.A.update_step(
                     x, 2 * self.inverse_row_norm[i] * (self.bounds.u[i] - p_i), i
                 )  # reflection
-                self._feasible = False
 
             elif self.bounds.u[i] - self.bounds.l[i] < abs(
                 p_i - (self.bounds.l[i] + self.bounds.u[i]) / 2
             ):
                 self.A.update_step(
                     x,
-                    self.inverse_row_norm[i] * (self.bounds.l[i] + self.bounds.u[i]) / 2 - p_i,
+                    self.inverse_row_norm[i] * ((self.bounds.l[i] + self.bounds.u[i]) / 2 - p_i),
                     i,
                 )  # projection onto center of hyperslab
-                self._feasible = False
 
             else:  # constraint is already met
                 to_remove.append(i)
@@ -142,17 +137,69 @@ class SequentialART3plus(ART3plusAlgorithm):
         self.cs = [i for i in self.cs if i not in to_remove]  # is this fast?
         return x
 
-    def solve(self, x, max_iter):
-        # option to reset control sequence?
+    @ensure_float_array
+    def solve(
+        self,
+        x: npt.NDArray,
+        max_iter: int = 500,
+        constr_tol: float = 1e-6,
+        storage: bool = False,
+        proximity_measures: List | None = None,
+    ) -> npt.NDArray:
+        """
+        Solves the optimization problem using an iterative approach.
 
-        for i in range(max_iter):
-            if len(self.cs) == 0 and self._feasible:  # ran over all constraints and still feasible
-                return x
-            elif len(self.cs) == 0 and not self._feasible:
+        Parameters
+        ----------
+        x : npt.NDArray
+            Initial guess for the solution.
+        max_iter : int, optional
+            Maximum number of iterations to perform.
+        storage : bool, optional
+            Flag indicating whether to store the intermediate solutions, by default False.
+        constr_tol : float, optional
+            The tolerance for the constraints, by default 1e-6.
+        proximity_measures : List, optional
+            The proximity measures to calculate, by default None. Right now only the first in the list is used to check the feasibility.
+
+        Returns
+        -------
+        npt.NDArray
+            The solution after the iterative process.
+        """
+        self.cs = self.initial_cs.copy()
+        xp = cp if isinstance(x, cp.ndarray) else np
+        if proximity_measures is None:
+            proximity_measures = [("p_norm", 2)]
+        else:
+            # TODO: Check if the proximity measures are valid
+            _ = None
+
+        self.proximities = []
+        i = 0
+        feasible = False
+
+        if storage is True:
+            self.all_x = []
+            self.all_x.append(x.copy())
+
+        while i < max_iter and not feasible:
+
+            if len(self.cs) == 0:
                 self.cs = self.initial_cs.copy()
-                self._feasible = True
 
-            x = self.step(x)
+            x = self.project(x)
+            if storage is True:
+                self.all_x.append(x.copy())
+            self.proximities.append(self.proximity(x, proximity_measures))
+
+            # TODO: If proximity changes x some potential issues!
+            if self.proximities[-1][0] < constr_tol:
+
+                feasible = True
+            i += 1
+        if self.all_x is not None:
+            self.all_x = xp.array(self.all_x)
         return x
 
 
@@ -178,19 +225,6 @@ class SimultaneousART3plus(ART3plusAlgorithm):
     ----------
     weights : npt.NDArray
         The weights for the constraints.
-    _feasible : bool
-        Flag indicating whether the current solution is feasible.
-    _not_met : npt.NDArray
-        Indices of constraints that are not met.
-    _not_met_init : npt.NDArray
-        Initial indices of constraints that are not met.
-
-    Methods
-    -------
-    _project(x)
-    proximity(x)
-        Calculate the proximity measure for a given solution vector x.
-    solve(x, max_iter)
     """
 
     def __init__(
@@ -212,11 +246,9 @@ class SimultaneousART3plus(ART3plusAlgorithm):
         else:
             self.weights = weights
 
-        self._feasible = True
         self._not_met = xp.arange(self.A.shape[0])
 
         self._not_met_init = self._not_met.copy()
-        self._feasible = True
 
     def _project(self, x: npt.NDArray) -> npt.NDArray:
         """
@@ -267,32 +299,24 @@ class SimultaneousART3plus(ART3plusAlgorithm):
         # remove constraints that were already met before
         self._not_met = self._not_met[(idx_1 | idx_2)]
 
-        if idx_1.sum() > 0 or idx_2.sum() > 0:
-            self._feasible = False
-
         return x
 
-    def proximity(self, x: npt.NDArray) -> float:
+    def _proximity(self, x: npt.NDArray, proximity_measures: List[str]) -> float:
         p = self.map(x)
-        (res_l, res_u) = self.bounds.residual(p)  # residuals are positive  if constraints are met
-        d_idx = res_u < 0
-        c_idx = res_l < 0
-        return (self.weights[d_idx] * res_u[d_idx] ** 2).sum() + (
-            self.weights[c_idx] * res_l[c_idx] ** 2
-        ).sum()
-
-    @ensure_float_array
-    def solve(self, x: npt.NDArray, max_iter: int):
-        for i in range(max_iter):
-            if (
-                len(self._not_met) == 0 and self._feasible
-            ):  # ran over all constraints and still feasible
-                return x
-            elif len(self._not_met) == 0 and not self._feasible:
-                self._not_met = self._not_met_init.copy()
-                self._feasible = True
-
-            x = self.step(x)
-            if i % 100 == 0:
-                print("A")
-        return x
+        # residuals are positive if constraints are met
+        (res_l, res_u) = self.bounds.residual(p)
+        res_u[res_u > 0] = 0
+        res_l[res_l > 0] = 0
+        res = -res_u - res_l
+        measures = []
+        for measure in proximity_measures:
+            if isinstance(measure, tuple):
+                if measure[0] == "p_norm":
+                    measures.append(self.weights @ (res ** measure[1]))
+                else:
+                    raise ValueError("Invalid proximity measure")
+            elif isinstance(measure, str) and measure == "max_norm":
+                measures.append(res.max())
+            else:
+                raise ValueError("Invalid proximity measure)")
+        return measures

@@ -105,3 +105,24 @@ def test_SequentialARM_step_sparse(get_ARM_variables_sparse):
 
     x_n = alg.step(x_5)
     assert np.all(abs(x_n - np.array([0, 5 / 4])) < 1e-10)
+
+
+def test_SequentialARM_solve(get_ARM_variables_full):
+    """Test the solve function of the SequentialARM class."""
+    A, lb, ub = get_ARM_variables_full
+    alg = SequentialARM(A, lb, ub)
+    x_0 = np.array([1.0, 1.0])
+    x = alg.solve(x_0, constr_tol=1e-6)
+    assert alg.proximities[-1][0] < 1e-6
+
+    x_0 = np.array([1.0, 1.0])
+    x = alg.solve(x_0, constr_tol=1e-6, proximity_measures=["max_norm"])
+    assert np.all(abs(x - np.array([0.5, 0.5])) < 1e-6)
+
+    x_0 = np.array([1.0, 1.0])
+    x = alg.solve(x_0, max_iter=2)
+    assert np.all(abs(x - np.array([41 / 80, 41 / 80])) < 1e-10)
+
+    x_0 = np.array([1.0, 1.0])
+    x = alg.solve(x_0, max_iter=2, proximity_measures=[("p_norm", 2), "max_norm"])
+    assert np.all(abs(x - np.array([41 / 80, 41 / 80])) < 1e-10)

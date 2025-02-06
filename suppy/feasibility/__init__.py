@@ -26,7 +26,7 @@ from ._hyperplanes._ams_algorithms import (
     BlockIterativeAMSHyperplane,
 )
 
-from ._split_algorithms import CQAlgorithm, ProductSpaceAlgorithm
+from ._split_algorithms import CQAlgorithm
 
 __all__ = [
     "SequentialAMSHyperslab",
@@ -49,5 +49,4 @@ __all__ = [
     "StringAveragedARM",
     "SequentialART3plus",
     "CQAlgorithm",
-    "ProductSpaceAlgorithm",
 ]

@@ -97,7 +97,6 @@ docs:
         - pip install pydata-sphinx-theme
         - pip install sphinx-autodoc-typehints
         - pip install sphinx-design
-        - sphinx-apidoc -o docs ./suppy
         - sphinx-build docs .doc
     artifacts:
         when: always

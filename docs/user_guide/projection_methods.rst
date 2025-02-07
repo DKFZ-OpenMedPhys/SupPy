@@ -3,9 +3,9 @@
 Projection methods
 ==================
 
-Projection methods are the second part of the ``suppy.projections`` module.
+Projection methods are the second part of the :class:`~suppy.projections._projections.Projection` module.
 They allow to find the intersection of convex sets, by projecting onto them sequentially, simultaneously, or in a combined fashion.
-They are implented as subclasses of the ``ProjectionMethod`` class with the individual projections passed as a list to the constructor.
+They are implented as subclasses of the :class:`~suppy.projections._projection_methods.ProjectionMethod` class with the individual projections passed as a list to the constructor.
 
 SequentialProjection
 --------------------
@@ -28,7 +28,7 @@ The ``SequentialProjection`` class allows to project onto multiple sets sequenti
     sequential_projection.project(x)
 
 where ``projection_1`` and ``projection_2`` are two individual box projections.
-The order of the projections by default is the same as the order in which the projections are passed in to the constructor. It can be changed by passing the a control sequence (``cs``) as an optional input argument to the constructor.
+The order of the projections by default is the same as the order in which the projections are passed in to the constructor. It can be changed by passing a control sequence (``cs``) as an optional input argument to the constructor.
 
 
 SimultaneousProjection
@@ -53,7 +53,7 @@ The ``SimultaneousProjection`` class allows to project onto multiple sets simult
     simultaneous_projection.project(x)
 
 where ``projection_1`` and ``projection_2`` are two individual box projections and ``weights`` are the weights assigned to the individual projections.
-Mathematically the simultaneous projetion is calculated by:
+Mathematically the simultaneous projection is calculated by:
 
 .. math::
 

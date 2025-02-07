@@ -3,7 +3,7 @@
 User guide
 ==========
 
-*suppy* is a library for projection based feasibility seeking and superiorization algorithms.
+*SupPy* is a library for projection based feasibility seeking and superiorization algorithms.
 
 Feasibility seeking algorithms have the goal of finding a point in a constrained set given by the intersection of individual constraints :math:`C_i`
 
@@ -26,7 +26,7 @@ One way to achieve this is by means of projecting onto the individual sets :math
 Individual projections
 ----------------------
 
-Individual constraints in *suppy* are represented by :class:`Projection` objects that each have a method :meth:`project` that calculates the projection of a given point `x` onto the set.
+Individual constraints in *SupPy* are represented by :class:`Projection` objects that each have a method :meth:`project` that calculates the projection of a given point `x` onto the set.
 Furthermore a relaxed projection can be calculated by setting up a relaxation parameter when constructing the object. :meth:`project` then calculates a relaxed projection based on the parameter. For indication on whether to use the GPU for calculations a `use_gpu` parameter is used. This is either set automatically if the required input allows to determine it, or is set manually when constructing the object.
 
 
@@ -53,14 +53,14 @@ Projection onto the intersection of sets
 To project onto the intersection of general sets, combinations of the individual projections are used.
 The simplest ideas are :class:`SequentialProjection` and :class:`SimultaneousProjection` methods that project onto the individual sets sequentially or simultaenously, respectively.
 Furthermore combinations of the two approaches can be used in the form of :class:`StringAveragedProjection` and :class:`BlockIterativeProjection`.
-For a full readup on how these are implemented in *suppy* please refer to the :ref:`projection_methods` section.
+For a full readup on how these are implemented in *SupPy* please refer to the :ref:`projection_methods` section.
 
 
 
 Linear feasibility problems
 ---------------------------
 While individual linear constraints :math:`C_i = \{x \in \mathbb{R}^n | a_i x \leq b_i\}` can be projected onto using the dedicated :class:`HalfspaceProjection` class, this becomes cumbersome for the intersection of many linear constraints.
-To speed up the computation and setup for projections onto linear constraints, *suppy* provides several matrix based formulations in the :mod:`feasibility` module.
+To speed up the computation and setup for projections onto linear constraints, *SupPy* provides several matrix based formulations in the :mod:`feasibility` module.
 These include AMS, ARM and ART3+ algorithms. For a full readup on these algorithms please refer to the :ref:`feasible` section.
 
 
@@ -82,12 +82,15 @@ The goal of constrained optimization is to fully minimize the objective function
 Superiorization meanwhile aims to find a point in the feasible set and only reducing the objective function value - not necessarily minimizing it.
 This is done by using a feasibility seeking algorithm and perturbing it with respect to the objective function :math:`f` to reduce its value.
 
-In *suppy* superiorization algorithms are class based and can be found in the :mod:`superiorization` module.
+In *SupPy* superiorization algorithms are class based and can be found in the :mod:`superiorization` module.
 For set up an underlying feasibility seeking algorithm as well as perturbation scheme is needed.
 An explanation on how this is done can be found in the :ref:`superiorization` section.
 
 .. toctree::
    :maxdepth: 1
-   :caption: Modules:
+   :caption: User guide:
 
+   projections
    projection_methods
+   feasibility
+   superiorization

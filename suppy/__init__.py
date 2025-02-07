@@ -1,4 +1,3 @@
-from . import algorithms
 from . import feasibility
 from . import perturbations
 from . import projections

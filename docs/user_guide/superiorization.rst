@@ -21,6 +21,7 @@ Gradient steps are performed with a step size :math:`\alpha` that decreases acco
 Set up of a perturbation scheme is done in the following way:
 
 .. code-block:: python
+
     import numpy as np
     from suppy.perturbations import PowerSeriesGradientPerturbation
     PowerSeriesGradientPerturbation
@@ -35,9 +36,10 @@ Set up of a perturbation scheme is done in the following way:
 
     pert = PowerSeriesGradientPerturbation(func_1,grad_1)
 
-
 For a superiorization scheme we need the underlying feasibility seeking algorithm and the perturbation scheme.
+
 .. code-block:: python
+
     from suppy.projections import BandProjection, SequentialProjection
     band_1 = BandProjection(np.array([1,2]), 3,4)
     band_2 = BandProjection(np.array([-1,1.5]), 1,2)
@@ -45,6 +47,7 @@ For a superiorization scheme we need the underlying feasibility seeking algorith
 
 With those two we can set up a superiorization scheme and solve it:
 .. code-block:: python
+
     # import the superiorization package
     from suppy.superiorization import Superiorization
     sup_model = Superiorization(seq_proj,pert)

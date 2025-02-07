@@ -19,7 +19,7 @@ Module contents
     :undoc-members:
     :show-inheritance:
 
-.. autoclass:: suppy.perturbations.PowerSeriesGradientPerturbation
+.. autoclass:: suppy.perturbations._base.PowerSeriesGradientPerturbation
     :members:
     :undoc-members:
     :show-inheritance:

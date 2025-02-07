@@ -21,7 +21,7 @@ def test_BoxProjection_datatype_error():
     Box_Proj_error = BoxProjection(lb, ub)  # without relaxation
 
     x = np.array([0, 2])
-    # with pytest.raises(np.core_exceptions._UFuncOutputCastingError):
+    # with pytest.raises(np._core_exceptions._UFuncOutputCastingError):
     proj = Box_Proj_error.project(x)
     assert np.all(proj == np.array([0, 1]))  # mathematically wrong, result is because of int array
 
@@ -111,6 +111,24 @@ def test_Box_projection_idx():
     Box_Proj3.get_xy()
 
 
+def test_BoxProjection_proximity():
+    lb = np.array([0, 0])
+    ub = np.array([1, 1])
+    box_proj = BoxProjection(lb, ub, idx=[0, 1], relaxation=1.5)
+    x = np.array([-1, 0.5, 2])
+
+    prox_measures = []
+    no_prox = box_proj.proximity(x, prox_measures)
+    assert no_prox.size == 0
+
+    prox_measures = [("p_norm", 2), "max_norm"]
+
+    prox = box_proj.proximity(x, prox_measures)
+
+    assert np.abs(prox[0] - 0.5) < 1e-10
+    assert np.abs(prox[1] - 1) < 1e-10
+
+
 def test_HalfspaceProjection_datatype_error():
     """
     Test to check that integer arrays do not work properly on halfspace
@@ -121,7 +139,7 @@ def test_HalfspaceProjection_datatype_error():
     x = np.array([1, 1, 1])
     Halfspace_Proj = HalfspaceProjection(a, b)
     # with pytest.raises(_UFuncOutputCastingError):
-    with pytest.raises(np.core._exceptions._UFuncOutputCastingError):
+    with pytest.raises(np._core._exceptions._UFuncOutputCastingError):
         proj = Halfspace_Proj.project(x)
 
 
@@ -203,7 +221,7 @@ def test_BandProjection_datatype_error():
     ub = 2
     x = np.array([1, 1, 1])
     Band_Proj = BandProjection(a, lb, ub)
-    with pytest.raises(np.core._exceptions._UFuncOutputCastingError):
+    with pytest.raises(np._core._exceptions._UFuncOutputCastingError):
         proj = Band_Proj.project(x)
 
 
@@ -273,7 +291,7 @@ def test_BallProjection_datatype_error():
     x = np.array([0, 0])
     Ball_Proj = BallProjection(center, radius)
 
-    with pytest.raises(np.core._exceptions._UFuncOutputCastingError):
+    with pytest.raises(np._core._exceptions._UFuncOutputCastingError):
         proj = Ball_Proj.project(x)
 
 
@@ -346,11 +364,13 @@ def test_MaxDVHProjection_constructor():
     assert DVH_Proj.d_max == d_max
     assert DVH_Proj.max_percentage == max_overflow
     assert DVH_Proj.idx == np.s_[:]
+    with pytest.raises(ValueError):
+        MaxDVHProjection(d_max, max_overflow, idx=np.array([True, False]))
 
-    DVH_Proj2 = MaxDVHProjection(d_max, max_overflow, idx=[0, 1, 2])
+    DVH_Proj2 = MaxDVHProjection(d_max, max_overflow, idx=np.array([0, 1, 2]))
     assert DVH_Proj2.d_max == d_max
     assert DVH_Proj2.max_percentage == max_overflow
-    assert DVH_Proj2.idx == [0, 1, 2]
+    assert np.array_equal(DVH_Proj2.idx, np.array([0, 1, 2]))
 
 
 def test_MaxDVHProjection_project():
@@ -367,8 +387,7 @@ def test_MaxDVHProjection_project_idxs():
     """Test the projection of the DVH projection on subset."""
     d_max = 5
     max_overflow = 0.1  # 10% can overflow
-    idx = np.ones(11, dtype=bool)
-    idx[-1] = False
+    idx = np.arange(0, 10, 1)
     DVH_Proj = MaxDVHProjection(d_max, max_overflow, idx=idx)
     x = np.arange(11)
     proj = DVH_Proj.project(x)
@@ -395,8 +414,7 @@ def test_MaxDVHProjection_project_odd_overflow_idxs():
     """
     d_max = 5
     max_overflow = 0.05  # at most 5% of the volume are allowed to receive a dose higher than d_max
-    idx = np.ones(11, dtype=bool)
-    idx[-1] = False
+    idx = np.arange(0, 10, 1)
     DVH_Proj = MaxDVHProjection(d_max, max_overflow, idx=idx)
     x = np.arange(11)
     proj = DVH_Proj.project(x)
@@ -414,10 +432,10 @@ def test_MinDVHProjection_constructor():
     assert DVH_Proj.min_percentage == min_overflow
     assert DVH_Proj.idx == np.s_[:]
 
-    DVH_Proj2 = MinDVHProjection(d_min, min_overflow, idx=[0, 1, 2])
+    DVH_Proj2 = MinDVHProjection(d_min, min_overflow, idx=np.array([0, 1, 2]))
     assert DVH_Proj2.d_min == d_min
     assert DVH_Proj2.min_percentage == min_overflow
-    assert DVH_Proj2.idx == [0, 1, 2]
+    assert np.array_equal(DVH_Proj2.idx, [0, 1, 2])
 
 
 def test_MinDVHProjection_project():
@@ -434,8 +452,7 @@ def test_MinDVHProjection_project_idxs():
     """Test the projection of the DVH projection on subset."""
     d_min = 5
     min_percentage = 0.9  # 50% can overflow
-    idx = np.ones(11, dtype=bool)
-    idx[-1] = False
+    idx = np.arange(0, 10, 1)
     DVH_Proj = MinDVHProjection(d_min, min_percentage, idx=idx)
     x = np.arange(11)
     proj = DVH_Proj.project(x)
@@ -462,8 +479,7 @@ def test_MinDVHProjection_project_odd_overflow_idxs():
     """
     d_min = 5
     min_overflow = 0.95  # 5% can overflow, but since we have only 10 elements for x this means no element can overflow
-    idx = np.ones(11, dtype=bool)
-    idx[-1] = False
+    idx = np.arange(0, 10, 1)
     DVH_Proj = MinDVHProjection(d_min, min_overflow, idx=idx)
     x = np.arange(11)
     proj = DVH_Proj.project(x)

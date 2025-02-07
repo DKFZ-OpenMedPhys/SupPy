@@ -6,11 +6,11 @@ import numpy.typing as npt
 try:
     import cupy as cp
 
-    no_gpu = False
+    NO_GPU = False
 
 except ImportError:
-    no_gpu = True
-    cp = None
+    NO_GPU = True
+    cp = np
 
 from suppy.feasibility._linear_algorithms import HyperslabFeasibility
 from suppy.utils import LinearMapping
@@ -24,51 +24,46 @@ class HyperslabAMSAlgorithm(HyperslabFeasibility, ABC):
 
     Parameters
     ----------
-    A : npt.ArrayLike
+    A : npt.NDArray
         The matrix representing the coefficients of the linear inequalities.
-    lb : npt.ArrayLike
+    lb : npt.NDArray
         The lower bounds for the inequalities.
-    ub : npt.ArrayLike
+    ub : npt.NDArray
         The upper bounds for the inequalities.
-    algorithmic_relaxation : npt.ArrayLike or float, optional
+    algorithmic_relaxation : npt.NDArray or float, optional
         The relaxation parameter for the algorithm, by default 1.
     relaxation : float, optional
         The relaxation parameter for the feasibility problem, by default 1.
     proximity_flag : bool, optional
         A flag indicating whether to use proximity in the algorithm, by default True.
-
-    Attributes
-    ----------
-    A_norm : LinearMapping
-        Internal representation of the matrix normalized with respect to the row norms.
     """
 
     def __init__(
         self,
-        A: npt.ArrayLike,
-        lb: npt.ArrayLike,
-        ub: npt.ArrayLike,
-        algorithmic_relaxation: npt.ArrayLike | float = 1,
+        A: npt.NDArray,
+        lb: npt.NDArray,
+        ub: npt.NDArray,
+        algorithmic_relaxation: npt.NDArray | float = 1,
         relaxation: float = 1,
         proximity_flag: bool = True,
     ):
         super().__init__(A, lb, ub, algorithmic_relaxation, relaxation, proximity_flag)
-        self.A_norm = LinearMapping(self.A.normalize_rows(2, 2))
 
 
-class SequentialAMS(HyperslabAMSAlgorithm):
+class SequentialAMSHyperslab(HyperslabAMSAlgorithm):
     """
-    SequentialAMS class for sequentially applying the AMS algorithm.
+    SequentialAMSHyperslab class for sequentially applying the AMS algorithm
+    on hyperslabs.
 
     Parameters
     ----------
-    A : npt.ArrayLike
+    A : npt.NDArray
         The matrix A used in the AMS algorithm.
-    lb : npt.ArrayLike
+    lb : npt.NDArray
         The lower bounds for the constraints.
-    ub : npt.ArrayLike
+    ub : npt.NDArray
         The upper bounds for the constraints.
-    algorithmic_relaxation : npt.ArrayLike or float, optional
+    algorithmic_relaxation : npt.NDArray or float, optional
         The relaxation parameter for the algorithm, by default 1.
     relaxation : float, optional
         The relaxation parameter, by default 1.
@@ -76,17 +71,14 @@ class SequentialAMS(HyperslabAMSAlgorithm):
         The list of indices for the constraints, by default None.
     proximity_flag : bool, optional
         Flag to indicate if proximity should be considered, by default True.
-
-    Attributes
-    ----------
     """
 
     def __init__(
         self,
-        A: npt.ArrayLike,
-        lb: npt.ArrayLike,
-        ub: npt.ArrayLike,
-        algorithmic_relaxation: npt.ArrayLike | float = 1,
+        A: npt.NDArray,
+        lb: npt.NDArray,
+        ub: npt.NDArray,
+        algorithmic_relaxation: npt.NDArray | float = 1,
         relaxation: float = 1,
         cs: None | List[int] = None,
         proximity_flag: bool = True,
@@ -99,49 +91,53 @@ class SequentialAMS(HyperslabAMSAlgorithm):
         else:
             self.cs = cs
 
-    def _project(self, x: npt.ArrayLike) -> npt.ArrayLike:
+    def _project(self, x: npt.NDArray) -> npt.NDArray:
         """
         Projects the input array `x` onto the feasible region defined by the
         constraints.
 
         Parameters
         ----------
-        x : npt.ArrayLike
+        x : npt.NDArray
             The input array to be projected.
 
         Returns
         -------
-        npt.ArrayLike
+        npt.NDArray
             The projected array.
         """
 
         for i in self.cs:
             p_i = self.single_map(x, i)
-            (res_li, res_ui) = self.Bounds.single_residual(p_i, i)  # returns floats
+            (res_li, res_ui) = self.bounds.single_residual(p_i, i)  # returns floats
             # check if constraints are violated
 
             # weights should be 1s!
             if res_ui < 0:
-                self.A_norm.update_step(x, self.algorithmic_relaxation * res_ui, i)
+                self.A.update_step(
+                    x, self.algorithmic_relaxation * self.inverse_row_norm[i] * res_ui, i
+                )
             elif res_li < 0:
-                self.A_norm.update_step(x, -1 * self.algorithmic_relaxation * res_li, i)
+                self.A.update_step(
+                    x, -1 * self.algorithmic_relaxation * self.inverse_row_norm[i] * res_li, i
+                )
         return x
 
 
-class SequentialWeightedAMS(SequentialAMS):
+class SequentialWeightedAMSHyperslab(SequentialAMSHyperslab):
     """
     Parameters
     ----------
-    A : npt.ArrayLike
+    A : npt.NDArray
         The constraint matrix.
-    lb : npt.ArrayLike
+    lb : npt.NDArray
         The lower bounds of the constraints.
-    ub : npt.ArrayLike
+    ub : npt.NDArray
         The upper bounds of the constraints.
-    weights : None, list of float, or npt.ArrayLike, optional
+    weights : None, list of float, or npt.NDArray, optional
         The weights assigned to each constraint. If None, default weights are
     used.
-    algorithmic_relaxation : npt.ArrayLike or float, optional
+    algorithmic_relaxation : npt.NDArray or float, optional
         The relaxation parameter for the algorithm. Default is 1.
     relaxation : float, optional
         The relaxation parameter for the algorithm. Default is 1.
@@ -155,7 +151,7 @@ class SequentialWeightedAMS(SequentialAMS):
 
     Attributes
     ----------
-    weights : npt.ArrayLike
+    weights : npt.NDArray
         The weights assigned to each constraint.
     weight_decay : float
         Decay rate for the weights.
@@ -165,11 +161,11 @@ class SequentialWeightedAMS(SequentialAMS):
 
     def __init__(
         self,
-        A: npt.ArrayLike,
-        lb: npt.ArrayLike,
-        ub: npt.ArrayLike,
-        weights: None | List[float] | npt.ArrayLike = None,
-        algorithmic_relaxation: npt.ArrayLike | float = 1,
+        A: npt.NDArray,
+        lb: npt.NDArray,
+        ub: npt.NDArray,
+        weights: None | List[float] | npt.NDArray = None,
+        algorithmic_relaxation: npt.NDArray | float = 1,
         relaxation: float = 1,
         weight_decay: float = 1,
         cs: None | List[int] = None,
@@ -187,19 +183,19 @@ class SequentialWeightedAMS(SequentialAMS):
             print("Weights do not add up to 1! Renormalizing to 1...")
             self.weights = weights
 
-    def _project(self, x: npt.ArrayLike) -> npt.ArrayLike:
+    def _project(self, x: npt.NDArray) -> npt.NDArray:
         """
         Projects the input array `x` onto a feasible region defined by the
         constraints.
 
         Parameters
         ----------
-        x : npt.ArrayLike
+        x : npt.NDArray
             The input array to be projected.
 
         Returns
         -------
-        npt.ArrayLike
+        npt.NDArray
             The projected array.
 
         Notes
@@ -217,33 +213,38 @@ class SequentialWeightedAMS(SequentialAMS):
 
             p_i = self.single_map(x, i)
 
-            (res_li, res_ui) = self.Bounds.single_residual(p_i, i)  # returns floats
+            (res_li, res_ui) = self.bounds.single_residual(p_i, i)  # returns floats
             # check if constraints are violated
 
             if res_ui < 0:
-                self.A_norm.update_step(x, weighted_relaxation * self.weights[i] * res_ui, i)
+                self.A.update_step(
+                    x, weighted_relaxation * self.weights[i] * self.inverse_row_norm[i] * res_ui, i
+                )
             elif res_li < 0:
-                self.A_norm.update_step(x, -1 * weighted_relaxation * self.weights[i] * res_li, i)
+                self.A.update_step(
+                    x,
+                    -1 * weighted_relaxation * self.weights[i] * self.inverse_row_norm[i] * res_li,
+                    i,
+                )
 
         self.temp_weight_decay *= self.weight_decay
         return x
 
 
-class SimultaneousAMS(HyperslabAMSAlgorithm):
+class SimultaneousAMSHyperslab(HyperslabAMSAlgorithm):
     """
-    SimultaneousAMS is an implementation of the AMS (Alternating
-    Minimization Scheme) algorithm
-    that performs simultaneous projections and proximity calculations.
+    SimultaneousAMSHyperslab class for simultaneous application of the AMS
+    algorithm on hyperslabs.
 
     Parameters
     ----------
-    A : npt.ArrayLike
+    A : npt.NDArray
         The matrix representing the constraints.
-    lb : npt.ArrayLike
+    lb : npt.NDArray
         The lower bounds for the constraints.
-    ub : npt.ArrayLike
+    ub : npt.NDArray
         The upper bounds for the constraints.
-    algorithmic_relaxation : npt.ArrayLike or float, optional
+    algorithmic_relaxation : npt.NDArray or float, optional
         The relaxation parameter for the algorithm, by default 1.
     relaxation : float, optional
         The relaxation parameter for the projections, by default 1.
@@ -255,10 +256,10 @@ class SimultaneousAMS(HyperslabAMSAlgorithm):
 
     def __init__(
         self,
-        A: npt.ArrayLike,
-        lb: npt.ArrayLike,
-        ub: npt.ArrayLike,
-        algorithmic_relaxation: npt.ArrayLike | float = 1,
+        A: npt.NDArray,
+        lb: npt.NDArray,
+        ub: npt.NDArray,
+        algorithmic_relaxation: npt.NDArray | float = 1,
         relaxation: float = 1,
         weights: None | List[float] = None,
         proximity_flag: bool = True,
@@ -279,28 +280,38 @@ class SimultaneousAMS(HyperslabAMSAlgorithm):
     def _project(self, x):
         # simultaneous projection
         p = self.map(x)
-        (res_l, res_u) = self.Bounds.residual(p)
+        (res_l, res_u) = self.bounds.residual(p)
         d_idx = res_u < 0
         c_idx = res_l < 0
         x += self.algorithmic_relaxation * (
-            self.weights[d_idx] * res_u[d_idx] @ self.A_norm[d_idx, :]
-            - self.weights[c_idx] * res_l[c_idx] @ self.A_norm[c_idx, :]
+            (self.weights * self.inverse_row_norm)[d_idx] * res_u[d_idx] @ self.A[d_idx, :]
+            - (self.weights * self.inverse_row_norm)[c_idx] * res_l[c_idx] @ self.A[c_idx, :]
         )
 
         return x
 
-    def _proximity(self, x: npt.ArrayLike) -> float:
+    def _proximity(self, x: npt.NDArray, proximity_measures: List[str]) -> float:
         p = self.map(x)
-        # residuals are positive  if constraints are met
-        (res_u, res_l) = self.Bounds.residual(p)
-        d_idx = res_u < 0
-        c_idx = res_l < 0
-        return (self.weights[d_idx] * res_u[d_idx] ** 2).sum() + (
-            self.weights[c_idx] * res_l[c_idx] ** 2
-        ).sum()
+        # residuals are positive if constraints are met
+        (res_l, res_u) = self.bounds.residual(p)
+        res_u[res_u > 0] = 0
+        res_l[res_l > 0] = 0
+        res = -res_u - res_l
+        measures = []
+        for measure in proximity_measures:
+            if isinstance(measure, tuple):
+                if measure[0] == "p_norm":
+                    measures.append(self.weights @ (res ** measure[1]))
+                else:
+                    raise ValueError("Invalid proximity measure")
+            elif isinstance(measure, str) and measure == "max_norm":
+                measures.append(res.max())
+            else:
+                raise ValueError("Invalid proximity measure)")
+        return measures
 
 
-class ExtrapolatedLandweber(SimultaneousAMS):
+class ExtrapolatedLandweber(SimultaneousAMSHyperslab):
     def __init__(
         self, A, lb, ub, algorithmic_relaxation=1, relaxation=1, weights=None, proximity_flag=True
     ):
@@ -310,11 +321,12 @@ class ExtrapolatedLandweber(SimultaneousAMS):
         self.sigmas = []
 
     def _project(self, x):
+        xp = cp if self._use_gpu else np
         p = self.map(x)
-        (res_l, res_u) = self.Bounds.residual(p)
+        (res_l, res_u) = self.bounds.residual(p)
         d_idx = res_u < 0
         c_idx = res_l < 0
-        if not (np.any(d_idx) or np.any(c_idx)):
+        if not (xp.any(d_idx) or xp.any(c_idx)):
             self.sigmas.append(0)
             return x
         t_u = self.weight_norm[d_idx] * res_u[d_idx]  # D*(Ax-b)+
@@ -331,24 +343,21 @@ class ExtrapolatedLandweber(SimultaneousAMS):
         return x
 
 
-class BlockIterativeAMS(HyperslabAMSAlgorithm):
+class BlockIterativeAMSHyperslab(HyperslabAMSAlgorithm):
     """
-    Block Iterative AMS Algorithm.
-    This class implements a block iterative version of the AMS (Alternating
-    Minimization Scheme) algorithm.
-    It is designed to handle constraints and weights in a block-wise manner.
+    Block Iterative AMS Algorithm for hyperslabs.
 
     Parameters
     ----------
-    A : npt.ArrayLike
+    A : npt.NDArray
         The matrix representing the linear constraints.
-    lb : npt.ArrayLike
+    lb : npt.NDArray
         The lower bounds for the constraints.
-    ub : npt.ArrayLike
+    ub : npt.NDArray
         The upper bounds for the constraints.
-    weights : List[List[float]] or List[npt.ArrayLike]
+    weights : List[List[float]] or List[npt.NDArray]
         A list of lists or arrays representing the weights for each block. Each list/array should sum to 1.
-    algorithmic_relaxation : npt.ArrayLike or float, optional
+    algorithmic_relaxation : npt.NDArray or float, optional
         The relaxation parameter for the algorithm, by default 1.
     relaxation : float, optional
         The relaxation parameter for the constraints, by default 1.
@@ -363,11 +372,11 @@ class BlockIterativeAMS(HyperslabAMSAlgorithm):
 
     def __init__(
         self,
-        A: npt.ArrayLike,
-        lb: npt.ArrayLike,
-        ub: npt.ArrayLike,
-        weights: List[List[float]] | List[npt.ArrayLike],
-        algorithmic_relaxation: npt.ArrayLike | float = 1,
+        A: npt.NDArray,
+        lb: npt.NDArray,
+        ub: npt.NDArray,
+        weights: List[List[float]] | List[npt.NDArray],
+        algorithmic_relaxation: npt.NDArray | float = 1,
         relaxation: float = 1,
         proximity_flag: bool = True,
     ):
@@ -382,10 +391,14 @@ class BlockIterativeAMS(HyperslabAMSAlgorithm):
                 raise ValueError("Weights do not add up to 1!")
 
         self.weights = []
+        self.block_idxs = [
+            xp.where(xp.array(el) > 0)[0] for el in weights
+        ]  # get idxs that meet requirements
+
+        # assemble a list of general weights
         self.total_weights = xp.zeros_like(weights[0])
-        self.idxs = [xp.array(el) > 0 for el in weights]  # create mask for blocks
         for el in weights:
-            el = xp.array(el)
+            el = xp.asarray(el)
             self.weights.append(el[xp.array(el) > 0])  # remove non zero weights
             self.total_weights += el / len(weights)
 
@@ -393,52 +406,64 @@ class BlockIterativeAMS(HyperslabAMSAlgorithm):
         # simultaneous projection
         xp = cp if self._use_gpu else np
 
-        for el, idx in zip(self.weights, self.idxs):  # get mask and associated weights
-            p = self.indexed_map(x, idx)
-            (res_l, res_u) = self.Bounds.indexed_residual(p, idx)
+        for el, block_idx in zip(self.weights, self.block_idxs):  # get mask and associated weights
+            p = self.indexed_map(x, block_idx)
+            (res_l, res_u) = self.bounds.indexed_residual(p, block_idx)
             d_idx = res_u < 0
             c_idx = res_l < 0
-
-            full_d_idx = xp.zeros(self.A.shape[0], dtype=bool)
-            full_c_idx = xp.zeros(self.A.shape[0], dtype=bool)
-
-            full_d_idx[idx] = d_idx
-            full_c_idx[idx] = c_idx
+            full_d_idx = block_idx[d_idx]
+            full_c_idx = block_idx[c_idx]
 
             x += self.algorithmic_relaxation * (
-                el[d_idx] * res_u[d_idx] @ self.A_norm[full_d_idx, :]
-                - el[c_idx] * res_l[c_idx] @ self.A_norm[full_c_idx, :]
+                self.inverse_row_norm[full_d_idx]
+                * el[d_idx]
+                * res_u[d_idx]
+                @ self.A[full_d_idx, :]
+                - self.inverse_row_norm[full_c_idx]
+                * el[c_idx]
+                * res_l[c_idx]
+                @ self.A[full_c_idx, :]
             )
 
         return x
 
-    def _proximity(self, x: npt.ArrayLike) -> float:
+    def _proximity(self, x: npt.NDArray, proximity_measures: List[str]) -> float:
         p = self.map(x)
-        (res_u, res_l) = self.Bounds.residual(p)  # residuals are positive  if constraints are met
-        d_idx = res_u < 0
-        c_idx = res_l < 0
-        return (self.total_weights[d_idx] * res_u[d_idx] ** 2).sum() + (
-            self.total_weights[c_idx] * res_l[c_idx] ** 2
-        ).sum()
+        # residuals are positive if constraints are met
+        (res_l, res_u) = self.bounds.residual(p)
+        res_u[res_u > 0] = 0
+        res_l[res_l > 0] = 0
+        res = -res_u - res_l
+        measures = []
+        for measure in proximity_measures:
+            if isinstance(measure, tuple):
+                if measure[0] == "p_norm":
+                    measures.append(self.total_weights @ (res ** measure[1]))
+                else:
+                    raise ValueError("Invalid proximity measure")
+            elif isinstance(measure, str) and measure == "max_norm":
+                measures.append(res.max())
+            else:
+                raise ValueError("Invalid proximity measure)")
+        return measures
 
 
-class StringAveragedAMS(HyperslabAMSAlgorithm):
+class StringAveragedAMSHyperslab(HyperslabAMSAlgorithm):
     """
-    StringAveragedAMS is an implementation of the HyperslabAMSAlgorithm that
-    performs
-    string averaged projections.
+    StringAveragedAMSHyperslab is a string averaged implementation of the
+    AMS algorithm.
 
     Parameters
     ----------
-    A : npt.ArrayLike
+    A : npt.NDArray
         The matrix A used in the algorithm.
-    lb : npt.ArrayLike
+    lb : npt.NDArray
         The lower bounds for the variables.
-    ub : npt.ArrayLike
+    ub : npt.NDArray
         The upper bounds for the variables.
     strings : List[List[int]]
         A list of lists, where each inner list represents a string of indices.
-    algorithmic_relaxation : npt.ArrayLike or float, optional
+    algorithmic_relaxation : npt.NDArray or float, optional
         The relaxation parameter for the algorithm, by default 1.
     relaxation : float, optional
         The relaxation parameter for the projection, by default 1.
@@ -450,11 +475,11 @@ class StringAveragedAMS(HyperslabAMSAlgorithm):
 
     def __init__(
         self,
-        A: npt.ArrayLike,
-        lb: npt.ArrayLike,
-        ub: npt.ArrayLike,
+        A: npt.NDArray,
+        lb: npt.NDArray,
+        ub: npt.NDArray,
         strings: List[List[int]],
-        algorithmic_relaxation: npt.ArrayLike | float = 1,
+        algorithmic_relaxation: npt.NDArray | float = 1,
         relaxation: float = 1,
         weights: None | List[float] = None,
         proximity_flag: bool = True,
@@ -484,11 +509,17 @@ class StringAveragedAMS(HyperslabAMSAlgorithm):
             x_s = x_c.copy()  # generate a copy for individual strings
             for i in string:
                 p_i = self.single_map(x_s, i)
-                (res_li, res_ui) = self.Bounds.single_residual(p_i, i)
+                (res_li, res_ui) = self.bounds.single_residual(p_i, i)
                 if res_ui < 0:
-                    self.A_norm.update_step(x_s, self.algorithmic_relaxation * res_ui, i)
+                    self.A.update_step(
+                        x_s, self.algorithmic_relaxation * self.inverse_row_norm[i] * res_ui, i
+                    )
                 elif res_li < 0:
-                    self.A_norm.update_step(x_s, -1 * self.algorithmic_relaxation * res_li, i)
+                    self.A.update_step(
+                        x_s,
+                        -1 * self.algorithmic_relaxation * self.inverse_row_norm[i] * res_li,
+                        i,
+                    )
 
             x += weight * x_s
         return x

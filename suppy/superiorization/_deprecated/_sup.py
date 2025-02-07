@@ -1,6 +1,4 @@
 from abc import ABC, abstractmethod
-
-import numpy as np
 import numpy.typing as npt
 from suppy.utils import ensure_float_array
 from suppy.perturbations import Perturbation, PowerSeriesGradientPerturbation
@@ -100,7 +98,7 @@ class Superiorization(FeasibilityPerturbation, ABC):
         )  # array storing all objective function values achieved via the basic algorithm
 
     @ensure_float_array
-    def solve(self, x_0: npt.ArrayLike, max_iter: int = 10, storage=False):
+    def solve(self, x_0: npt.NDArray, max_iter: int = 10, storage=False):
         """
         Solve the superiorization problem.
 
@@ -170,8 +168,8 @@ class Superiorization(FeasibilityPerturbation, ABC):
         - stop: A boolean indicating whether to stop the algorithm or not.
         """
         stop = (
-            np.abs(f_temp - self.f_k) < self.objective_tol
-            and np.abs(p_temp - self.p_k) < self.constr_tol
+            abs(f_temp - self.f_k) < self.objective_tol
+            and abs(p_temp - self.p_k) < self.constr_tol
         )
         return stop
 
@@ -275,7 +273,7 @@ class SplitSuperiorization(FeasibilityPerturbation, ABC):
         )  # array storing all objective function values achieved via the basic algorithm
 
     @ensure_float_array
-    def solve(self, x_0: npt.ArrayLike, max_iter: int = 10, storage=False):
+    def solve(self, x_0: npt.NDArray, max_iter: int = 10, storage=False):
         """
         Solve the superiorization problem.
 
@@ -365,9 +363,9 @@ class SplitSuperiorization(FeasibilityPerturbation, ABC):
         Returns:
         - stop: A boolean indicating whether to stop the algorithm or not.
         """
-        input_crit = np.abs(input_f_temp - self.input_f_k) < self.input_objective_tol
-        target_crit = np.abs(target_f_temp - self.target_f_k) < self.target_objective_tol
-        constr_crit = np.abs(p_temp - self.p_k) < self.constr_tol
+        input_crit = abs(input_f_temp - self.input_f_k) < self.input_objective_tol
+        target_crit = abs(target_f_temp - self.target_f_k) < self.target_objective_tol
+        constr_crit = abs(p_temp - self.p_k) < self.constr_tol
         stop = input_crit and target_crit and constr_crit
         return stop
 
@@ -429,33 +427,3 @@ class SplitSuperiorization(FeasibilityPerturbation, ABC):
     #     self.all_function_values_basic.append(f)
     #     self.all_x_values.append(x.copy())
     #     self.all_function_values.append(f)
-
-
-if __name__ == "__main__":
-    import numpy as np
-    import matplotlib.pyplot as plt
-    import suppy.projections as pr
-
-    def func_2(x):
-        return 1 / len(x) * (x**2).sum(axis=0)
-
-    def grad_2(x):
-        return 1 / len(x) * 2 * x
-
-    center_1 = np.array([1.2, 0])
-    radius = 1
-    center_2 = np.array([0, 1.4])
-
-    # Creating a circle
-
-    Ball_1 = pr.BallProjection(center_1, radius)
-    Ball_2 = pr.BallProjection(center_2, radius)
-    Proj = pr.SequentialProjection([Ball_1, Ball_2])
-
-    pert = PowerSeriesGradientPerturbation(func_2, grad_2, [], [], n_red=1, step_size=0.5)
-
-    x0 = np.array([2.5, 1.5])
-
-    new_implementation = Superiorization(Proj, pert)
-    xF = new_implementation.solve(np.array([2.5, 1.5]), max_iter=10, storage=True)
-    print(xF)

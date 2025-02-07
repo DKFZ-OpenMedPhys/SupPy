@@ -30,8 +30,8 @@ def test_StringAveragedARM_constructor_full(get_ARM_variables_full):
     alg = StringAveragedARM(A, lb, ub, strings=[[0, 1]])  # sequential like
     assert isinstance(alg.A, LinearMapping)
     assert np.array_equal(alg.A, A)
-    assert np.array_equal(alg.Bounds.l, lb)
-    assert np.array_equal(alg.Bounds.u, ub)
+    assert np.array_equal(alg.bounds.l, lb)
+    assert np.array_equal(alg.bounds.u, ub)
     assert alg.strings == [[0, 1]]
     assert np.array_equal(alg.weights, np.ones(1))
     assert alg.relaxation == 1.0
@@ -51,8 +51,8 @@ def test_StringAveragedARM_constructor_sparse(get_ARM_variables_sparse):
     alg = StringAveragedARM(A, lb, ub, strings=[[0, 1]])  # sequential like
     assert isinstance(alg.A, LinearMapping)
     assert np.array_equal(alg.A.todense(), A.todense())
-    assert np.array_equal(alg.Bounds.l, lb)
-    assert np.array_equal(alg.Bounds.u, ub)
+    assert np.array_equal(alg.bounds.l, lb)
+    assert np.array_equal(alg.bounds.u, ub)
     assert alg.strings == [[0, 1]]
     assert np.array_equal(alg.weights, np.ones(1))
     assert alg.relaxation == 1.0
@@ -78,20 +78,20 @@ def test_StringAveragedARM_step_full_sequential_like(get_ARM_variables_full):
     x_5 = np.array([0.0, 2.0])
 
     x_n = alg.step(x_1)
-    assert np.all(np.abs(x_n - np.array([0.0, 0.0])) < 1e-10)
+    assert np.all(abs(x_n - np.array([0.0, 0.0])) < 1e-10)
     assert np.array_equal(x_n, x_1)
 
     x_n = alg.step(x_2)
-    assert np.all(np.abs(x_n - 5 / 8 * np.array([1.0, 1.0])) < 1e-10)
+    assert np.all(abs(x_n - 5 / 8 * np.array([1.0, 1.0])) < 1e-10)
 
     x_n = alg.step(x_3)
-    assert np.all(np.abs(x_n - 5 / 8 * np.array([-1.0, -1.0])) < 1e-10)
+    assert np.all(abs(x_n - 5 / 8 * np.array([-1.0, -1.0])) < 1e-10)
 
     x_n = alg.step(x_4)
-    assert np.all(np.abs(x_n - 5 / 8 * np.array([-1.0, 1.0])) < 1e-10)
+    assert np.all(abs(x_n - 5 / 8 * np.array([-1.0, 1.0])) < 1e-10)
 
     x_n = alg.step(x_5)
-    assert np.all(np.abs(x_n - np.array([0, 5 / 4])) < 1e-10)
+    assert np.all(abs(x_n - np.array([0, 5 / 4])) < 1e-10)
 
 
 def test_StringAveragedARM_step_sparse_sequential_like(get_ARM_variables_sparse):
@@ -109,20 +109,20 @@ def test_StringAveragedARM_step_sparse_sequential_like(get_ARM_variables_sparse)
     x_5 = np.array([0.0, 2.0])
 
     x_n = alg.step(x_1)
-    assert np.all(np.abs(x_n - np.array([0.0, 0.0])) < 1e-10)
+    assert np.all(abs(x_n - np.array([0.0, 0.0])) < 1e-10)
     assert np.array_equal(x_n, x_1)
 
     x_n = alg.step(x_2)
-    assert np.all(np.abs(x_n - 5 / 8 * np.array([1.0, 1.0])) < 1e-10)
+    assert np.all(abs(x_n - 5 / 8 * np.array([1.0, 1.0])) < 1e-10)
 
     x_n = alg.step(x_3)
-    assert np.all(np.abs(x_n - 5 / 8 * np.array([-1.0, -1.0])) < 1e-10)
+    assert np.all(abs(x_n - 5 / 8 * np.array([-1.0, -1.0])) < 1e-10)
 
     x_n = alg.step(x_4)
-    assert np.all(np.abs(x_n - 5 / 8 * np.array([-1.0, 1.0])) < 1e-10)
+    assert np.all(abs(x_n - 5 / 8 * np.array([-1.0, 1.0])) < 1e-10)
 
     x_n = alg.step(x_5)
-    assert np.all(np.abs(x_n - np.array([0, 5 / 4])) < 1e-10)
+    assert np.all(abs(x_n - np.array([0, 5 / 4])) < 1e-10)
 
 
 def test_StringAveragedARM_step_full_simultaneous_like(get_ARM_variables_sparse):
@@ -141,21 +141,21 @@ def test_StringAveragedARM_step_full_simultaneous_like(get_ARM_variables_sparse)
     x_5 = np.array([0.0, 2.0])
 
     x_n = alg.step(x_1)
-    assert np.all(np.abs(x_n - np.array([0.0, 0.0])) < 1e-10)
+    assert np.all(abs(x_n - np.array([0.0, 0.0])) < 1e-10)
     assert np.array_equal(x_n, x_1)
 
     x_n = alg.step(x_2)
-    assert np.all(np.abs(x_n - 13 / 16 * np.array([1.0, 1.0])) < 1e-10)
+    assert np.all(abs(x_n - 13 / 16 * np.array([1.0, 1.0])) < 1e-10)
     assert np.array_equal(x_n, x_2)
 
     x_n = alg.step(x_3)
-    assert np.all(np.abs(x_n - 13 / 16 * np.array([-1.0, -1.0])) < 1e-10)
+    assert np.all(abs(x_n - 13 / 16 * np.array([-1.0, -1.0])) < 1e-10)
 
     x_n = alg.step(x_4)
-    assert np.all(np.abs(x_n - 13 / 16 * np.array([-1.0, 1.0])) < 1e-10)
+    assert np.all(abs(x_n - 13 / 16 * np.array([-1.0, 1.0])) < 1e-10)
 
     x_n = alg.step(x_5)
-    assert np.all(np.abs(x_n - np.array([0, 13 / 8])) < 1e-10)
+    assert np.all(abs(x_n - np.array([0, 13 / 8])) < 1e-10)
 
 
 def test_StringAveragedARM_step_sparse_simultaneous_like(get_ARM_variables_sparse):
@@ -174,18 +174,18 @@ def test_StringAveragedARM_step_sparse_simultaneous_like(get_ARM_variables_spars
     x_5 = np.array([0.0, 2.0])
 
     x_n = alg.step(x_1)
-    assert np.all(np.abs(x_n - np.array([0.0, 0.0])) < 1e-10)
+    assert np.all(abs(x_n - np.array([0.0, 0.0])) < 1e-10)
     assert np.array_equal(x_n, x_1)
 
     x_n = alg.step(x_2)
-    assert np.all(np.abs(x_n - 13 / 16 * np.array([1.0, 1.0])) < 1e-10)
+    assert np.all(abs(x_n - 13 / 16 * np.array([1.0, 1.0])) < 1e-10)
     assert np.array_equal(x_n, x_2)
 
     x_n = alg.step(x_3)
-    assert np.all(np.abs(x_n - 13 / 16 * np.array([-1.0, -1.0])) < 1e-10)
+    assert np.all(abs(x_n - 13 / 16 * np.array([-1.0, -1.0])) < 1e-10)
 
     x_n = alg.step(x_4)
-    assert np.all(np.abs(x_n - 13 / 16 * np.array([-1.0, 1.0])) < 1e-10)
+    assert np.all(abs(x_n - 13 / 16 * np.array([-1.0, 1.0])) < 1e-10)
 
     x_n = alg.step(x_5)
-    assert np.all(np.abs(x_n - np.array([0, 13 / 8])) < 1e-10)
+    assert np.all(abs(x_n - np.array([0, 13 / 8])) < 1e-10)

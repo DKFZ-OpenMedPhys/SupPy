@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from suppy.feasibility import SequentialAMS
+from suppy.feasibility import SequentialAMSHyperslab
 from suppy.superiorization import Superiorization
 from suppy.perturbations import PowerSeriesGradientPerturbation
 
@@ -14,9 +14,9 @@ def get_full_variables():
 
 
 @pytest.fixture
-def get_SequentialAMS_input_full(get_full_variables):
+def get_SequentialAMSHyperslab_input_full(get_full_variables):
     A, lb, ub = get_full_variables
-    return SequentialAMS(A, lb, ub)
+    return SequentialAMSHyperslab(A, lb, ub)
 
 
 @pytest.fixture
@@ -51,24 +51,17 @@ def get_test_perturbation(get_test_func, get_test_grad):
 
 
 @pytest.fixture
-def get_superiorization_input(get_SequentialAMS_input_full, get_test_perturbation):
-    return Superiorization(
-        get_SequentialAMS_input_full,
-        get_test_perturbation,
-        objective_tol=1e-5,
-        constr_tol=1e-5,
-    )
+def get_superiorization_input(get_SequentialAMSHyperslab_input_full, get_test_perturbation):
+    return Superiorization(get_SequentialAMSHyperslab_input_full, get_test_perturbation)
 
 
 def test_Superiorization_constructor(
-    get_superiorization_input, get_SequentialAMS_input_full, get_test_perturbation
+    get_superiorization_input, get_SequentialAMSHyperslab_input_full, get_test_perturbation
 ):
     sup = get_superiorization_input
 
-    assert sup.basic == get_SequentialAMS_input_full
+    assert sup.basic == get_SequentialAMSHyperslab_input_full
     assert sup.perturbation_scheme == get_test_perturbation
-    assert sup.objective_tol == 1e-5
-    assert sup.constr_tol == 1e-5
 
     assert sup.f_k == None
     assert sup.p_k == None
@@ -89,11 +82,16 @@ def test_Superiorization_stopping_criteria(get_superiorization_input):
     alg = get_superiorization_input
     alg.f_k = 1
     alg.p_k = 2
-    assert alg._stopping_criteria(f_temp=2, p_temp=3) == False
+    assert alg._stopping_criteria(f_temp=2, p_temp=3, objective_tol=1e-5, constr_tol=1e-5) == False
 
     alg.f_k = 1
     alg.p_k = 1
-    assert alg._stopping_criteria(f_temp=1 + 9.9e-6, p_temp=1 + 9.9e-6) == True
+    assert (
+        alg._stopping_criteria(
+            f_temp=1 + 9.9e-6, p_temp=[9.9e-6], objective_tol=1e-5, constr_tol=1e-5
+        )
+        == True
+    )
 
 
 def test_initialize_storage(get_superiorization_input):
@@ -121,14 +119,14 @@ def test_initialize_storage(get_superiorization_input):
 
 def test_storage_function_reduction(get_superiorization_input):
     alg = get_superiorization_input
-    alg._storage_function_reduction(np.array([1, 2]), 5, 4)
+    alg._storage_function_reduction(np.array([1, 2]), 5, [4])
     assert np.array_equal(alg.all_x, [np.array([1, 2])])
     assert alg.all_function_values == [5]
-    assert alg.all_proximity_values == [4]
+    assert alg.all_proximity_values == [[4]]
 
     assert np.array_equal(alg.all_x_function_reduction, [np.array([1, 2])])
     assert alg.all_function_values_function_reduction == [5]
-    assert alg.all_proximity_values_function_reduction == [4]
+    assert alg.all_proximity_values_function_reduction == [[4]]
 
     assert alg.all_x_basic == []
     assert alg.all_function_values_basic == []
@@ -137,14 +135,14 @@ def test_storage_function_reduction(get_superiorization_input):
 
 def test_storage_basic_step(get_superiorization_input):
     alg = get_superiorization_input
-    alg._storage_basic_step(np.array([1, 2]), 5, 4)
+    alg._storage_basic_step(np.array([1, 2]), 5, [4])
     assert np.array_equal(alg.all_x, [np.array([1, 2])])
     assert alg.all_function_values == [5]
-    assert alg.all_proximity_values == [4]
+    assert alg.all_proximity_values == [[4]]
 
     assert np.array_equal(alg.all_x_basic, [np.array([1, 2])])
     assert alg.all_function_values_basic == [5]
-    assert alg.all_proximity_values_basic == [4]
+    assert alg.all_proximity_values_basic == [[4]]
 
     assert alg.all_x_function_reduction == []
     assert alg.all_function_values_function_reduction == []
@@ -186,9 +184,7 @@ def test_PowerSeriesGradient_superiorization(get_superiorization_input):
         [np.array([2, 2]), (2 - 1 / np.sqrt(2)) * np.array([1, 1]), np.array([1, 1])],
     )
     assert np.array_equal(alg.all_x_function_reduction, [(2 - 1 / np.sqrt(2)) * np.array([1, 1])])
-    assert np.all(
-        np.abs(alg.all_function_values - np.array([8, 9.0 - 4.0 * np.sqrt(2), 2])) < 1e-10
-    )
+    assert np.all(abs(alg.all_function_values - np.array([8, 9.0 - 4.0 * np.sqrt(2), 2])) < 1e-10)
     assert np.all(
         alg.all_function_values_function_reduction - np.array([9 - 4 * np.sqrt(2)]) < 1e-10
     )

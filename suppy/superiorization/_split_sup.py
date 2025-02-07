@@ -1,4 +1,4 @@
-import numpy as np
+from typing import List
 import numpy.typing as npt
 from suppy.utils import ensure_float_array
 from suppy.perturbations import Perturbation
@@ -60,17 +60,10 @@ class SplitSuperiorization(FeasibilityPerturbation):
         basic,  # needs to be a split problem
         input_perturbation_scheme: Perturbation | None = None,
         target_perturbation_scheme: Perturbation | None = None,
-        input_objective_tol: float = 1e-4,
-        target_objective_tol: float = 1e-4,
-        constr_tol: float = 1e-6,
     ):
         super().__init__(basic)
         self.input_perturbation_scheme = input_perturbation_scheme
         self.target_perturbation_scheme = target_perturbation_scheme
-
-        self.input_objective_tol = input_objective_tol
-        self.target_objective_tol = target_objective_tol
-        self.constr_tol = constr_tol
 
         # initialize some variables for the algorithms
         self.input_f_k = None
@@ -94,13 +87,22 @@ class SplitSuperiorization(FeasibilityPerturbation):
         self.all_function_values_basic = []
 
     @ensure_float_array
-    def solve(self, x_0: npt.ArrayLike, max_iter: int = 10, storage=False):
+    def solve(
+        self,
+        x_0: npt.NDArray,
+        max_iter: int = 10,
+        storage=False,
+        input_objective_tol: float = 1e-6,
+        target_objective_tol: float = 1e-6,
+        constr_tol: float = 1e-6,
+        proximity_measures: List | None = None,
+    ) -> npt.NDArray:
         """
         Solves the optimization problem using the superiorization method.
 
         Parameters
         ----------
-        x_0 : npt.ArrayLike
+        x_0 : npt.NDArray
             Initial guess for the solution.
         max_iter : int, optional
             Maximum number of iterations to perform (default is 10).
@@ -109,7 +111,7 @@ class SplitSuperiorization(FeasibilityPerturbation):
 
         Returns
         -------
-        npt.ArrayLike
+        npt.NDArray
             The optimized solution after performing the superiorization method.
         """
         # initialization of variables
@@ -125,7 +127,7 @@ class SplitSuperiorization(FeasibilityPerturbation):
         if self.target_perturbation_scheme is not None:
             self.target_f_k = self.target_perturbation_scheme.func(y)
 
-        self.p_k = self.basic.proximity(x_0)
+        self.p_k = self.basic.proximity(x_0, proximity_measures)
 
         # if storage:
         #    self._initial_storage(x_0,self.perturbation_scheme.func(x_0))
@@ -178,7 +180,15 @@ class SplitSuperiorization(FeasibilityPerturbation):
 
         return x
 
-    def _stopping_criteria(self, input_f_temp, target_f_temp, p_temp) -> bool:
+    def _stopping_criteria(
+        self,
+        input_f_temp,
+        target_f_temp,
+        p_temp,
+        input_objective_tol,
+        target_objective_tol,
+        constr_tol,
+    ) -> bool:
         """
         Check if the stopping criteria for the optimization process are met.
 
@@ -190,22 +200,23 @@ class SplitSuperiorization(FeasibilityPerturbation):
             The current value of the target objective function.
         p_temp : float
             The current value of the constraint parameter.
+        input_objective_tol : float
+            Tolerance for the input objective function.
+        target_objective_tol : float
+            Tolerance for the target objective function.
+        constr_tol : float
+            Tolerance for the constraint.
 
         Returns
         -------
         bool
             True if all stopping criteria are met, False otherwise.
-
-        Notes
-        -----
-        The stopping criteria are based on the absolute differences between the
-        current values and their respective target values being less than the
-        specified tolerances.
         """
-        input_crit = np.abs(input_f_temp - self.input_f_k) < self.input_objective_tol
-        target_crit = np.abs(target_f_temp - self.target_f_k) < self.target_objective_tol
 
-        constr_crit = np.abs(p_temp - self.p_k) < self.constr_tol
+        input_crit = abs(input_f_temp - self.input_f_k) < input_objective_tol
+        target_crit = abs(target_f_temp - self.target_f_k) < target_objective_tol
+
+        constr_crit = p_temp < constr_tol
         stop = input_crit and target_crit and constr_crit
         return stop
 
@@ -224,7 +235,6 @@ class SplitSuperiorization(FeasibilityPerturbation):
         -------
         None
         """
-        pass
 
     # def _initial_storage(self,x,f_input,f_target):
     #     """

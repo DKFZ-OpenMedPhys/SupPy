@@ -4,9 +4,7 @@
 
 ## General introduction
 The Superiorization Method(SM) uses feasibility-seeking algorithms, i.e., algorithms that aim at finding apoint in the intersection of a finite number of given closed convex sets, i.e.,(
-$
-\text{find } \mathbf{x}\in C = \bigcap_i C_i
-$).
+$\text{find } \mathbf{x}\in C = \bigcap_i C_i$).
 
 
 In the SM the feasibility-seeking algorithm must be "perturbation resilient" in the sense that convergence of the feasibility-seeking iterative process is retained even when such perturbations are inserted into this iterative process. Given is also a real-valued objective function $\phi$. In contrast to constrained optimization of this objective function over the feasible set C, the goal of the SM is not to find a constrained minimum point but rather to reach a feasible point with reduced (not necessarily minimal) objective function value compared with the objective function value of a feasible point that would have been reached by the feasibility-seeking only algorithm.

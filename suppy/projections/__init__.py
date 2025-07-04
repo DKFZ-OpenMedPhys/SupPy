@@ -1,4 +1,6 @@
 """Module for simple projection objects."""
+from ._projections import Projection
+
 from ._basic_projections import (
     BoxProjection,
     WeightedBoxProjection,
@@ -18,6 +20,7 @@ from ._projection_methods import (
 from ._subgradient_projections import SubgradientProjection, EUDProjection
 
 __all__ = [
+    "Projection",
     "BoxProjection",
     "WeightedBoxProjection",
     "HalfspaceProjection",

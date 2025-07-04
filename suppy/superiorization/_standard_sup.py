@@ -5,6 +5,7 @@ import numpy.typing as npt
 from suppy.utils import ensure_float_array
 from suppy.perturbations import Perturbation
 from ._sup import FeasibilityPerturbation
+from suppy.projections import Projection
 
 try:
     import cupy as cp
@@ -55,7 +56,7 @@ class Superiorization(FeasibilityPerturbation):
 
     def __init__(
         self,
-        basic,
+        basic: Projection,
         perturbation_scheme: Perturbation,
     ):
 

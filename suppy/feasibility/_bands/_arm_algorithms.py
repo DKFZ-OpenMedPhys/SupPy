@@ -102,7 +102,7 @@ class SequentialARM(ARMAlgorithm):
                 self.A.update_step(
                     x,
                     -1
-                    * self.algorithmic_relaxation**self._k
+                    * self.algorithmic_relaxation
                     / 2
                     * self.inverse_row_norm[i]
                     * ((d**2 - psi**2) / d),
@@ -154,7 +154,6 @@ class SimultaneousARM(ARMAlgorithm):
     ):
 
         super().__init__(A, lb, ub, algorithmic_relaxation, relaxation, proximity_flag)
-        self._k = 0
         xp = cp if self._use_gpu else np
 
         if weights is None:
@@ -173,7 +172,7 @@ class SimultaneousARM(ARMAlgorithm):
         psi = self.bounds.half_distance
         d_idx = xp.abs(d) > psi
         x -= (
-            self.algorithmic_relaxation**self._k
+            self.algorithmic_relaxation
             / 2
             * (
                 self.weights[d_idx]
@@ -183,7 +182,6 @@ class SimultaneousARM(ARMAlgorithm):
             @ self.A[d_idx, :]
         )
 
-        self._k += 1
         return x
 
     def _proximity(self, x: npt.NDArray, proximity_measures: List[str]) -> float:
@@ -249,7 +247,6 @@ class BIPARM(ARMAlgorithm):
 
         super().__init__(A, lb, ub, algorithmic_relaxation, relaxation, proximity_flag)
         xp = cp if self._use_gpu else np
-        self._k = 0
         if weights is None:
             self.weights = xp.ones(self.A.shape[0]) / self.A.shape[0]
 
@@ -268,7 +265,7 @@ class BIPARM(ARMAlgorithm):
         psi = self.bounds.half_distance
         d_idx = abs(d) > psi
         x -= (
-            self.algorithmic_relaxation**self._k
+            self.algorithmic_relaxation
             / 2
             * (
                 self.weights[d_idx]
@@ -278,7 +275,6 @@ class BIPARM(ARMAlgorithm):
             @ self.A[d_idx, :]
         )
 
-        self._k += 1
         return x
 
     def _proximity(self, x: npt.NDArray, proximity_measures: List[str]) -> float:
@@ -353,7 +349,6 @@ class StringAveragedARM(ARMAlgorithm):
 
         super().__init__(A, lb, ub, algorithmic_relaxation, relaxation, proximity_flag)
         xp = cp if self._use_gpu else np
-        self._k = 0
         self.strings = strings
 
         if weights is None:
@@ -382,7 +377,7 @@ class StringAveragedARM(ARMAlgorithm):
                     self.A.update_step(
                         x_s,
                         -1
-                        * self.algorithmic_relaxation**self._k
+                        * self.algorithmic_relaxation
                         / 2
                         * ((d**2 - psi**2) / d)
                         * self.inverse_row_norm[i],

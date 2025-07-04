@@ -181,6 +181,8 @@ class SequentialWeightedAMSHyperslab(SequentialAMSHyperslab):
             self.weights = xp.ones(self.A.shape[0])
         elif xp.abs((weights.sum() - 1)) > 1e-10:
             print("Weights do not add up to 1! Renormalizing to 1...")
+            self.weights = weights / weights.max()
+        else:
             self.weights = weights
 
     def _project(self, x: npt.NDArray) -> npt.NDArray:
@@ -229,6 +231,27 @@ class SequentialWeightedAMSHyperslab(SequentialAMSHyperslab):
 
         self.temp_weight_decay *= self.weight_decay
         return x
+
+    def _proximity(self, x: npt.NDArray, proximity_measures: List[str]) -> float:
+        p = self.map(x)
+        # residuals are positive if constraints are met
+        (res_l, res_u) = self.bounds.residual(p)
+        res_u[res_u > 0] = 0
+        res_l[res_l > 0] = 0
+        res = -res_u - res_l
+        measures = []
+        for measure in proximity_measures:
+            if isinstance(measure, tuple):
+                if measure[0] == "p_norm":
+                    measures.append((self.weights @ (res ** measure[1])) / (self.weights.sum()))
+
+                else:
+                    raise ValueError("Invalid proximity measure")
+            elif isinstance(measure, str) and measure == "max_norm":
+                measures.append(res.max())
+            else:
+                raise ValueError("Invalid proximity measure)")
+        return measures
 
 
 class SimultaneousAMSHyperslab(HyperslabAMSAlgorithm):

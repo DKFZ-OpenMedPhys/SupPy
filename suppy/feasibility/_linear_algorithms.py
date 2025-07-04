@@ -94,7 +94,7 @@ class Feasibility(Projection, ABC):
             # TODO: Check if the proximity measures are valid
             _ = None
 
-        self.proximities = []
+        self.proximities = [self.proximity(x, proximity_measures)]
         i = 0
         feasible = False
 

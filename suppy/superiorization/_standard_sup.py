@@ -315,17 +315,53 @@ class Superiorization(FeasibilityPerturbation):
         -------
         None
         """
-        xp = cp if isinstance(x, cp.ndarray) else np
-        self.all_x = xp.array(self.all_x)
-        self.all_function_values = xp.array(self.all_function_values)
-        self.all_x_function_reduction = xp.array(self.all_x_function_reduction)
-        self.all_function_values_function_reduction = xp.array(
-            self.all_function_values_function_reduction
-        )
-        self.all_x_basic = xp.array(self.all_x_basic)
-        self.all_function_values_basic = xp.array(self.all_function_values_basic)
-        self.all_proximity_values = xp.array(self.all_proximity_values)
-        self.all_proximity_values_function_reduction = xp.array(
-            self.all_proximity_values_function_reduction
-        )
-        self.all_proximity_values_basic = xp.array(self.all_proximity_values_basic)
+        if isinstance(x, np.ndarray):
+            self.all_x = np.array(self.all_x)
+            self.all_function_values = np.array(self.all_function_values)
+            self.all_x_function_reduction = np.array(self.all_x_function_reduction)
+            self.all_function_values_function_reduction = np.array(
+                self.all_function_values_function_reduction
+            )
+            self.all_x_basic = np.array(self.all_x_basic)
+            self.all_function_values_basic = np.array(self.all_function_values_basic)
+            self.all_proximity_values = np.array(self.all_proximity_values)
+            self.all_proximity_values_function_reduction = np.array(
+                self.all_proximity_values_function_reduction
+            )
+            self.all_proximity_values_basic = np.array(self.all_proximity_values_basic)
+        else:
+            # If using cupy, convert all arrays to cupy arrays
+            # convert all to numpy arrays
+            self.all_x = np.array([el.get() for el in self.all_x])
+            self.all_function_values = np.array([el.get() for el in self.all_function_values])
+            self.all_x_function_reduction = np.array(
+                [el.get() for el in self.all_x_function_reduction]
+            )
+            self.all_function_values_function_reduction = np.array(
+                [el.get() for el in self.all_function_values_function_reduction]
+            )
+            self.all_x_basic = np.array([el.get() for el in self.all_x_basic])
+            self.all_function_values_basic = np.array(
+                [el.get() for el in self.all_function_values_basic]
+            )
+            self.all_proximity_values = np.array([el.get() for el in self.all_proximity_values])
+            self.all_proximity_values_function_reduction = np.array(
+                [el.get() for el in self.all_proximity_values_function_reduction]
+            )
+            self.all_proximity_values_basic = np.array(
+                [el.get() for el in self.all_proximity_values_basic]
+            )
+
+        # xp = cp if isinstance(x, cp.ndarray) else np
+        # self.all_function_values = xp.array(self.all_function_values)
+        # self.all_x_function_reduction = xp.array(self.all_x_function_reduction)
+        # self.all_function_values_function_reduction = xp.array(
+        #     self.all_function_values_function_reduction
+        # )
+        # self.all_x_basic = xp.array(self.all_x_basic)
+        # self.all_function_values_basic = xp.array(self.all_function_values_basic)
+        # self.all_proximity_values = xp.array(self.all_proximity_values)
+        # self.all_proximity_values_function_reduction = xp.array(
+        #     self.all_proximity_values_function_reduction
+        # )
+        # self.all_proximity_values_basic = xp.array(self.all_proximity_values_basic)

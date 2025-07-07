@@ -76,7 +76,9 @@ class ProjectionMethod(Projection, ABC):
         x: npt.NDArray,
         max_iter: int = 500,
         storage: bool = False,
-        constr_tol: float = 1e-6,
+        prox_tol: float = 1e-6,
+        del_prox_tol: float = 1e-8,
+        del_prox_n: int = 5,
         proximity_measures: List | None = None,
     ) -> npt.NDArray:
         """
@@ -90,7 +92,7 @@ class ProjectionMethod(Projection, ABC):
             Maximum number of iterations to perform.
         storage : bool, optional
             Flag indicating whether to store the intermediate solutions, by default False.
-        constr_tol : float, optional
+        prox_tol : float, optional
             The tolerance for the constraints, by default 1e-6.
         proximity_measures : List, optional
             The proximity measures to calculate, by default None. Right now only the first in the list is used to check the feasibility.
@@ -101,6 +103,7 @@ class ProjectionMethod(Projection, ABC):
             The solution after the iterative process.
         """
         xp = cp if isinstance(x, cp.ndarray) else np
+
         if proximity_measures is None:
             proximity_measures = [("p_norm", 2)]
         else:
@@ -109,26 +112,41 @@ class ProjectionMethod(Projection, ABC):
 
         self.proximities = [self.proximity(x, proximity_measures)]
         i = 0
-        feasible = False
 
         if storage is True:
             self.all_x = []
             self.all_x.append(x.copy())
 
-        while i < max_iter and not feasible:
+        stop = False  # criterion for stopping the algorithm
+        self._n_tol = 0
+
+        while i < max_iter and not stop:
             x = self.project(x)
             if storage is True:
                 self.all_x.append(x.copy())
             self.proximities.append(self.proximity(x, proximity_measures))
 
             # TODO: If proximity changes x some potential issues!
-            if self.proximities[-1][0] < constr_tol:
+            stop = self._stopping_criterion(prox_tol, del_prox_tol, del_prox_n)
 
-                feasible = True
             i += 1
+
         if self.all_x is not None:
             self.all_x = xp.array(self.all_x)
         return x
+
+    def _stopping_criterion(self, prox_tol: float, del_prox_tol: float, del_prox_n: float):
+        """"""
+        if self.proximities[-1][0] < prox_tol:  # proximity below goal/tolerance
+            return True
+        else:  # check that last n proximity changes are below a threshold
+            if self.proximities[-2][0] - self.proximities[-1][0] < del_prox_tol:
+                self._n_tol += 1
+            else:
+                self._n_tol = 0
+            if self._n_tol >= del_prox_n:  # n proximity changes below threshold
+                return True
+        return False
 
     def _proximity(self, x: npt.NDArray, proximity_measures: List) -> List[float]:
         xp = cp if isinstance(x, cp.ndarray) else np

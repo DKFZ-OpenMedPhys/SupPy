@@ -22,7 +22,7 @@ class SplitSuperiorization(FeasibilityPerturbation):
         Tolerance for the input objective function, by default 1e-4.
     target_objective_tol : float, optional
         Tolerance for the target objective function, by default 1e-4.
-    constr_tol : float, optional
+    prox_tol : float, optional
         Tolerance for the constraint, by default 1e-6.
 
     Attributes
@@ -35,7 +35,7 @@ class SplitSuperiorization(FeasibilityPerturbation):
         Tolerance for the input objective function.
     target_objective_tol : float
         Tolerance for the target objective function.
-    constr_tol : float
+    prox_tol : float
         Tolerance for the constraint.
     input_f_k : float
         The current objective function value for the input.
@@ -94,7 +94,7 @@ class SplitSuperiorization(FeasibilityPerturbation):
         storage=False,
         input_objective_tol: float = 1e-6,
         target_objective_tol: float = 1e-6,
-        constr_tol: float = 1e-6,
+        prox_tol: float = 1e-6,
         proximity_measures: List | None = None,
     ) -> npt.NDArray:
         """
@@ -163,7 +163,7 @@ class SplitSuperiorization(FeasibilityPerturbation):
             p_temp = self.basic.proximity(x, y)
 
             # enable different stopping criteria for different superiorization algorithms
-            stop = self._stopping_criteria(input_f_temp, target_f_temp, p_temp)
+            stop = self._stopping_criterion(input_f_temp, target_f_temp, p_temp)
 
             # update function and proximity values
             if self.input_perturbation_scheme is not None:
@@ -180,17 +180,18 @@ class SplitSuperiorization(FeasibilityPerturbation):
 
         return x
 
-    def _stopping_criteria(
+    def _stopping_criterion(
         self,
         input_f_temp,
         target_f_temp,
         p_temp,
         input_objective_tol,
         target_objective_tol,
-        constr_tol,
+        prox_tol,
     ) -> bool:
         """
-        Check if the stopping criteria for the optimization process are met.
+        Check if the stopping criterion for the optimization process are
+        met.
 
         Parameters
         ----------
@@ -204,7 +205,7 @@ class SplitSuperiorization(FeasibilityPerturbation):
             Tolerance for the input objective function.
         target_objective_tol : float
             Tolerance for the target objective function.
-        constr_tol : float
+        prox_tol : float
             Tolerance for the constraint.
 
         Returns
@@ -216,7 +217,7 @@ class SplitSuperiorization(FeasibilityPerturbation):
         input_crit = abs(input_f_temp - self.input_f_k) < input_objective_tol
         target_crit = abs(target_f_temp - self.target_f_k) < target_objective_tol
 
-        constr_crit = p_temp < constr_tol
+        constr_crit = p_temp < prox_tol
         stop = input_crit and target_crit and constr_crit
         return stop
 

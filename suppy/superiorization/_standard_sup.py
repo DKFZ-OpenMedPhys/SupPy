@@ -32,12 +32,8 @@ class Superiorization(FeasibilityPerturbation):
         The perturbation scheme to be used for superiorization.
     objective_tol : float
         Tolerance for the objective function value change to determine stopping criteria.
-    constr_tol : float
+    prox_tol : float
         Tolerance for the constraint proximity value change to determine stopping criteria.
-    f_k : float
-        The last value of the objective function.
-    p_k : float
-        The last value of the constraint function.
     _k : int
         The current iteration number.
     all_x : list | None
@@ -64,31 +60,20 @@ class Superiorization(FeasibilityPerturbation):
         self.perturbation_scheme = perturbation_scheme
 
         # initialize some variables for the algorithms
-        self.f_k = None
-        self.p_k = None
         self._k = 0
 
+        # initialize some arrays for storing of results
         self.all_x = []
         self.all_function_values = []  # array storing all objective function values
         self.all_proximity_values = []  # array storing all proximity function values
 
-        self.all_x_function_reduction = (
-            []
-        )  # array storing all points achieved via the function reduction step
-        self.all_function_values_function_reduction = (
-            []
-        )  # array storing all objective function values achieved via the function reduction step
-        self.all_proximity_values_function_reduction = (
-            []
-        )  # array storing all proximity function values achieved via the function reduction step
+        self.all_x_function_reduction = []
+        self.all_function_values_function_reduction = []
+        self.all_proximity_values_function_reduction = []
 
-        self.all_x_basic = []  # array storing all points achieved via the basic algorithm
-        self.all_function_values_basic = (
-            []
-        )  # array storing all objective function values achieved via the basic algorithm
-        self.all_proximity_values_basic = (
-            []
-        )  # array storing all proximity function values achieved via the basic algorithm
+        self.all_x_basic = []
+        self.all_function_values_basic = []
+        self.all_proximity_values_basic = []
 
     @ensure_float_array
     def solve(
@@ -96,9 +81,12 @@ class Superiorization(FeasibilityPerturbation):
         x_0: npt.NDArray,
         max_iter: int = 10,
         storage=False,
-        constr_tol: float = 1e-6,
+        prox_tol: float = 1e-6,
+        del_prox_tol: float = 1e-8,
+        del_prox_n: int = 5,
         proximity_measures: List | None = None,
-        objective_tol: float = 1e-6,
+        del_objective_tol: float = 1e-6,
+        del_objetive_n: int = 5,
     ) -> npt.NDArray:
         """
         Solve the optimization problem using the superiorization method.
@@ -111,12 +99,18 @@ class Superiorization(FeasibilityPerturbation):
             Maximum number of iterations to perform (default is 10).
         storage : bool, optional
             If True, store intermediate results (default is False).
-        constr_tol : float, optional
+        prox_tol : float, optional
             Tolerance for the constraint function value to determine stopping criteria, by default 1e-6.
+        del_prox_tol : float, optional
+            Tolerance for the proximity function value change to determine stopping criteria, by default 1e-8.
+        del_prox_n : int, optional
+            Number of iterations with proximity changes below the threshold to determine stopping criteria, by default 5.
         proximity_measures : List, optional
             The proximity measures to calculate, by default None. Right now only the first in the list is used to check the feasibility.
         objective_tol : float, optional
             Tolernace for the objective function value to determine stopping criteria, by default 1e-6.
+        del_objetive_n : int, optional
+            Number of iterations with objective function changes below the threshold to determine stopping criteria, by default 5.
 
         Returns
         -------
@@ -129,16 +123,24 @@ class Superiorization(FeasibilityPerturbation):
             # TODO: check that proximity measures are valid
             _ = None
         # initialization of variables
+
+        self._n_tol_objective = (
+            0  # number of iterations with objective function changes below threshold
+        )
+        self._n_tol_prox = 0  # number of iterations with proximity changes below threshold
         x = x_0
-        self._k = 0  # reset counter if necessary
-        stop = False
 
         # initial function and proximity values
-        self.f_k = self.perturbation_scheme.func(x_0)
-        self.p_k = self.basic.proximity(x_0, proximity_measures)
 
-        if storage:
-            self._initial_storage(x_0, self.f_k, self.p_k)
+        self._initial_storage(
+            x,
+            storage,
+            self.perturbation_scheme.func(x_0),
+            self.basic.proximity(x_0, proximity_measures),
+        )
+
+        self._k = 0  # reset counter if necessary
+        stop = False
 
         while self._k < max_iter and not stop:
             self.perturbation_scheme.pre_step()
@@ -147,32 +149,35 @@ class Superiorization(FeasibilityPerturbation):
             # perform the perturbation schemes update step
             x = self.perturbation_scheme.perturbation_step(x)
 
-            if storage:
-                self._storage_function_reduction(
-                    x,
-                    self.perturbation_scheme.func(x),
-                    self.basic.proximity(x, proximity_measures),
-                )
+            self.storage(
+                x,
+                "function_reduction",
+                storage,
+                self.perturbation_scheme.func(x),
+                self.basic.proximity(x, proximity_measures),
+            )
+
             if self._k % 10 == 0:
                 print(f"Current iteration: {self._k}")
             # perform basic step
             x = self.basic.step(x)
 
             # check current function and proximity values
-            f_temp = self.perturbation_scheme.func(x)
-            p_temp = self.basic.proximity(x, proximity_measures)
 
-            if storage:
-                self._storage_basic_step(x, f_temp, p_temp)
+            self.storage(
+                x,
+                "basic",
+                storage,
+                self.perturbation_scheme.func(x),
+                self.basic.proximity(x, proximity_measures),
+            )
 
             self._k += 1
 
             # enable different stopping criteria for different superiorization algorithms
-            stop = self._stopping_criteria(f_temp, p_temp, objective_tol, constr_tol)
-
-            # update function and proximity values
-            self.f_k = f_temp
-            self.p_k = p_temp
+            stop = self._stopping_criterion(
+                del_objective_tol, del_objetive_n, prox_tol, del_prox_tol, del_prox_n
+            )
 
             self._additional_action(x)
 
@@ -180,11 +185,16 @@ class Superiorization(FeasibilityPerturbation):
 
         return x
 
-    def _stopping_criteria(
-        self, f_temp: float, p_temp: List[float], objective_tol: float, constr_tol: float
+    def _stopping_criterion(
+        self,
+        del_objective_tol: float,
+        del_objective_n: int,
+        prox_tol: float,
+        del_prox_tol: float,
+        del_prox_n: int,
     ) -> bool:
         """
-        Determine if the stopping criteria for the optimization process are
+        Determine if the stopping criterion for the optimization process are
         met.
 
         Parameters
@@ -195,7 +205,7 @@ class Superiorization(FeasibilityPerturbation):
             The current proximity values to the constraints.
         objective_tol : float
             Tolerance for the objective function value change to determine stopping criteria.
-        constr_tol : float
+        prox_tol : float
             Tolerance for the constraint proximity value change to determine stopping criteria.
 
         Returns
@@ -203,8 +213,33 @@ class Superiorization(FeasibilityPerturbation):
         bool
             True if the stopping criteria are met, False otherwise.
         """
-        stop = abs(f_temp - self.f_k) < objective_tol and p_temp[0] < constr_tol
-        return stop
+
+        stop_objective = False  # variable to check if the objective function criteria is met
+        # check objective function criteria f_(k+1)-f_k<= (delta f)* is met in last n_tol_objective iterations
+        if abs(self.all_function_values[-3] - self.all_function_values[-1]) < del_objective_tol:
+            self._n_tol_objective += 1
+        else:
+            self._n_tol_objective = 0
+        if (
+            self._n_tol_objective >= del_objective_n
+        ):  # n objective function changes below threshold
+            stop_objective = True
+
+        stop_prox = False  # variable to check if the proximity criteria is met
+        # check if proximity values are below the threshold
+        if self.all_proximity_values[-1][0] < prox_tol:  # proximity below goal/tolerance
+            stop_prox = True
+
+        # check if the proximity changes are below tolerance level
+        if abs(self.all_proximity_values[-3][0] - self.all_proximity_values[-1][0]) < del_prox_tol:
+            self._n_tol_prox += 1
+        else:
+            self._n_tol_prox = 0
+        if self._n_tol_prox >= del_prox_n:  # n proximity changes below threshold
+            stop_prox = True
+
+        # check if both criteria are met
+        return stop_objective and stop_prox
 
     def _additional_action(self, x: npt.NDArray):
         """
@@ -220,7 +255,7 @@ class Superiorization(FeasibilityPerturbation):
         None
         """
 
-    def _initial_storage(self, x, f, p):
+    def _initial_storage(self, x, storage, f, p):
         """
         Initializes storage for objective values and appends initial values.
 
@@ -247,11 +282,14 @@ class Superiorization(FeasibilityPerturbation):
         self.all_proximity_values_basic = []
 
         # append initial values
-        self.all_x.append(x)
         self.all_function_values.append(f)
         self.all_proximity_values.append(p)
+        if storage:
+            self.all_x.append(x)
 
-    def _storage_function_reduction(self, x: npt.NDArray, f: float, p: float):
+    def storage(
+        self, x: npt.NDArray, type: str, storage: bool = True, f: float = None, p: float = None
+    ):
         """
         Stores the given values of x and f into the corresponding lists.
 
@@ -259,48 +297,80 @@ class Superiorization(FeasibilityPerturbation):
         ----------
         x : npt.NDArray
             The current value of the variable x to be stored.
-        f : float
-            The current value of the function f to be stored.
-        p : float
-            The current value of the proximity function p to be stored.
-
-        Notes
-        -----
-        This method appends the given values of x and f to the lists
-        `all_x`, `all_function_values`, `all_x_function_reduction`,
-        and `all_function_values_function_reduction`.
+        type : str
+            The type of storage to be used, either "function_reduction" or "basic".
+        storage : bool, optional
+            If True, store the values of x
         """
-        self.all_x.append(x.copy())
+
+        # always store all function and proximity values
         self.all_function_values.append(f)
-        self.all_x_function_reduction.append(x.copy())
-        self.all_function_values_function_reduction.append(f)
-        self.all_proximity_values_function_reduction.append(p)
         self.all_proximity_values.append(p)
+        if storage:
+            self.all_x.append(x.copy())
 
-    def _storage_basic_step(self, x: npt.NDArray, f: float, p: float):
-        """
-        Stores the current values of x and f in the respective lists.
+        if type == "function_reduction":
+            self.all_function_values_function_reduction.append(f)
+            self.all_proximity_values_function_reduction.append(p)
+            if storage:
+                self.all_x_function_reduction.append(x.copy())
 
-        Parameters
-        ----------
-        x : array-like
-            The current value of the variable x.
-        f : float
-            The current value of the function f.
-        p : float
-            The current value of the proximity function p.
+        elif type == "basic":
+            self.all_function_values_basic.append(f)
+            self.all_proximity_values_basic.append(p)
 
-        Notes
-        -----
-        This method appends the current values of x and f to both the basic and
-        general lists of x values and function values.
-        """
-        self.all_x_basic.append(x.copy())
-        self.all_function_values_basic.append(f)
-        self.all_x.append(x.copy())
-        self.all_function_values.append(f)
-        self.all_proximity_values_basic.append(p)
-        self.all_proximity_values.append(p)
+            if storage:
+                self.all_x_basic.append(x.copy())
+        else:
+            raise ValueError("Invalid storage type. Use 'function_reduction' or 'basic'.")
+
+    # def _storage_function_reduction(self, x: npt.NDArray, f: float, p: float):
+    #     """
+    #     Stores the given values of x and f into the corresponding lists.
+
+    #     Parameters
+    #     ----------
+    #     x : npt.NDArray
+    #         The current value of the variable x to be stored.
+    #     f : float
+    #         The current value of the function f to be stored.
+    #     p : float
+    #         The current value of the proximity function p to be stored.
+
+    #     Notes
+    #     -----
+    #     This method appends the given values of x and f to the lists
+    #     `all_x`, `all_function_values`, `all_x_function_reduction`,
+    #     and `all_function_values_function_reduction`.
+    #     """
+    #     self.all_x_function_reduction.append(x.copy())
+    #     self.all_function_values_function_reduction.append(f)
+    #     self.all_proximity_values_function_reduction.append(p)
+
+    # def _storage_basic_step(self, x: npt.NDArray, f: float, p: float):
+    #     """
+    #     Stores the current values of x and f in the respective lists.
+
+    #     Parameters
+    #     ----------
+    #     x : array-like
+    #         The current value of the variable x.
+    #     f : float
+    #         The current value of the function f.
+    #     p : float
+    #         The current value of the proximity function p.
+
+    #     Notes
+    #     -----
+    #     This method appends the current values of x and f to both the basic and
+    #     general lists of x values and function values.
+    #     """
+    #     self.all_x_basic.append(x.copy())
+    #     self.all_function_values_basic.append(f)
+    #     self.all_x.append(x.copy())
+    #     self.all_function_values.append(f)
+    #     self.all_proximity_values_basic.append(p)
+    #     self.all_proximity_values.append(p)
 
     def _post_step(self, x: npt.NDArray):
         """

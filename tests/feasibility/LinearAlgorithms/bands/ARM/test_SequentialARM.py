@@ -112,11 +112,11 @@ def test_SequentialARM_solve(get_ARM_variables_full):
     A, lb, ub = get_ARM_variables_full
     alg = SequentialARM(A, lb, ub)
     x_0 = np.array([1.0, 1.0])
-    x = alg.solve(x_0, constr_tol=1e-6)
+    x = alg.solve(x_0, prox_tol=1e-6)
     assert alg.proximities[-1][0] < 1e-6
 
     x_0 = np.array([1.0, 1.0])
-    x = alg.solve(x_0, constr_tol=1e-6, proximity_measures=["max_norm"])
+    x = alg.solve(x_0, prox_tol=1e-6, proximity_measures=["max_norm"])
     assert np.all(abs(x - np.array([0.5, 0.5])) < 1e-6)
 
     x_0 = np.array([1.0, 1.0])

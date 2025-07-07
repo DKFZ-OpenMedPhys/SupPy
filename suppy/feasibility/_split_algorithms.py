@@ -64,7 +64,7 @@ class SplitFeasibility(Feasibility, ABC):
         self,
         x: npt.NDArray,
         max_iter: int = 10,
-        constr_tol: float = 1e-6,
+        prox_tol: float = 1e-6,
         storage: bool = False,
         proximity_measures: List | None = None,
     ) -> npt.NDArray:
@@ -77,7 +77,7 @@ class SplitFeasibility(Feasibility, ABC):
             Starting point for the algorithm.
         max_iter : int, optional
             The maximum number of iterations (default is 10).
-        constr_tol : float, optional
+        prox_tol : float, optional
             Stopping criterium for the feasibility seeking algorithm.
             Solution deemed feasible if the proximity drops below this value (default is 1e-6).
         storage : bool, optional
@@ -109,7 +109,7 @@ class SplitFeasibility(Feasibility, ABC):
             self.proximities.append(self.proximity(x, proximity_measures))
 
             # TODO: If proximity changes x some potential issues!
-            if self.proximities[-1][0] < constr_tol:
+            if self.proximities[-1][0] < prox_tol:
 
                 feasible = True
             i += 1

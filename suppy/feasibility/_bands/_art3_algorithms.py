@@ -142,7 +142,9 @@ class SequentialART3plus(ART3plusAlgorithm):
         self,
         x: npt.NDArray,
         max_iter: int = 500,
-        constr_tol: float = 1e-6,
+        prox_tol: float = 1e-6,
+        del_prox_tol: float = 1e-8,
+        del_prox_n: int = 5,
         storage: bool = False,
         proximity_measures: List | None = None,
     ) -> npt.NDArray:
@@ -157,8 +159,12 @@ class SequentialART3plus(ART3plusAlgorithm):
             Maximum number of iterations to perform.
         storage : bool, optional
             Flag indicating whether to store the intermediate solutions, by default False.
-        constr_tol : float, optional
+        prox_tol : float, optional
             The tolerance for the constraints, by default 1e-6.
+        del_prox_tol : float, optional
+            The tolerance for the change in proximity over the last del_prox_n iterations, by default 1e-6.
+        del_prox_n : int, optional
+            The number of iterations to check for the change in proximity, by default 5.
         proximity_measures : List, optional
             The proximity measures to calculate, by default None. Right now only the first in the list is used to check the feasibility.
 
@@ -169,21 +175,24 @@ class SequentialART3plus(ART3plusAlgorithm):
         """
         self.cs = self.initial_cs.copy()
         xp = cp if isinstance(x, cp.ndarray) else np
+
         if proximity_measures is None:
             proximity_measures = [("p_norm", 2)]
         else:
             # TODO: Check if the proximity measures are valid
             _ = None
 
-        self.proximities = []
+        self.proximities = [self.proximity(x, proximity_measures)]
         i = 0
-        feasible = False
 
         if storage is True:
             self.all_x = []
             self.all_x.append(x.copy())
 
-        while i < max_iter and not feasible:
+        stop = False  # criterion for stopping the algorithm
+        self._n_tol = 0
+
+        while i < max_iter and not stop:
 
             if len(self.cs) == 0:
                 self.cs = self.initial_cs.copy()
@@ -194,10 +203,10 @@ class SequentialART3plus(ART3plusAlgorithm):
             self.proximities.append(self.proximity(x, proximity_measures))
 
             # TODO: If proximity changes x some potential issues!
-            if self.proximities[-1][0] < constr_tol:
+            stop = self._stopping_criterion(prox_tol, del_prox_tol, del_prox_n)
 
-                feasible = True
             i += 1
+
         if self.all_x is not None:
             self.all_x = xp.array(self.all_x)
         return x

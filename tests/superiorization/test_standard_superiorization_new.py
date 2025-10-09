@@ -258,10 +258,13 @@ def test_PowerSeriesGradient_superiorization(get_superiorization_input):
         alg.all_x,
         [np.array([2, 2]), (2 - 1 / np.sqrt(2)) * np.array([1, 1]), np.array([1, 1])],
     )
-    assert np.array_equal(alg.all_x_function_reduction, [(2 - 1 / np.sqrt(2)) * np.array([1, 1])])
+    assert np.array_equal(
+        alg.all_x_function_reduction, [np.array([2, 2]), (2 - 1 / np.sqrt(2)) * np.array([1, 1])]
+    )
     assert np.all(abs(alg.all_function_values - np.array([8, 9.0 - 4.0 * np.sqrt(2), 2])) < 1e-10)
     assert np.all(
-        alg.all_function_values_function_reduction - np.array([9 - 4 * np.sqrt(2)]) < 1e-10
+        alg.all_function_values_function_reduction - np.array([8, 9 - 4 * np.sqrt(2)]) < 1e-10
     )
-    assert np.array_equal(alg.all_x_basic, [np.array([1, 1])])
-    assert np.array_equal(alg.all_function_values_basic, [2])
+    assert np.array_equal(alg.all_x_basic, [np.array([2, 2]), np.array([1, 1])])
+    assert np.array_equal(alg.all_function_values_basic, [8, 2])
+    # this should be effectively two gradient steps only

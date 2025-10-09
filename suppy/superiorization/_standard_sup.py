@@ -1,6 +1,7 @@
 """Normal superiorization algorithm."""
 from typing import List
 import numpy as np
+import time
 import numpy.typing as npt
 from suppy.utils import ensure_float_array
 from suppy.perturbations import Perturbation
@@ -61,6 +62,8 @@ class Superiorization(FeasibilityPerturbation):
 
         # initialize some variables for the algorithms
         self._k = 0
+        self.t = []
+        self.t_it = []
 
         # initialize some arrays for storing of results
         self.all_x = []
@@ -86,7 +89,7 @@ class Superiorization(FeasibilityPerturbation):
         del_prox_n: int = 5,
         proximity_measures: List | None = None,
         del_objective_tol: float = 1e-6,
-        del_objetive_n: int = 5,
+        del_objective_n: int = 5,
     ) -> npt.NDArray:
         """
         Solve the optimization problem using the superiorization method.
@@ -107,9 +110,9 @@ class Superiorization(FeasibilityPerturbation):
             Number of iterations with proximity changes below the threshold to determine stopping criteria, by default 5.
         proximity_measures : List, optional
             The proximity measures to calculate, by default None. Right now only the first in the list is used to check the feasibility.
-        objective_tol : float, optional
+        del_objective_tol : float, optional
             Tolernace for the objective function value to determine stopping criteria, by default 1e-6.
-        del_objetive_n : int, optional
+        del_objective_n : int, optional
             Number of iterations with objective function changes below the threshold to determine stopping criteria, by default 5.
 
         Returns
@@ -124,10 +127,15 @@ class Superiorization(FeasibilityPerturbation):
             _ = None
         # initialization of variables
 
+        self.perturbation_scheme.reset()  # reset the perturbation scheme
+
         self._n_tol_objective = (
             0  # number of iterations with objective function changes below threshold
         )
         self._n_tol_prox = 0  # number of iterations with proximity changes below threshold
+
+        self.l = []
+
         x = x_0
 
         # initial function and proximity values
@@ -142,13 +150,22 @@ class Superiorization(FeasibilityPerturbation):
         self._k = 0  # reset counter if necessary
         stop = False
 
+        self.t.append(0)
+        t_current = time.time()
+        t_init = t_current
+
         while self._k < max_iter and not stop:
-            self.perturbation_scheme.pre_step()
-            # check if a restart should be performed
+            self.perturbation_scheme.pre_step(
+                x,
+                last_proximity=self.all_proximity_values[-1],
+                last_proximity_basic=self.all_proximity_values_basic[-1],
+                last_proximity_function_reduction=self.all_proximity_values_function_reduction[-1],
+                last_function_value=self.all_function_values[-1],
+                last_function_value_basic=self.all_function_values_basic[-1],
+            )  # perform any pre-step actions of the perturbation scheme
 
             # perform the perturbation schemes update step
             x = self.perturbation_scheme.perturbation_step(x)
-
             self.storage(
                 x,
                 "function_reduction",
@@ -157,8 +174,15 @@ class Superiorization(FeasibilityPerturbation):
                 self.basic.proximity(x, proximity_measures),
             )
 
-            if self._k % 10 == 0:
-                print(f"Current iteration: {self._k}")
+            self.perturbation_scheme.post_step(
+                x,
+                last_proximity=self.all_proximity_values[-1],
+                last_proximity_basic=self.all_proximity_values_basic[-1],
+                last_proximity_function_reduction=self.all_proximity_values_function_reduction[-1],
+                last_function_value=self.all_function_values[-1],
+                last_function_value_basic=self.all_function_values_basic[-1],
+            )  # perform any post-step actions of the perturbation scheme
+
             # perform basic step
             x = self.basic.step(x)
 
@@ -174,13 +198,17 @@ class Superiorization(FeasibilityPerturbation):
 
             self._k += 1
 
+            # self.l.append(self.perturbation_scheme._l)
+
             # enable different stopping criteria for different superiorization algorithms
             stop = self._stopping_criterion(
-                del_objective_tol, del_objetive_n, prox_tol, del_prox_tol, del_prox_n
+                del_objective_tol, del_objective_n, prox_tol, del_prox_tol, del_prox_n
             )
 
             self._additional_action(x)
-
+            self.t.append(time.time() - t_init)
+            self.t_it.append(time.time() - t_current)
+            t_current = time.time()
         self._post_step(x)
 
         return x
@@ -216,7 +244,11 @@ class Superiorization(FeasibilityPerturbation):
 
         stop_objective = False  # variable to check if the objective function criteria is met
         # check objective function criteria f_(k+1)-f_k<= (delta f)* is met in last n_tol_objective iterations
-        if abs(self.all_function_values[-3] - self.all_function_values[-1]) < del_objective_tol:
+        if (
+            abs(self.all_function_values[-3] - self.all_function_values[-1])
+            / max(1, self.all_function_values[-3])
+            < del_objective_tol
+        ):
             self._n_tol_objective += 1
         else:
             self._n_tol_objective = 0
@@ -231,7 +263,11 @@ class Superiorization(FeasibilityPerturbation):
             stop_prox = True
 
         # check if the proximity changes are below tolerance level
-        if abs(self.all_proximity_values[-3][0] - self.all_proximity_values[-1][0]) < del_prox_tol:
+        if (
+            abs(self.all_proximity_values[-3][0] - self.all_proximity_values[-1][0])
+            / max(1, self.all_proximity_values[-3][0])
+            < del_prox_tol
+        ):
             self._n_tol_prox += 1
         else:
             self._n_tol_prox = 0
@@ -283,9 +319,17 @@ class Superiorization(FeasibilityPerturbation):
 
         # append initial values
         self.all_function_values.append(f)
+        self.all_function_values_basic.append(f)
+        self.all_function_values_function_reduction.append(f)
+
         self.all_proximity_values.append(p)
+        self.all_proximity_values_basic.append(p)
+        self.all_proximity_values_function_reduction.append(p)
+
         if storage:
-            self.all_x.append(x)
+            self.all_x.append(x.copy())
+            self.all_x_basic.append(x.copy())
+            self.all_x_function_reduction.append(x.copy())
 
     def storage(
         self, x: npt.NDArray, type: str, storage: bool = True, f: float = None, p: float = None

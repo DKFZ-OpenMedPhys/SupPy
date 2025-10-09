@@ -1,25 +1,25 @@
 suppy.perturbations
 ===========================
 
-Module contents
----------------
+The Perturbations module contains the underlying perturbation strategies that are usable in the superiorization algorithms.
 
-.. autoclass:: suppy.perturbations._base.Perturbation
-    :members:
-    :undoc-members:
-    :show-inheritance:
+Public perturbation strategies
+-------------------------------
 
-.. autoclass:: suppy.perturbations._base.ObjectivePerturbation
-    :members:
-    :undoc-members:
-    :show-inheritance:
+.. currentmodule:: suppy.perturbations
 
-.. autoclass:: suppy.perturbations._base.GradientPerturbation
-    :members:
-    :undoc-members:
-    :show-inheritance:
+.. autosummary::
+   :toctree: generated/PublicPerturbations/
 
-.. autoclass:: suppy.perturbations._base.PowerSeriesGradientPerturbation
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   PowerSeriesGradientPerturbation
+
+Underlying base classes
+-----------------------------
+.. currentmodule:: suppy.perturbations._base
+
+.. autosummary::
+   :toctree: generated/Privateperturbations/
+
+   Perturbation
+   ObjectivePerturbation
+   GradientPerturbation

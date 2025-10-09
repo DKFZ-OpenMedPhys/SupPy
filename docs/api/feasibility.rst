@@ -7,147 +7,80 @@ Linear algorithms
 
 
 Hyperslab AMS algorithms :math:`(lb \leq Ax \leq ub)`
-----------------------------------------------------
+------------------------------------------------------
 
-.. autoclass:: suppy.feasibility.SequentialAMSHyperslab
-   :members:
-   :inherited-members:
-   :undoc-members:
-   :show-inheritance:
+.. currentmodule:: suppy.feasibility
 
-.. autoclass:: suppy.feasibility.SimultaneousAMSHyperslab
-   :members:
-   :inherited-members:
-   :undoc-members:
-   :show-inheritance:
+.. autosummary::
+   :toctree: generated/Hyperslabs/
 
-.. autoclass:: suppy.feasibility.StringAveragedAMSHyperslab
-   :members:
-   :inherited-members:
-   :undoc-members:
-   :show-inheritance:
+   SequentialAMSHyperslab
+   SimultaneousAMSHyperslab
+   StringAveragedAMSHyperslab
+   BlockIterativeAMSHyperslab
 
-.. autoclass:: suppy.feasibility.BlockIterativeAMSHyperslab
-   :members:
-   :inherited-members:
-   :undoc-members:
-   :show-inheritance:
 
 Hyperplane AMS algorithms :math:`( Ax \leq b)`
 --------------------------------------------------
+.. autosummary::
+   :toctree: generated/Hyperplane/
 
-.. autoclass:: suppy.feasibility.SequentialAMSHyperplane
-   :members:
-   :inherited-members:
-   :undoc-members:
-   :show-inheritance:
+   SequentialAMSHyperplane
+   SimultaneousAMSHyperplane
+   StringAveragedAMSHyperplane
+   BlockIterativeAMSHyperplane
 
-.. autoclass:: suppy.feasibility.SequentialAMSHyperplane
-   :members:
-   :inherited-members:
-   :undoc-members:
-   :show-inheritance:
 
-.. autoclass:: suppy.feasibility.SimultaneousAMSHyperplane
-   :members:
-   :inherited-members:
-   :undoc-members:
-   :show-inheritance:
-
-.. autoclass:: suppy.feasibility.StringAveragedAMSHyperplane
-   :members:
-   :inherited-members:
-   :undoc-members:
-   :show-inheritance:
-
-.. autoclass:: suppy.feasibility.BlockIterativeAMSHyperplane
-   :members:
-   :inherited-members:
-   :undoc-members:
-   :show-inheritance:
 Halfspace AMS algorithms :math:`( Ax = b)`
 --------------------------------------------------
-.. autoclass:: suppy.feasibility.SequentialAMSHalfspace
-   :members:
-   :inherited-members:
-   :undoc-members:
-   :show-inheritance:
 
-.. autoclass:: suppy.feasibility.SequentialAMSHalfspace
-   :members:
-   :inherited-members:
-   :undoc-members:
-   :show-inheritance:
+.. autosummary::
+   :toctree: generated/Halfspaces/
 
-.. autoclass:: suppy.feasibility.SimultaneousAMSHalfspace
-   :members:
-   :inherited-members:
-   :undoc-members:
-   :show-inheritance:
-
-.. autoclass:: suppy.feasibility.StringAveragedAMSHalfspace
-   :inherited-members:
-   :undoc-members:
-   :show-inheritance:
-
-.. autoclass:: suppy.feasibility.BlockIterativeAMSHalfspace
-   :members:
-   :inherited-members:
-   :undoc-members:
-   :show-inheritance:
-
+   SequentialAMSHalfspace
+   SimultaneousAMSHalfspace
+   StringAveragedAMSHalfspace
+   BlockIterativeAMSHalfspace
 
 ARM algorithms
 -------------------------
 
-.. autoclass:: suppy.feasibility.SequentialARM
-   :members:
-   :inherited-members:
-   :undoc-members:
-   :show-inheritance:
+.. autosummary::
+   :toctree: generated/ARMs/
 
-.. autoclass:: suppy.feasibility.SimultaneousARM
-   :members:
-   :inherited-members:
-   :undoc-members:
-   :show-inheritance:
-
-.. autoclass:: suppy.feasibility.StringAveragedARM
-   :members:
-   :inherited-members:
-   :undoc-members:
-   :show-inheritance:
+   SequentialARM
+   SimultaneousARM
+   StringAveragedARM
 
 
-ART3+ algorithms
--------------------------
+.. ART3+ algorithms
+.. -------------------------
 
-.. autoclass:: suppy.feasibility.SequentialART3plus
-   :members:
-   :inherited-members:
-   :undoc-members:
-   :show-inheritance:
+.. .. autosummary::
+..    :toctree: generated/ART3/
 
-.. .. autoclass:: suppy.feasibility.SimultaneousART3plus
-..    :members:
-..    :inherited-members:
-..    :undoc-members:
-..    :show-inheritance:
+..    SequentialART3
+..    SimultaneousART3
 
 
-Split algorithms
+Split feasibility
 =========================
 Split feasibility problems have the goal of finding :math:`x \in C` such that :math:`Ax \in Q`. :math:`C` is a convex subset of the input space :math:`\mathscr{H}_1` and :math:`Q` a convex subset in the target space :math:`\mathscr{H}_2` with the two spaces connected by the linear operator :math:`A:\mathscr{H}_1 \rightarrow \mathscr{H}_2`.
 The base class for split feasibility problems is :class:`SplitFeasibility`.
 
-.. autoclass:: suppy.feasibility._split_algorithms.SplitFeasibility
-   :members:
-   :inherited-members:
-   :undoc-members:
-   :show-inheritance:
+Split algorithms
+-------------------------
+.. autosummary::
+   :toctree: generated/Split/
 
-.. autoclass:: suppy.feasibility._split_algorithms.CQAlgorithm
-   :members:
-   :inherited-members:
-   :undoc-members:
-   :show-inheritance:
+   CQAlgorithm
+
+Underlying base class
+--------------------------------
+
+.. currentmodule:: suppy.feasibility._split_algorithms
+
+.. autosummary::
+   :toctree: generated/Split_base/
+
+   SplitFeasibility

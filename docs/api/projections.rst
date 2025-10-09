@@ -5,52 +5,68 @@ suppy.projections
 
 This module implements a framework for general projection methods.
 
-Underlying classes
-------------------
+Base class for all projections
+---------------------------------
 
-.. autoclass:: suppy.projections._projections.Projection
-   :members:
-   :undoc-members:
-   :show-inheritance:
+.. currentmodule:: suppy.projections._projections
 
-BasicProjection
----------------
-Classes derived from the BASICPROJECTION class. They represent the projection onto a single constraint.
+.. autosummary::
+   :toctree: generated/PrivateProjections/
 
-.. autoclass:: suppy.projections._projections.BasicProjection
-   :members:
-   :undoc-members:
-   :show-inheritance:
+   Projection
+
+
+BasicProjections
+-------------------
+
+
+.. currentmodule:: suppy.projections
+
+.. autosummary::
+   :toctree: generated/BasicProjections/
+
+   BoxProjection
+   WeightedBoxProjection
+   BallProjection
+   HalfspaceProjection
+   BandProjection
+   MaxDVHProjection
+   MinDVHProjection
+
+.. currentmodule:: suppy.projections._projections
+
+Underlying base class for basic projections
+------------------------------------------------
+.. autosummary::
+   :toctree: generated/PrivateProjections/
+
+   BasicProjection
+
+
 
 Projection methods
-------------------
+----------------------
 
 Methods to project onto the intersection of a constraint set.
 
-Base class for all projection methods:
+Public projection methods
+-----------------------------
+.. currentmodule:: suppy.projections
 
-.. autoclass:: suppy.projections._projection_methods.ProjectionMethod
-   :members:
-   :undoc-members:
-   :show-inheritance:
+.. autosummary::
+   :toctree: generated/projection_methods/
 
-.. autoclass:: suppy.projections.SequentialProjection
-   :members:
-   :undoc-members:
-   :show-inheritance:
+   SequentialProjection
+   SimultaneousProjection
+   StringAveragedProjection
+   BlockIterativeProjection
 
-.. autoclass:: suppy.projections.SimultaneousProjection
-   :members:
-   :undoc-members:
-   :show-inheritance:
+Underlying base class for projection methods
+------------------------------------------------
 
-.. autoclass:: suppy.projections.StringAveragedProjection
-   :members:
-   :undoc-members:
-   :inherited-members:
-   :show-inheritance:
+.. currentmodule:: suppy.projections._projection_methods
 
-.. autoclass:: suppy.projections.BlockIterativeProjection
-   :members:
-   :undoc-members:
-   :show-inheritance:
+.. autosummary::
+   :toctree: generated/base_projection_methods/
+
+   ProjectionMethod

@@ -75,7 +75,7 @@ suppy documentation
             To the help and support
 
 .. toctree::
-      :maxdepth: 1
+      :maxdepth: 2
       :hidden:
       :titlesonly:
 

@@ -334,34 +334,62 @@ class SimultaneousAMSHyperslab(HyperslabAMSAlgorithm):
         return measures
 
 
-class ExtrapolatedLandweber(SimultaneousAMSHyperslab):
+class SARTHyperslab(SimultaneousAMSHyperslab):
+    """
+    SART Hyperslab class for simultaneous application of the SART
+    algorithm on hyperslabs.
+
+    Parameters
+    ----------
+    A : npt.NDArray
+        The matrix representing the constraints.
+    lb : npt.NDArray
+        The lower bounds for the constraints.
+    ub : npt.NDArray
+        The upper bounds for the constraints.
+    algorithmic_relaxation : npt.NDArray or float, optional
+        The relaxation parameter for the algorithm, by default 1.
+    relaxation : float, optional
+        The relaxation parameter for the projections, by default 1.
+    weights : None or List[float], optional
+        The weights for the constraints, by default None.
+    proximity_flag : bool, optional
+        Flag to indicate if proximity calculations should be performed, by default True.
+    """
+
     def __init__(
-        self, A, lb, ub, algorithmic_relaxation=1, relaxation=1, weights=None, proximity_flag=True
+        self,
+        A: npt.NDArray,
+        lb: npt.NDArray,
+        ub: npt.NDArray,
+        algorithmic_relaxation: npt.NDArray | float = 1,
+        relaxation: float = 1,
+        weights: None | List[float] = None,
+        proximity_flag: bool = True,
     ):
+
         super().__init__(A, lb, ub, algorithmic_relaxation, relaxation, weights, proximity_flag)
-        self.a_i = self.A.row_norm(2, 2)
-        self.weight_norm = self.weights / self.a_i
-        self.sigmas = []
+        self.inverse_linear_row_norm = 1 / self.A.row_norm(1, 1)
+        self.inverse_linear_column_norm = 1 / self.A.column_norm(1, 1)
 
     def _project(self, x):
-        xp = cp if self._use_gpu else np
+        # SART projection
         p = self.map(x)
         (res_l, res_u) = self.bounds.residual(p)
         d_idx = res_u < 0
         c_idx = res_l < 0
-        if not (xp.any(d_idx) or xp.any(c_idx)):
-            self.sigmas.append(0)
-            return x
-        t_u = self.weight_norm[d_idx] * res_u[d_idx]  # D*(Ax-b)+
-        t_l = self.weight_norm[c_idx] * res_l[c_idx]
-        t_u_2 = t_u @ self.A[d_idx, :]
-        t_l_2 = t_l @ self.A[c_idx, :]
-
-        sig = ((res_l[c_idx] @ (t_l)) + (res_u[d_idx] @ (t_u))) / (
-            (t_u_2 - t_l_2) @ (t_u_2 - t_l_2)
+        x += (
+            self.algorithmic_relaxation
+            * self.inverse_linear_column_norm
+            * (
+                (self.weights * self.inverse_linear_row_norm)[d_idx]
+                * res_u[d_idx]
+                @ self.A[d_idx, :]
+                - (self.weights * self.inverse_linear_row_norm)[c_idx]
+                * res_l[c_idx]
+                @ self.A[c_idx, :]
+            )
         )
-        self.sigmas.append(sig)
-        x += sig * (t_u_2 - t_l_2)
 
         return x
 

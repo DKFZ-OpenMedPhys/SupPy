@@ -65,6 +65,8 @@ class SplitFeasibility(Feasibility, ABC):
         x: npt.NDArray,
         max_iter: int = 10,
         prox_tol: float = 1e-6,
+        del_prox_tol: float = 1e-8,
+        del_prox_n: int = 5,
         storage: bool = False,
         proximity_measures: List | None = None,
     ) -> npt.NDArray:
@@ -80,6 +82,10 @@ class SplitFeasibility(Feasibility, ABC):
         prox_tol : float, optional
             Stopping criterium for the feasibility seeking algorithm.
             Solution deemed feasible if the proximity drops below this value (default is 1e-6).
+        del_prox_tol : float, optional
+            The tolerance for the change in proximity over the last del_prox_n iterations, by default 1e-8.
+        del_prox_n : int, optional
+            The number of iterations to check for the change in proximity, by default 5.
         storage : bool, optional
             A flag indicating whether to store all intermediate solutions (default is False).
         proximity_measures : List, optional
@@ -91,31 +97,50 @@ class SplitFeasibility(Feasibility, ABC):
         npt.NDArray
             The solution after applying the feasibility seeking algorithm.
         """
+        xp = cp if isinstance(x, cp.ndarray) else np
+        self._n_tol = 0
+
         if proximity_measures is None:
             proximity_measures = [("p_norm", 2)]
-        xp = cp if isinstance(x, cp.ndarray) else np
+        else:
+            # TODO: Check if the proximity measures are valid
+            _ = None
+
         self.proximities = [self.proximity(x, proximity_measures)]
         i = 0
-        feasible = False
 
         if storage is True:
             self.all_x = []
             self.all_x.append(x.copy())
 
-        while i < max_iter and not feasible:
+        stop = False  # criterion for stopping the algorithm
+
+        while i < max_iter and not stop:
             x, _ = self.step(x)
             if storage is True:
                 self.all_x.append(x.copy())
             self.proximities.append(self.proximity(x, proximity_measures))
 
             # TODO: If proximity changes x some potential issues!
-            if self.proximities[-1][0] < prox_tol:
-
-                feasible = True
+            stop = self._stopping_criterion(prox_tol, del_prox_tol, del_prox_n)
             i += 1
+
         if self.all_x is not None:
             self.all_x = xp.array(self.all_x)
         return x
+
+    def _stopping_criterion(self, prox_tol: float, del_prox_tol: float, del_prox_n: float):
+        """"""
+        if self.proximities[-1][0] < prox_tol:  # proximity below goal/tolerance
+            return True
+        else:  # check that last n proximity changes are below a threshold
+            if self.proximities[-2][0] - self.proximities[-1][0] < del_prox_tol:
+                self._n_tol += 1
+            else:
+                self._n_tol = 0
+            if self._n_tol >= del_prox_n:  # n proximity changes below threshold
+                return True
+        return False
 
     def project(self, x: npt.NDArray, y: npt.NDArray | None = None) -> npt.NDArray:
         """
@@ -135,6 +160,9 @@ class SplitFeasibility(Feasibility, ABC):
         """
 
         return self._project(x, y)
+
+    def step(self, x: npt.NDArray, y: npt.NDArray | None = None) -> npt.NDArray:
+        return self.project(x, y)
 
     @abstractmethod
     def _project(self, x: npt.NDArray, y: npt.NDArray | None = None) -> npt.NDArray:
@@ -250,12 +278,29 @@ class CQAlgorithm(SplitFeasibility):
         y_p = self.q_projection.project(y.copy())
         x = x - self.algorithmic_relaxation * self.map_back(y - y_p)
 
-        return self.c_projection.project(x), y_p
+        return self.c_projection.project(x), None
 
     def _proximity(self, x: npt.NDArray, proximity_measures: List) -> float:
-        p = self.map(x)
-        return self.q_projection.proximity(p, proximity_measures)
+        # p = self.map(x)
+        return [
+            self.c_projection.proximity(x, proximity_measures),
+            self.q_projection.proximity(self.map(x), proximity_measures),
+        ]
+        # return self.q_projection.proximity(p, proximity_measures)
         # TODO: correct?
+
+    def _stopping_criterion(self, prox_tol: float, del_prox_tol: float, del_prox_n: float):
+
+        if self.proximities[-1][1][0] < prox_tol:  # proximity below goal/tolerance
+            return True
+        else:  # check that last n proximity changes of are below a threshold
+            if self.proximities[-2][1][0] - self.proximities[-1][1][0] < del_prox_tol:
+                self._n_tol += 1
+            else:
+                self._n_tol = 0
+            if self._n_tol >= del_prox_n:  # n proximity changes below threshold
+                return True
+        return False
 
 
 # class LinearExtrapolatedLandweber(SplitFeasibility):

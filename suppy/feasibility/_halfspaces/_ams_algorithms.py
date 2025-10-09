@@ -284,31 +284,6 @@ class SimultaneousAMSHalfspace(HalfspaceAMSAlgorithm):
         return measures
 
 
-class ExtrapolatedLandweberHalfspace(SimultaneousAMSHalfspace):
-    def __init__(
-        self, A, b, algorithmic_relaxation=1, relaxation=1, weights=None, proximity_flag=True
-    ):
-        super().__init__(A, b, algorithmic_relaxation, relaxation, weights, proximity_flag)
-        self.a_i = self.A.row_norm(2, 2)
-        self.weight_norm = self.weights / self.a_i
-        self.sigmas = []
-
-    def _project(self, x):
-        p = self.map(x)
-        res = self.b - p
-        res_idx = res < 0
-        if not (np.any(res_idx)):
-            self.sigmas.append(0)
-            return x
-        t = self.weight_norm[res_idx] * res[res_idx]
-        t_2 = t @ self.A[res_idx, :]
-        sig = (res[res_idx] @ t) / (t_2 @ t_2)
-        self.sigmas.append(sig)
-        x += sig * t_2
-
-        return x
-
-
 class BlockIterativeAMSHalfspace(HalfspaceAMSAlgorithm):
     """
     Block Iterative AMS Algorithm.

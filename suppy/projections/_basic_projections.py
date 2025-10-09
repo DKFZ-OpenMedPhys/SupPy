@@ -823,10 +823,13 @@ class MaxDVHProjection(BasicProjection):
         d_max: float,
         max_percentage: float,
         idx: npt.NDArray | None = None,
+        relaxation: float = 1.0,
         proximity_flag=True,
         use_gpu=False,
     ):
-        super().__init__(1, idx, proximity_flag, use_gpu)
+        super().__init__(
+            relaxation=relaxation, idx=idx, proximity_flag=proximity_flag, _use_gpu=use_gpu
+        )
 
         # max percentage of elements that are allowed to exceed d_max
         self.max_percentage = max_percentage
@@ -837,7 +840,10 @@ class MaxDVHProjection(BasicProjection):
         elif self.idx.dtype == bool:
             raise ValueError("Boolean indexing is not supported for this projection.")
         else:
-            self._idx_indices = self.idx
+            if self._use_gpu:
+                self._idx_indices = cp.asarray(self.idx, dtype=cp.int32)
+            else:
+                self._idx_indices = self.idx
 
     def _project(self, x: npt.NDArray) -> npt.NDArray:
         """
@@ -919,7 +925,7 @@ class MaxDVHProjection(BasicProjection):
 
     #     return x
 
-    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> float:
+    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> List[float]:
         """
         Calculate the proximity of the given array to a specified maximum
         percentage.
@@ -935,10 +941,63 @@ class MaxDVHProjection(BasicProjection):
             The proximity value as a percentage.
         """
         # TODO: Find appropriate proximity measure
-        raise NotImplementedError
 
-        # n = len(x) if isinstance(self.idx, slice) else self.idx.sum()
-        # return abs((1 / n * (x[self.idx] > self.d_max).sum()) - self.max_percentage) * 100
+        if isinstance(self.idx, slice):
+            return self._proximity_all(x, proximity_measures)
+
+        return self._proximity_subset(x, proximity_measures)
+
+    def _proximity_all(self, x: npt.NDArray, proximity_measures: List) -> List[float]:
+        n = len(x)
+        am = math.floor(self.max_percentage * n)
+
+        l = (x > self.d_max).sum()
+
+        z = l - am
+
+        if z > 0:
+            x_over = x[x.argsort()[n - l : n - am]] - self.d_max
+        else:
+            return [0 for measure in proximity_measures]
+        measures = []
+        for measure in proximity_measures:
+            if isinstance(measure, tuple):
+                if measure[0] == "p_norm":
+                    measures.append((x_over ** measure[1]).sum() / len(x))
+                else:
+                    raise ValueError("Invalid proximity measure")
+            elif isinstance(measure, str) and measure == "max_norm":
+                measures.append(x_over.max())
+            else:
+                raise ValueError("Invalid proximity measure")
+        return measures
+
+    def _proximity_subset(self, x: npt.NDArray, proximity_measures: List) -> List[float]:
+
+        n = self.idx.sum() if self.idx.dtype == bool else len(self.idx)
+
+        am = math.floor(self.max_percentage * n)
+
+        l = (x[self.idx] > self.d_max).sum()
+
+        z = l - am  # number of elements that need to be reduced
+
+        if z > 0:
+            x_over = x[self._idx_indices[x[self.idx].argsort()[n - l : n - am]]] - self.d_max
+        else:
+            return [0 for measure in proximity_measures]
+        measures = []
+        for measure in proximity_measures:
+            if isinstance(measure, tuple):
+                if measure[0] == "p_norm":
+                    measures.append((x_over ** measure[1]).sum() / n)
+                else:
+                    raise ValueError("Invalid proximity measure")
+            elif isinstance(measure, str) and measure == "max_norm":
+                measures.append(x_over.max())
+            else:
+                raise ValueError("Invalid proximity measure")
+        return measures
 
 
 class MinDVHProjection(BasicProjection):
@@ -949,10 +1008,13 @@ class MinDVHProjection(BasicProjection):
         d_min: float,
         min_percentage: float,
         idx: npt.NDArray | None = None,
+        relaxation: float = 1.0,
         proximity_flag=True,
         use_gpu=False,
     ):
-        super().__init__(1, idx, proximity_flag, use_gpu)
+        super().__init__(
+            relaxation=relaxation, idx=idx, proximity_flag=proximity_flag, _use_gpu=use_gpu
+        )
 
         # percentage of elements that need to have at least d_min
         self.min_percentage = min_percentage
@@ -962,7 +1024,10 @@ class MinDVHProjection(BasicProjection):
         elif self.idx.dtype == bool:
             raise ValueError("Boolean indexing is not supported for this projection.")
         else:
-            self._idx_indices = self.idx
+            if self._use_gpu:
+                self._idx_indices = cp.asarray(self.idx, dtype=cp.int32)
+            else:
+                self._idx_indices = self.idx
 
     def _project(self, x: npt.NDArray) -> npt.NDArray:
         """
@@ -987,12 +1052,12 @@ class MinDVHProjection(BasicProjection):
         n = len(x)
         am = math.ceil(self.min_percentage * n)
 
-        l = (x > self.d_min).sum()
+        l = (x < self.d_min).sum()
 
-        z = am - l
+        z = l - n + am
 
         if z > 0:
-            x[x.argsort()[n - am : n - l]] = self.d_min
+            x[x.argsort()[n - am : l]] = self.d_min
         return x
 
     def _project_subset(self, x: npt.NDArray) -> npt.NDArray:
@@ -1001,16 +1066,37 @@ class MinDVHProjection(BasicProjection):
 
         am = math.ceil(self.min_percentage * n)
 
-        l = (x[self.idx] > self.d_min).sum()
+        l = (x[self.idx] < self.d_min).sum()
 
-        z = am - l
+        z = l - n + am  # number of elements that need to be reduced
 
         if z > 0:
-            x[self._idx_indices[x[self.idx].argsort()[n - am : n - l]]] = self.d_min
+            x[self._idx_indices[x[self.idx].argsort()[n - am : l]]] = self.d_min
 
         return x
 
-    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> float:
+    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> List[float]:
+        """
+        Calculate the proximity of the given array to a specified maximum
+        percentage.
+
+        Parameters
+        ----------
+        x : npt.NDArray
+            Input array to be evaluated.
+
+        Returns
+        -------
+        List[float]
+            List of proximity values.
+        """
+        # TODO: Find appropriate proximity measure
+        if isinstance(self.idx, slice):
+            return self._proximity_all(x, proximity_measures)
+
+        return self._proximity_subset(x, proximity_measures)
+
+    def _proximity_all(self, x: npt.NDArray, proximity_measures: List) -> List[float]:
         """
         Calculate the proximity of the given array to a specified maximum
         percentage.
@@ -1026,4 +1112,69 @@ class MinDVHProjection(BasicProjection):
             The proximity value as a percentage.
         """
         # TODO: Find appropriate proximity measure
-        raise NotImplementedError
+        n = len(x)
+        am = math.ceil(self.min_percentage * n)
+
+        l = (x < self.d_min).sum()
+
+        z = l - n + am
+
+        if z > 0:
+            x_under = self.d_min - x[x.argsort()[n - am : l]]
+        else:
+            return [0 for measure in proximity_measures]
+
+        measures = []
+        for measure in proximity_measures:
+            if isinstance(measure, tuple):
+                if measure[0] == "p_norm":
+                    measures.append((x_under ** measure[1]).sum() / len(x))
+                else:
+                    raise ValueError("Invalid proximity measure")
+            elif isinstance(measure, str) and measure == "max_norm":
+                measures.append(x_under.max())
+            else:
+                raise ValueError("Invalid proximity measure")
+        return measures
+
+    def _proximity_subset(self, x: npt.NDArray, proximity_measures: List) -> List[float]:
+        """
+        Calculate the proximity of the given array to a specified maximum
+        percentage.
+
+        Parameters
+        ----------
+        x : npt.NDArray
+            Input array to be evaluated.
+
+        Returns
+        -------
+        float
+            The proximity value as a percentage.
+        """
+        n = self.idx.sum() if self.idx.dtype == bool else len(self.idx)
+
+        am = math.ceil(self.min_percentage * n)
+
+        l = (x[self.idx] < self.d_min).sum()
+
+        z = l - n + am  # number of elements that need to be reduced
+
+        if z > 0:
+            x_under = self.d_min - x[self._idx_indices[x[self.idx].argsort()[n - am : l]]]
+
+        else:
+            return [0 for measure in proximity_measures]
+
+        measures = []
+        for measure in proximity_measures:
+            if isinstance(measure, tuple):
+                if measure[0] == "p_norm":
+                    measures.append((x_under ** measure[1]).sum() / len(x))
+                else:
+                    raise ValueError("Invalid proximity measure")
+            elif isinstance(measure, str) and measure == "max_norm":
+                measures.append(x_under.max())
+            else:
+                raise ValueError("Invalid proximity measure")
+        return measures

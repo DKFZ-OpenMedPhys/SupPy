@@ -67,13 +67,13 @@ def test_Superiorization_constructor(
 
     assert sup.all_x == []
     assert sup.all_function_values == []
-    assert sup.all_proximity_values == []
+    assert sup.proximities == []
     assert sup.all_x_function_reduction == []
     assert sup.all_function_values_function_reduction == []
-    assert sup.all_proximity_values_function_reduction == []
+    assert sup.proximities_function_reduction == []
     assert sup.all_x_basic == []
     assert sup.all_function_values_basic == []
-    assert sup.all_proximity_values_basic == []
+    assert sup.proximities_basic == []
 
 
 def test_Superiorization_stopping_criteria(get_superiorization_input):
@@ -86,7 +86,7 @@ def test_Superiorization_stopping_criteria(get_superiorization_input):
     # fail because of objective despite proximity below threshold
     alg = get_superiorization_input
     alg.all_function_values = [1, 2, 2]
-    alg.all_proximity_values = [[0, 2], [10, 3], [0, 3]]
+    alg.proximities = [[0, 2], [10, 3], [0, 3]]
     alg._n_tol_objective = (
         0  # number of iterations with objective function changes below threshold
     )
@@ -102,7 +102,7 @@ def test_Superiorization_stopping_criteria(get_superiorization_input):
     # fail because of objective but with correct proximity change
     alg = get_superiorization_input
     alg.all_function_values = [1, 2, 2]
-    alg.all_proximity_values = [[1, 2], [10, 3], [1, 3]]
+    alg.proximities = [[1, 2], [10, 3], [1, 3]]
     alg._n_tol_objective = (
         0  # number of iterations with objective function changes below threshold
     )
@@ -117,7 +117,7 @@ def test_Superiorization_stopping_criteria(get_superiorization_input):
     # fail because of proximity but with correct objective change
     alg = get_superiorization_input
     alg.all_function_values = [1, 10, 1]
-    alg.all_proximity_values = [[1, 2], [10, 3], [0.8, 3]]
+    alg.proximities = [[1, 2], [10, 3], [0.8, 3]]
     alg._n_tol_objective = (
         0  # number of iterations with objective function changes below threshold
     )
@@ -132,7 +132,7 @@ def test_Superiorization_stopping_criteria(get_superiorization_input):
     # success because of proximity values below threshold
     alg = get_superiorization_input
     alg.all_function_values = [1, 10, 1]
-    alg.all_proximity_values = [[1, 2], [10, 3], [0, 3]]
+    alg.proximities = [[1, 2], [10, 3], [0, 3]]
     alg._n_tol_objective = (
         0  # number of iterations with objective function changes below threshold
     )
@@ -147,7 +147,7 @@ def test_Superiorization_stopping_criteria(get_superiorization_input):
     # success because of proximity value change below threshold
     alg = get_superiorization_input
     alg.all_function_values = [1, 10, 1]
-    alg.all_proximity_values = [[1, 2], [10, 3], [1, 3]]
+    alg.proximities = [[1, 2], [10, 3], [1, 3]]
     alg._n_tol_objective = (
         0  # number of iterations with objective function changes below threshold
     )
@@ -181,15 +181,15 @@ def test_initialize_storage(get_superiorization_input):
     alg._initial_storage(np.array([1, 2]), True, 5, 4)
     assert np.array_equal(alg.all_x, [np.array([1, 2])])
     assert alg.all_function_values == [5]
-    assert alg.all_proximity_values == [4]
+    assert alg.proximities == [4]
 
-    assert alg.all_x_function_reduction == []
-    assert alg.all_function_values_function_reduction == []
-    assert alg.all_proximity_values_function_reduction == []
+    assert np.array_equal(alg.all_x_function_reduction, [np.array([1, 2])])
+    assert alg.all_function_values_function_reduction == [5]
+    assert alg.proximities_function_reduction == [4]
 
-    assert alg.all_x_basic == []
-    assert alg.all_function_values_basic == []
-    assert alg.all_proximity_values_basic == []
+    assert np.array_equal(alg.all_x_basic, [np.array([1, 2])])
+    assert alg.all_function_values_basic == [5]
+    assert alg.proximities_basic == [4]
 
 
 def test_storage_function_reduction(get_superiorization_input):
@@ -197,15 +197,15 @@ def test_storage_function_reduction(get_superiorization_input):
     alg.storage(np.array([1, 2]), "function_reduction", True, 5, [4])
     assert np.array_equal(alg.all_x, [np.array([1, 2])])
     assert alg.all_function_values == [5]
-    assert alg.all_proximity_values == [[4]]
+    assert alg.proximities == [[4]]
 
     assert np.array_equal(alg.all_x_function_reduction, [np.array([1, 2])])
     assert alg.all_function_values_function_reduction == [5]
-    assert alg.all_proximity_values_function_reduction == [[4]]
+    assert alg.proximities_function_reduction == [[4]]
 
     assert alg.all_x_basic == []
     assert alg.all_function_values_basic == []
-    assert alg.all_proximity_values_basic == []
+    assert alg.proximities_basic == []
 
 
 def test_storage_basic_step(get_superiorization_input):
@@ -213,15 +213,15 @@ def test_storage_basic_step(get_superiorization_input):
     alg.storage(np.array([1, 2]), "basic", True, 5, [4])
     assert np.array_equal(alg.all_x, [np.array([1, 2])])
     assert alg.all_function_values == [5]
-    assert alg.all_proximity_values == [[4]]
+    assert alg.proximities == [[4]]
 
     assert np.array_equal(alg.all_x_basic, [np.array([1, 2])])
     assert alg.all_function_values_basic == [5]
-    assert alg.all_proximity_values_basic == [[4]]
+    assert alg.proximities_basic == [[4]]
 
     assert alg.all_x_function_reduction == []
     assert alg.all_function_values_function_reduction == []
-    assert alg.all_proximity_values_function_reduction == []
+    assert alg.proximities_function_reduction == []
 
 
 def test_PowerSeriesGradient_superiorization_step_only_one_function_reduction(

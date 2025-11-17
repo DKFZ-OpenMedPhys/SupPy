@@ -1128,7 +1128,7 @@ class MinDVHProjection(BasicProjection):
         for measure in proximity_measures:
             if isinstance(measure, tuple):
                 if measure[0] == "p_norm":
-                    measures.append((x_under ** measure[1]).sum() / len(x))
+                    measures.append((x_under ** measure[1]).sum() / n)
                 else:
                     raise ValueError("Invalid proximity measure")
             elif isinstance(measure, str) and measure == "max_norm":
@@ -1170,7 +1170,7 @@ class MinDVHProjection(BasicProjection):
         for measure in proximity_measures:
             if isinstance(measure, tuple):
                 if measure[0] == "p_norm":
-                    measures.append((x_under ** measure[1]).sum() / len(x))
+                    measures.append((x_under ** measure[1]).sum() / n)
                 else:
                     raise ValueError("Invalid proximity measure")
             elif isinstance(measure, str) and measure == "max_norm":

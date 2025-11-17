@@ -203,3 +203,40 @@ def test_SequentialWeightedAMSHyperslab_weight_decay_step_sparse(get_sparse_vari
     x_n = alg.step(x_5)
     assert np.all(abs(x_n - np.array([-1.5, 0]) < 1e-10))
     assert np.array_equal(x_n, x_5)
+
+
+def test_SequentialWeightedAMSHyperslab_proximity_full(get_SequentialWeightedAMSHyperslab_input):
+    """Test the proximity function of the SequentialWeightedAMSHyperslab class."""
+    alg, A, lb, ub = get_SequentialWeightedAMSHyperslab_input
+
+    x_1 = np.array([1.2, 1.2])
+    x_2 = np.array([2.0, 2.0])
+    x_3 = np.array([-1.2, -1.2])
+    x_4 = np.array([-2.0, -2.0])
+    x_5 = np.array([2.0, -2.0])
+
+    prox_measures = []
+    no_prox = alg.proximity(x_1, prox_measures)
+    assert no_prox.size == 0
+
+    prox_measures = [("p_norm", 2), "max_norm"]
+    prox_1 = alg.proximity(x_1, prox_measures)
+    prox_2 = alg.proximity(x_2, prox_measures)
+    prox_3 = alg.proximity(x_3, prox_measures)
+    prox_4 = alg.proximity(x_4, prox_measures)
+    prox_5 = alg.proximity(x_5, prox_measures)
+
+    assert np.abs(prox_1[0] - 0.04) < 1e-10
+    assert np.abs(prox_1[1] - 0.4) < 1e-10
+
+    assert np.abs(prox_2[0] - 9 / 8) < 1e-10
+    assert np.abs(prox_2[1] - 2) < 1e-10
+
+    assert np.abs(prox_3[0] - 0.04) < 1e-10
+    assert np.abs(prox_3[1] - 0.4) < 1e-10
+
+    assert np.abs(prox_4[0] - 9 / 8) < 1e-10
+    assert np.abs(prox_4[1] - 2) < 1e-10
+
+    assert np.abs(prox_5[0] - 9 / 8) < 1e-10
+    assert np.abs(prox_5[1] - 2) < 1e-10

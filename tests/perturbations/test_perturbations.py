@@ -199,7 +199,7 @@ def test_AdaptiveGradientPerturbation_post_step(
         last_proximity_function_reduction=last_proximity_function_reduction,
         last_proximity_basic=last_proximity_basic,
     )
-    assert pert.func_level == 1.0 + 2 * 0.8
+    assert pert.func_level == 1.0 + (np.sqrt(1.3) - np.sqrt(0.5)) / np.sqrt(0.5)
     assert pert.epsilon == 0.5
 
 
@@ -208,7 +208,7 @@ def test_AdaptiveGradientPerturbation_post_step_noisy(
 ):
     pert = get_test_perturbation_noisy
 
-    last_proximity_function_reduction = [0.4]
+    last_proximity_function_reduction = [0.16]
     last_proximity_basic = [1.0]
 
     pert.post_step(

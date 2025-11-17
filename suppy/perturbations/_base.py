@@ -199,9 +199,9 @@ class AdaptiveStepGradientPerturbation(GradientPerturbation):
     reduction.
 
     func : Callable
-        The function to be optimized.
+        The function to be reduced.
     grad : Callable
-        The gradient of the function to be optimized.
+        The gradient of the function to be reduced.
     func_args : List, optional
         Additional arguments to be passed to the function, by default [].
     grad_args : List, optional
@@ -241,7 +241,7 @@ class AdaptiveStepGradientPerturbation(GradientPerturbation):
         Parameters
         ----------
         x : npt.NDArray
-            The current point in the optimization process.
+            The current point in the algorithm.
 
         Returns
         -------
@@ -291,9 +291,9 @@ class PowerSeriesGradientPerturbation(GradientPerturbation):
     steps.
 
     func : Callable
-        The function to be optimized.
+        The function to be reduced.
     grad : Callable
-        The gradient of the function to be optimized.
+        The gradient of the function to be reduced.
     func_args : List, optional
         Additional arguments to be passed to the function, by default [].
     grad_args : List, optional
@@ -316,12 +316,14 @@ class PowerSeriesGradientPerturbation(GradientPerturbation):
         grad_args: List = [],
         n_red: int = 1,
         step_size: float = 0.5,
+        step_size_modifier: float = 1.0,
         n_restart: int = -1,
         disable_gradient_scaling: bool = False,
         iterative_scaling: bool = False,
     ):
         super().__init__(func, grad, func_args, grad_args, n_red)
         self.step_size = step_size
+        self.step_size_modifier = step_size_modifier
         self._l = -1
         self.n_restart = np.inf if n_restart == -1 else n_restart
         self.disable_gradient_scaling = disable_gradient_scaling
@@ -334,7 +336,7 @@ class PowerSeriesGradientPerturbation(GradientPerturbation):
         Parameters
         ----------
         x : npt.NDArray
-            The current point in the optimization process.
+            The current point in the algorithm.
 
         Returns
         -------
@@ -356,27 +358,30 @@ class PowerSeriesGradientPerturbation(GradientPerturbation):
         if not self.iterative_scaling:
             while loop:
                 self._l += 1
-                x_ln = x - self.step_size**self._l * grad_eval / grad_norm
+                x_ln = (
+                    x - self.step_size_modifier * self.step_size**self._l * grad_eval / grad_norm
+                )
                 y_ln = self.func(x_ln)
                 if y_ln <= func_eval:
                     return x_ln
         else:
-            x_ln = x - self.step_size ** (self._k) * grad_eval / grad_norm
+            x_ln = (
+                x - self.step_size_modifier * self.step_size ** (self._k) * grad_eval / grad_norm
+            )
         return x_ln
 
     def pre_step(self, x: npt.NDArray, *args, **kwargs):
         """
-                Resets the power series after n steps.
+        Resets the power series after n steps.
 
-                Parameters
-                ----------
-                x : npt.NDArray
-                    Current iterate.
-        s
+        Parameters
+        ----------
+        x : npt.NDArray
+            Current iterate.
 
-                Returns
-                -------
-                None
+        Returns
+        -------
+        None
         """
         if self._k <= 0:
             return

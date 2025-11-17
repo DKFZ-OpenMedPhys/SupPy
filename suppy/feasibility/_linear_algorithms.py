@@ -83,7 +83,7 @@ class Feasibility(Projection, ABC):
         prox_tol : float, optional
             The tolerance for the proximity on the constraints, by default 1e-6.
         del_prox_tol : float, optional
-            The tolerance for the change in proximity over the last del_prox_n iterations, by default 1e-6.
+            The tolerance for the change in proximity over the last del_prox_n iterations, by default 1e-89.
         del_prox_n : int, optional
             The number of iterations to check for the change in proximity, by default 5.
         proximity_measures : List, optional
@@ -108,14 +108,21 @@ class Feasibility(Projection, ABC):
 
         if storage is True:
             self.all_x = []
-            self.all_x.append(x.copy())
+            if isinstance(x, np.ndarray):
+                self.all_x.append(np.array(x.copy()))
+            else:
+                self.all_x.append((x.get()))
 
         stop = False  # criterion for stopping the algorithm
 
         while i < max_iter and not stop:
             x = self.project(x)
             if storage is True:
-                self.all_x.append(x.copy())
+                if isinstance(x, np.ndarray):  # convert to np array if cp
+                    self.all_x.append(np.array(x.copy()))
+                else:
+
+                    self.all_x.append((x.get()))
             self.proximities.append(self.proximity(x, proximity_measures))
 
             # TODO: If proximity changes x some potential issues!
@@ -123,7 +130,10 @@ class Feasibility(Projection, ABC):
             i += 1
 
         if self.all_x is not None:
-            self.all_x = xp.array(self.all_x)
+            self.all_x = np.array(self.all_x)
+
+        self.proximities = xp.array(self.proximities)
+
         return x
 
     def _stopping_criterion(self, prox_tol: float, del_prox_tol: float, del_prox_n: float):

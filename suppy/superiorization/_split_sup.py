@@ -1,8 +1,19 @@
 from typing import List
+
+import numpy as np
 import numpy.typing as npt
+from suppy.feasibility._bands._ams_extrapolations import AdaptiveStepLandweberHyperslab
 from suppy.utils import ensure_float_array
 from suppy.perturbations import Perturbation, DummyPerturbation
 from ._sup import FeasibilityPerturbation
+
+try:
+    import cupy as cp
+
+    NO_GPU = False
+except ImportError:
+    cp = np
+    NO_GPU = True
 
 
 class SplitSuperiorization(FeasibilityPerturbation):
@@ -86,18 +97,18 @@ class SplitSuperiorization(FeasibilityPerturbation):
 
         self.all_x = []
         self.all_function_values = []  # array storing all objective function values
-        self.all_proximity_values = []  # array storing all proximity function values
+        self.proximities = []  # array storing all proximity function values
 
         # array storing all points achieved via the function reduction step
         self.all_x_values_function_reduction = []
 
         self.all_x_function_reduction = []
         self.all_function_values_function_reduction = []
-        self.all_proximity_values_function_reduction = []
+        self.proximities_function_reduction = []
 
         self.all_x_basic = []
         self.all_function_values_basic = []
-        self.all_proximity_values_basic = []
+        self.proximities_basic = []
 
     @ensure_float_array
     def solve(
@@ -185,11 +196,9 @@ class SplitSuperiorization(FeasibilityPerturbation):
             # perform the perturbation schemes update steps and pre steps
             self.input_perturbation_scheme.pre_step(
                 x,
-                last_proximity=self.all_proximity_values[-1][0],
-                last_proximity_basic=self.all_proximity_values_basic[-1][0],
-                last_proximity_function_reduction=self.all_proximity_values_function_reduction[-1][
-                    0
-                ],
+                last_proximity=self.proximities[-1][0],
+                last_proximity_basic=self.proximities_basic[-1][0],
+                last_proximity_function_reduction=self.proximities_function_reduction[-1][0],
                 last_function_value=self.all_function_values[-1][0],
                 last_function_value_basic=self.all_function_values_basic[-1][0],
             )
@@ -198,11 +207,9 @@ class SplitSuperiorization(FeasibilityPerturbation):
 
             self.target_perturbation_scheme.pre_step(
                 y,
-                last_proximity=self.all_proximity_values[-1][1],
-                last_proximity_basic=self.all_proximity_values_basic[-1][1],
-                last_proximity_function_reduction=self.all_proximity_values_function_reduction[-1][
-                    1
-                ],
+                last_proximity=self.proximities[-1][1],
+                last_proximity_basic=self.proximities_basic[-1][1],
+                last_proximity_function_reduction=self.proximities_function_reduction[-1][1],
                 last_function_value=self.all_function_values[-1][1],
                 last_function_value_basic=self.all_function_values_basic[-1][1],
             )
@@ -212,22 +219,18 @@ class SplitSuperiorization(FeasibilityPerturbation):
             # post steps
             self.input_perturbation_scheme.post_step(
                 x,
-                last_proximity=self.all_proximity_values[-1][0],
-                last_proximity_basic=self.all_proximity_values_basic[-1][0],
-                last_proximity_function_reduction=self.all_proximity_values_function_reduction[-1][
-                    0
-                ],
+                last_proximity=self.proximities[-1][0],
+                last_proximity_basic=self.proximities_basic[-1][0],
+                last_proximity_function_reduction=self.proximities_function_reduction[-1][0],
                 last_function_value=self.all_function_values[-1][0],
                 last_function_value_basic=self.all_function_values_basic[-1][0],
             )
 
             self.target_perturbation_scheme.post_step(
                 y,
-                last_proximity=self.all_proximity_values[-1][1],
-                last_proximity_basic=self.all_proximity_values_basic[-1][1],
-                last_proximity_function_reduction=self.all_proximity_values_function_reduction[-1][
-                    1
-                ],
+                last_proximity=self.proximities[-1][1],
+                last_proximity_basic=self.proximities_basic[-1][1],
+                last_proximity_function_reduction=self.proximities_function_reduction[-1][1],
                 last_function_value=self.all_function_values[-1][1],
                 last_function_value_basic=self.all_function_values_basic[-1][1],
             )
@@ -265,6 +268,8 @@ class SplitSuperiorization(FeasibilityPerturbation):
             )
 
             self._additional_action(x, y)
+
+        self._post_step(x)
 
         return x
 
@@ -309,13 +314,13 @@ class SplitSuperiorization(FeasibilityPerturbation):
 
         stop_prox = False  # variable to check if the proximity criteria is met
         # check if proximity values are below the threshold
-        if self.all_proximity_values[-1][1][0] < prox_tol:  # proximity below goal/tolerance
+        if self.proximities[-1][1][0] < prox_tol:  # proximity below goal/tolerance
             stop_prox = True
 
         # check if the proximity changes are below tolerance level
         if (
-            abs(self.all_proximity_values[-3][1][0] - self.all_proximity_values[-1][1][0])
-            / max(1, self.all_proximity_values[-3][1][0])
+            abs(self.proximities[-3][1][0] - self.proximities[-1][1][0])
+            / max(1, self.proximities[-3][1][0])
             < del_prox_tol
         ):
             self._n_tol_prox += 1
@@ -359,29 +364,52 @@ class SplitSuperiorization(FeasibilityPerturbation):
         # reset objective values
         self.all_x = []
         self.all_function_values = []  # array storing all objective function values
-        self.all_proximity_values = []  # array storing all proximity function values
+        self.proximities = []  # array storing all proximity function values
 
         self.all_x_function_reduction = []
         self.all_function_values_function_reduction = []
-        self.all_proximity_values_function_reduction = []
+        self.proximities_function_reduction = []
 
         self.all_x_basic = []
         self.all_function_values_basic = []
-        self.all_proximity_values_basic = []
+        self.proximities_basic = []
 
         # append initial values
-        self.all_function_values.append(f)
-        self.all_function_values_basic.append(f)
-        self.all_function_values_function_reduction.append(f)
+        f_temp = []
+        for el in f:
+            if not NO_GPU and isinstance(el, cp.ndarray):
+                f_temp.append(el.get())
+            else:
+                f_temp.append(el)
+        self.all_function_values.append(f_temp)
 
-        self.all_proximity_values.append(p)
-        self.all_proximity_values_basic.append(p)
-        self.all_proximity_values_function_reduction.append(p)
+        # modify proximities
+        p_temp = []
+        for el in p:
+            if not NO_GPU and isinstance(el, cp.ndarray):
+                p_temp.append(el.get())
+            else:
+                p_temp.append(el)
+        self.proximities.append(p_temp)
+
+        self.all_function_values.append(f_temp)
+        self.all_function_values_basic.append(f_temp)
+        self.all_function_values_function_reduction.append(f_temp)
+
+        self.proximities.append(p_temp)
+        self.proximities_basic.append(p_temp)
+        self.proximities_function_reduction.append(p_temp)
 
         if storage:
-            self.all_x.append(x.copy())
-            self.all_x_basic.append(x.copy())
-            self.all_x_function_reduction.append(x.copy())
+            if isinstance(x, np.ndarray):
+                self.all_x.append(np.array(x.copy()))
+                self.all_x_basic.append(x.copy())
+                self.all_x_function_reduction.append(x.copy())
+
+            else:
+                self.all_x.append((x.get()))
+                self.all_x_basic.append((x.get()))
+                self.all_x_function_reduction.append((x.get()))
 
     def storage(
         self, x: npt.NDArray, type: str, storage: bool = True, f: float = None, p: float = None
@@ -400,25 +428,95 @@ class SplitSuperiorization(FeasibilityPerturbation):
         """
 
         # always store all function and proximity values
-        self.all_function_values.append(f)
-        self.all_proximity_values.append(p)
-        if storage:
+        f_temp = []
+        for el in f:
+            if not NO_GPU and isinstance(el, cp.ndarray):
+                f_temp.append(el.get())
+            else:
+                f_temp.append(el)
+        self.all_function_values.append(f_temp)
+
+        # modify proximities
+        p_temp = []
+        for el in p:
+            if not NO_GPU and isinstance(el, cp.ndarray):
+                p_temp.append(el.get())
+            else:
+                p_temp.append(el)
+        self.proximities.append(p_temp)
+
+        if storage and isinstance(x, np.ndarray):
             self.all_x.append(x.copy())
+        elif storage:
+            self.all_x.append((x.get()))
 
         if type == "function_reduction":
-            self.all_function_values_function_reduction.append(f)
-            self.all_proximity_values_function_reduction.append(p)
-            if storage:
+            self.all_function_values_function_reduction.append(f_temp)
+            self.proximities_function_reduction.append(p_temp)
+
+            if storage and isinstance(x, np.ndarray):
                 self.all_x_function_reduction.append(x.copy())
+            elif storage:
+                self.all_x_function_reduction.append((x.get()))
 
         elif type == "basic":
-            self.all_function_values_basic.append(f)
-            self.all_proximity_values_basic.append(p)
+            self.all_function_values_basic.append(f_temp)
+            self.proximities_basic.append(p_temp)
 
-            if storage:
+            if storage and isinstance(x, np.ndarray):
                 self.all_x_basic.append(x.copy())
+            elif storage:
+                self.all_x_basic.append((x.get()))
+
         else:
             raise ValueError("Invalid storage type. Use 'function_reduction' or 'basic'.")
+
+    def _post_step(self, x: npt.NDArray):
+        """
+        Perform an action after the optimization process has finished.
+
+        Parameters
+        ----------
+        x : array-like
+            The current value of the variable x.
+
+        Returns
+        -------
+        None
+        """
+
+        self.all_x = np.array(self.all_x)
+        self.all_x_function_reduction = np.array(self.all_x_function_reduction)
+        self.all_x_basic = np.array(self.all_x_basic)
+
+        # if isinstance(x, np.ndarray):
+        self.all_function_values = np.array(self.all_function_values)
+        self.all_function_values_function_reduction = np.array(
+            self.all_function_values_function_reduction
+        )
+        self.all_function_values_basic = np.array(self.all_function_values_basic)
+        self.proximities = np.array(self.proximities)
+        self.proximities_function_reduction = np.array(self.proximities_function_reduction)
+        self.proximities_basic = np.array(self.proximities_basic)
+        # else:
+        #     # If using cupy, convert all arrays to cupy arrays
+        #     # convert all to numpy arrays
+        #     self.all_function_values = np.array(
+        #         [np.array([el[0].get(),el[1]]) for el in self.all_function_values]
+        #     )
+        #     self.all_function_values_function_reduction = np.array(
+        #         [np.array([el[0].get(),el[1]]) for el in self.all_function_values_function_reduction]
+        #     )
+        #     self.all_function_values_basic = np.array(
+        #         [np.array([el[0].get(),el[1]]) for el in self.all_function_values_basic]
+        #     )
+        #     self.proximities = np.array([el.get() for el in self.proximities])
+        #     self.proximities_function_reduction = np.array(
+        #         [el.get() for el in self.proximities_function_reduction]
+        #     )
+        #     self.proximities_basic = np.array(
+        #         [el.get() for el in self.proximities_basic]
+        #     )
 
     # def _initial_storage(self,x,f_input,f_target):
     #     """

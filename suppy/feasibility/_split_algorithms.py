@@ -7,8 +7,11 @@ from scipy import sparse
 
 try:
     import cupy as cp
+
+    NO_GPU = False
 except ImportError:
     cp = np
+    NO_GPU = True
 
 from suppy.utils import LinearMapping
 from suppy.utils import ensure_float_array
@@ -111,14 +114,20 @@ class SplitFeasibility(Feasibility, ABC):
 
         if storage is True:
             self.all_x = []
-            self.all_x.append(x.copy())
+            if isinstance(x, cp.ndarray) and not NO_GPU:
+                self.all_x.append((x.get()))
+            else:
+                self.all_x.append(np.array(x.copy()))
 
         stop = False  # criterion for stopping the algorithm
 
         while i < max_iter and not stop:
             x, _ = self.step(x)
             if storage is True:
-                self.all_x.append(x.copy())
+                if isinstance(x, np.ndarray):  # convert to np array if cp
+                    self.all_x.append(np.array(x.copy()))
+                else:
+                    self.all_x.append((x.get()))
             self.proximities.append(self.proximity(x, proximity_measures))
 
             # TODO: If proximity changes x some potential issues!
@@ -126,7 +135,10 @@ class SplitFeasibility(Feasibility, ABC):
             i += 1
 
         if self.all_x is not None:
-            self.all_x = xp.array(self.all_x)
+            self.all_x = np.array(self.all_x)
+
+        self.proximities = xp.array(self.proximities)
+
         return x
 
     def _stopping_criterion(self, prox_tol: float, del_prox_tol: float, del_prox_n: float):

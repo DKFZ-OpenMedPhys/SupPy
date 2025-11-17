@@ -187,7 +187,10 @@ class SequentialART3plus(ART3plusAlgorithm):
 
         if storage is True:
             self.all_x = []
-            self.all_x.append(x.copy())
+            if isinstance(x, np.ndarray):
+                self.all_x.append(np.array(x.copy()))
+            else:
+                self.all_x.append((x.get()))
 
         stop = False  # criterion for stopping the algorithm
         self._n_tol = 0
@@ -199,7 +202,10 @@ class SequentialART3plus(ART3plusAlgorithm):
 
             x = self.project(x)
             if storage is True:
-                self.all_x.append(x.copy())
+                if isinstance(x, np.ndarray):  # convert to np array if cp
+                    self.all_x.append(np.array(x.copy()))
+                else:
+                    self.all_x.append((x.get()))
             self.proximities.append(self.proximity(x, proximity_measures))
 
             # TODO: If proximity changes x some potential issues!
@@ -208,7 +214,10 @@ class SequentialART3plus(ART3plusAlgorithm):
             i += 1
 
         if self.all_x is not None:
-            self.all_x = xp.array(self.all_x)
+            self.all_x = np.array(self.all_x)
+
+        self.proximities = xp.array(self.proximities)
+
         return x
 
 

@@ -88,9 +88,9 @@ class AdaptiveStepLandweberHalfspace(SimultaneousAMSHalfspace):
             # self.sigmas.append(0)
             return x
 
-        u_t = res[res_idx] @ self.A[res_idx, :]
+        u_t = (self.weights[res_idx] * res[res_idx]) @ self.A[res_idx, :]
         Au_t = self.A @ u_t  # A*AT*res
-        sig = (u_t @ u_t) / (Au_t @ Au_t)
+        sig = (u_t @ u_t) / (Au_t @ (self.weights * Au_t))
         x += sig * u_t
 
         return x

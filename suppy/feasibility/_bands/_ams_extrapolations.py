@@ -40,9 +40,13 @@ class ExtrapolatedLandweberHyperslab(SimultaneousAMSHyperslab):
     def __init__(self, A, lb, ub, relaxation=1, weights=None, proximity_flag=True):
         super().__init__(A, lb, ub, 1, relaxation, weights, proximity_flag)
         self.a_i = self.A.row_norm(2, 2)
+        # To avoid division by zero
         self.weight_norm = self.weights / self.a_i
+        self.weight_norm[self.a_i == 0] = 0
+        # TODO: Supposed to help with division by zero, but algorithm produces nans once all other criteria are met
 
     def _project(self, x):
+
         xp = cp if self._use_gpu else np
         p = self.map(x)
         (res_l, res_u) = self.bounds.residual(p)
@@ -59,6 +63,9 @@ class ExtrapolatedLandweberHyperslab(SimultaneousAMSHyperslab):
             (t_u_2 - t_l_2) @ (t_u_2 - t_l_2)
         )
         x += sig * (t_u_2 - t_l_2)
+
+        if xp.isnan(x).any():
+            raise ValueError("NaN encountered in Extrapolated Landweber Hyperslab projection.")
 
         return x
 
@@ -149,12 +156,12 @@ class AdaptiveStepLandweberHyperslab(SimultaneousAMSHyperslab):
             # self.sigmas.append(0)
             return x
 
-        u_t_u = res_u[d_idx] @ self.A[d_idx, :]
-        u_t_l = res_l[c_idx] @ self.A[c_idx, :]
+        u_t_u = (self.weights[d_idx] * res_u[d_idx]) @ self.A[d_idx, :]
+        u_t_l = (self.weights[c_idx] * res_l[c_idx]) @ self.A[c_idx, :]
 
         u_diff = u_t_u - u_t_l  # AT*(res_ub+res_lb)
         Au_t = self.A @ u_diff  # A*AT*(res_ub+res_lb)
-        sig = (u_diff @ u_diff) / (Au_t @ Au_t)
+        sig = (u_diff @ u_diff) / (Au_t @ (self.weights * Au_t))
         x += sig * (u_t_u - u_t_l)
 
         return x

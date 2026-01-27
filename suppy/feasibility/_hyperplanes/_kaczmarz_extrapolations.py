@@ -13,10 +13,10 @@ except ImportError:
     cp = np
 
 
-from suppy.feasibility._hyperplanes._ams_algorithms import SimultaneousAMSHyperplane
+from suppy.feasibility._hyperplanes._kaczmarz_algorithms import SimultaneousKaczmarzMethod
 
 
-class ExtrapolatedLandweberHyperplane(SimultaneousAMSHyperplane):
+class ExtrapolatedLandweberHyperplane(SimultaneousKaczmarzMethod):
     """
     Extrapolated Landweber algorithm for solving linear inequalities of the
     form Ax = b.
@@ -59,7 +59,7 @@ class ExtrapolatedLandweberHyperplane(SimultaneousAMSHyperplane):
         return x
 
 
-# class ExtrapolatedLandweberHyperplane2(SimultaneousAMSHyperplane):
+# class ExtrapolatedLandweberHyperplane2(SimultaneousKaczmarzMethod):
 #     def __init__(
 #         self, A, b, algorithmic_relaxation=1, relaxation=1, weights=None, proximity_flag=True
 #     ):
@@ -82,7 +82,7 @@ class ExtrapolatedLandweberHyperplane(SimultaneousAMSHyperplane):
 
 #         return x
 
-# class ExtrapolatedLandweberHyperplane3(SimultaneousAMSHyperplane):
+# class ExtrapolatedLandweberHyperplane3(SimultaneousKaczmarzMethod):
 #     def __init__(
 #         self, A, b, algorithmic_relaxation=1, relaxation=1, weights=None, proximity_flag=True
 #     ):
@@ -111,7 +111,7 @@ class ExtrapolatedLandweberHyperplane(SimultaneousAMSHyperplane):
 #         return x
 
 
-class AdaptiveStepLandweberHyperplane(SimultaneousAMSHyperplane):
+class AdaptiveStepLandweberHyperplane(SimultaneousKaczmarzMethod):
     """
     Landweber with adaptive step size for solving linear inequalities of the
     form Ax = b.
@@ -141,9 +141,9 @@ class AdaptiveStepLandweberHyperplane(SimultaneousAMSHyperplane):
         if not (np.any(res_idx)):
             self.sigmas.append(0)
             return x
-        u_t = res @ self.A
+        u_t = (self.weights * res) @ self.A
         Au_t = self.A @ u_t
-        sig = (u_t @ u_t) / (Au_t @ Au_t)
+        sig = (u_t @ u_t) / (Au_t @ (self.weights * Au_t))
         self.sigmas.append(sig)
         x += sig * u_t
 
@@ -152,7 +152,7 @@ class AdaptiveStepLandweberHyperplane(SimultaneousAMSHyperplane):
 
 #
 
-# class AdaptiveStepLandweberHyperplaneBlock(SimultaneousAMSHyperplane):
+# class AdaptiveStepLandweberHyperplaneBlock(SimultaneousKaczmarzMethod):
 #     def __init__(
 #         self, A, b, algorithmic_relaxation=1, relaxation=1, n_blocks = 1 , weights=None, proximity_flag=True
 #     ):

@@ -30,15 +30,15 @@ from ._halfspaces._ams_extrapolations import (
     AdaptiveStepLandweberHalfspace,
 )
 
-from ._hyperplanes._ams_algorithms import (
-    SequentialAMSHyperplane,
-    SequentialWeightedAMSHyperplane,
-    SimultaneousAMSHyperplane,
-    StringAveragedAMSHyperplane,
-    BlockIterativeAMSHyperplane,
+from ._hyperplanes._kaczmarz_algorithms import (
+    KaczmarzMethod,
+    SequentialWeightedKaczmarz,
+    SimultaneousKaczmarzMethod,
+    StringAveragedKaczmarz,
+    BlockIterativeKaczmarz,
 )
 
-from ._hyperplanes._ams_extrapolations import (
+from ._hyperplanes._kaczmarz_extrapolations import (
     ExtrapolatedLandweberHyperplane,
     AdaptiveStepLandweberHyperplane,
 )
@@ -60,11 +60,11 @@ __all__ = [
     "BlockIterativeAMSHalfspace",
     "ExtrapolatedLandweberHalfspace",
     "AdaptiveStepLandweberHalfspace",
-    "SequentialAMSHyperplane",
-    "SequentialWeightedAMSHyperplane",
-    "SimultaneousAMSHyperplane",
-    "StringAveragedAMSHyperplane",
-    "BlockIterativeAMSHyperplane",
+    "KaczmarzMethod",
+    "SequentialWeightedKaczmarz",
+    "SimultaneousKaczmarzMethod",
+    "StringAveragedKaczmarz",
+    "BlockIterativeKaczmarz",
     "ExtrapolatedLandweberHyperplane",
     "AdaptiveStepLandweberHyperplane",
     "SequentialARM",

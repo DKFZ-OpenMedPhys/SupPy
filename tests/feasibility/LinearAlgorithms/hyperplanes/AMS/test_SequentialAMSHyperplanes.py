@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 import scipy.sparse as sparse
-from suppy.feasibility import SequentialAMSHyperplane
+from suppy.feasibility import KaczmarzMethod
 from suppy.utils import LinearMapping
 
 
@@ -21,26 +21,26 @@ def get_sparse_variables():
 
 
 @pytest.fixture
-def get_SequentialAMSHyperplane_input_full(get_full_variables):
+def get_KaczmarzMethod_input_full(get_full_variables):
     A, b = get_full_variables
-    return SequentialAMSHyperplane(A, b), A, b
+    return KaczmarzMethod(A, b), A, b
 
 
 @pytest.fixture
-def get_SequentialAMSHyperplane_input_sparse(get_sparse_variables):
+def get_KaczmarzMethod_input_sparse(get_sparse_variables):
     A, b = get_sparse_variables
-    return SequentialAMSHyperplane(A, b), A, b
+    return KaczmarzMethod(A, b), A, b
 
 
-def test_SequentialAMSHyperplane_no_relaxation_constructor_full(
-    get_SequentialAMSHyperplane_input_full,
+def test_KaczmarzMethod_no_relaxation_constructor_full(
+    get_KaczmarzMethod_input_full,
 ):
     """
-    Test the SequentialAMSHyperplane constructor with no relaxation and a
+    Test the KaczmarzMethod constructor with no relaxation and a
     full
     matrix.
     """
-    alg, A, b = get_SequentialAMSHyperplane_input_full
+    alg, A, b = get_KaczmarzMethod_input_full
 
     assert isinstance(alg.A, LinearMapping)
     assert np.array_equal(alg.A, A)
@@ -50,15 +50,15 @@ def test_SequentialAMSHyperplane_no_relaxation_constructor_full(
     assert alg.relaxation == 1.0
 
 
-def test_SequentialAMSHyperplane_no_relaxation_constructor_sparse(
-    get_SequentialAMSHyperplane_input_sparse,
+def test_KaczmarzMethod_no_relaxation_constructor_sparse(
+    get_KaczmarzMethod_input_sparse,
 ):
     """
-    Test the SequentialAMSHyperplane constructor with no relaxation and a
+    Test the KaczmarzMethod constructor with no relaxation and a
     sparse
     matrix.
     """
-    alg, A, b = get_SequentialAMSHyperplane_input_sparse
+    alg, A, b = get_KaczmarzMethod_input_sparse
 
     assert isinstance(alg.A, LinearMapping)
     assert np.array_equal(alg.A.todense(), A.todense())
@@ -68,56 +68,56 @@ def test_SequentialAMSHyperplane_no_relaxation_constructor_sparse(
     assert alg.relaxation == 1.0
 
 
-def test_SequentialAMSHyperplane_constructor_wrong_bounds_shape(get_full_variables):
+def test_KaczmarzMethod_constructor_wrong_bounds_shape(get_full_variables):
     """Test the SequentialAMSHyperslab constructor with wrong bounds shape."""
     A, _ = get_full_variables
     ub = np.array([1, 2])
     with pytest.raises(ValueError):
-        SequentialAMSHyperplane(A, ub)
+        KaczmarzMethod(A, ub)
 
 
-def test_SequentialAMSHyperplane_constructor_scalar_bounds(get_full_variables):
+def test_KaczmarzMethod_constructor_scalar_bounds(get_full_variables):
     """Test the SequentialAMSHyperslab constructor with scalar bounds."""
     A, _ = get_full_variables
     b = 1
-    alg = SequentialAMSHyperplane(A, b)
+    alg = KaczmarzMethod(A, b)
     print(alg.b)
     assert (alg.b == np.array([1, 1, 1])).all()
 
 
-def test_SequentialAMSHyperplane_map_full(get_SequentialAMSHyperplane_input_full):
-    """Test the map function of the SequentialAMSHyperplane class with full
+def test_KaczmarzMethod_map_full(get_KaczmarzMethod_input_full):
+    """Test the map function of the KaczmarzMethod class with full
     matrix.
     """
     (
         alg,
         _,
         _,
-    ) = get_SequentialAMSHyperplane_input_full
+    ) = get_KaczmarzMethod_input_full
 
     # test map function(s)
     x_map = np.array([1, 1])
     assert np.array_equal(alg.map(x_map), np.array([1, 0, 1]))
 
 
-def test_SequentialAMSHyperplane_map_sparse(get_SequentialAMSHyperplane_input_sparse):
-    """Test the map function of the SequentialAMSHyperplane class with sparse
+def test_KaczmarzMethod_map_sparse(get_KaczmarzMethod_input_sparse):
+    """Test the map function of the KaczmarzMethod class with sparse
     matrix.
     """
     (
         alg,
         _,
         _,
-    ) = get_SequentialAMSHyperplane_input_sparse
+    ) = get_KaczmarzMethod_input_sparse
 
     # test map function(s)
     x_map = np.array([1, 1])
     assert np.array_equal(alg.map(x_map), np.array([1, 0, 1]))
 
 
-def test_SequentialAMSHyperplane_indexed_map_full(get_SequentialAMSHyperplane_input_full):
+def test_KaczmarzMethod_indexed_map_full(get_KaczmarzMethod_input_full):
     """
-    Test the indexed_map function of the SequentialAMSHyperplane class with
+    Test the indexed_map function of the KaczmarzMethod class with
     full
     matrix.
     """
@@ -125,16 +125,16 @@ def test_SequentialAMSHyperplane_indexed_map_full(get_SequentialAMSHyperplane_in
         alg,
         _,
         _,
-    ) = get_SequentialAMSHyperplane_input_full
+    ) = get_KaczmarzMethod_input_full
     idx = [0, 2]
     # test map function(s)
     x_map = np.array([1, 1])
     assert np.array_equal(alg.indexed_map(x_map, idx), np.array([1, 1]))
 
 
-def test_SequentialAMSHyperplane_indexed_map_sparse(get_SequentialAMSHyperplane_input_sparse):
+def test_KaczmarzMethod_indexed_map_sparse(get_KaczmarzMethod_input_sparse):
     """
-    Test the indexed_map function of the SequentialAMSHyperplane class with
+    Test the indexed_map function of the KaczmarzMethod class with
     sparse
     matrix.
     """
@@ -142,22 +142,22 @@ def test_SequentialAMSHyperplane_indexed_map_sparse(get_SequentialAMSHyperplane_
         alg,
         _,
         _,
-    ) = get_SequentialAMSHyperplane_input_sparse
+    ) = get_KaczmarzMethod_input_sparse
     idx = [0, 2]
     # test map function(s)
     x_map = np.array([1, 1])
     assert np.array_equal(alg.indexed_map(x_map, idx), np.array([1, 1]))
 
 
-def test_SequentialAMSHyperplane_step_full(get_SequentialAMSHyperplane_input_full):
-    """Test the step function of the SequentialAMSHyperplane class with full
+def test_KaczmarzMethod_step_full(get_KaczmarzMethod_input_full):
+    """Test the step function of the KaczmarzMethod class with full
     matrix.
     """
     (
         alg,
         _,
         _,
-    ) = get_SequentialAMSHyperplane_input_full
+    ) = get_KaczmarzMethod_input_full
 
     x_1 = np.array([2.0, 2.0])
     x_2 = np.array([1.0, 3.0])
@@ -193,15 +193,15 @@ def test_SequentialAMSHyperplane_step_full(get_SequentialAMSHyperplane_input_ful
     assert np.array_equal(x_n, x_5)
 
 
-def test_SequentialAMSHyperplane_step_sparse(get_SequentialAMSHyperplane_input_sparse):
-    """Test the step function of the SequentialAMSHyperplane class with
+def test_KaczmarzMethod_step_sparse(get_KaczmarzMethod_input_sparse):
+    """Test the step function of the KaczmarzMethod class with
     sparse.
     """
     (
         alg,
         _,
         _,
-    ) = get_SequentialAMSHyperplane_input_sparse
+    ) = get_KaczmarzMethod_input_sparse
 
     x_1 = np.array([2.0, 2.0])
     x_2 = np.array([1.0, 3.0])
@@ -237,13 +237,13 @@ def test_SequentialAMSHyperplane_step_sparse(get_SequentialAMSHyperplane_input_s
     assert np.array_equal(x_n, x_5)
 
 
-def test_SequentialAMSHyperplane_step_full_algoritimic_relaxation(get_full_variables):
-    """Test the step function of the SequentialAMSHyperplane class with
+def test_KaczmarzMethod_step_full_algoritimic_relaxation(get_full_variables):
+    """Test the step function of the KaczmarzMethod class with
     relaxation.
     """
     A, b = get_full_variables
     # test with relaxation
-    alg = SequentialAMSHyperplane(A, b, algorithmic_relaxation=1.5)
+    alg = KaczmarzMethod(A, b, algorithmic_relaxation=1.5)
     assert alg.algorithmic_relaxation == 1.5
     assert alg.relaxation == 1.0
 
@@ -253,13 +253,13 @@ def test_SequentialAMSHyperplane_step_full_algoritimic_relaxation(get_full_varia
     assert np.array_equal(x_n, x_1)
 
 
-def test_SequentialAMSHyperplane_step_sparse_algoritimic_relaxation(get_sparse_variables):
-    """Test the step function of the SequentialAMSHyperplane class with
+def test_KaczmarzMethod_step_sparse_algoritimic_relaxation(get_sparse_variables):
+    """Test the step function of the KaczmarzMethod class with
     relaxation.
     """
     A, b = get_sparse_variables
     # test with relaxation
-    alg = SequentialAMSHyperplane(A, b, algorithmic_relaxation=1.5)
+    alg = KaczmarzMethod(A, b, algorithmic_relaxation=1.5)
     assert alg.algorithmic_relaxation == 1.5
     assert alg.relaxation == 1.0
 
@@ -269,13 +269,13 @@ def test_SequentialAMSHyperplane_step_sparse_algoritimic_relaxation(get_sparse_v
     assert np.array_equal(x_n, x_1)
 
 
-def test_SequentialAMSHyperplane_step_full_relaxation(get_full_variables):
-    """Test the step function of the SequentialAMSHyperplane class with
+def test_KaczmarzMethod_step_full_relaxation(get_full_variables):
+    """Test the step function of the KaczmarzMethod class with
     relaxation.
     """
     A, b = get_full_variables
     # test with relaxation
-    alg = SequentialAMSHyperplane(A, b, relaxation=1.5)
+    alg = KaczmarzMethod(A, b, relaxation=1.5)
     assert alg.relaxation == 1.5
     assert alg.algorithmic_relaxation == 1.0
 
@@ -284,13 +284,13 @@ def test_SequentialAMSHyperplane_step_full_relaxation(get_full_variables):
     assert np.all(abs(x_n - np.array([1.25, 0.5])) < 1e-10)
 
 
-def test_SequentialAMSHyperplane_step_sparse_relaxation(get_sparse_variables):
-    """Test the step function of the SequentialAMSHyperplane class with
+def test_KaczmarzMethod_step_sparse_relaxation(get_sparse_variables):
+    """Test the step function of the KaczmarzMethod class with
     relaxation.
     """
     A, b = get_sparse_variables
     # test with relaxation
-    alg = SequentialAMSHyperplane(A, b, relaxation=1.5)
+    alg = KaczmarzMethod(A, b, relaxation=1.5)
     assert alg.relaxation == 1.5
     assert alg.algorithmic_relaxation == 1.0
 
@@ -299,14 +299,14 @@ def test_SequentialAMSHyperplane_step_sparse_relaxation(get_sparse_variables):
     assert np.all(abs(x_n - np.array([1.25, 0.5])) < 1e-10)
 
 
-def test_SequentialAMSHyperplane_custom_cs(get_SequentialAMSHyperplane_input_full):
-    """Test the step function of the SequentialAMSHyperplane class with
+def test_KaczmarzMethod_custom_cs(get_KaczmarzMethod_input_full):
+    """Test the step function of the KaczmarzMethod class with
     custom.
     """
-    _, A, b = get_SequentialAMSHyperplane_input_full
+    _, A, b = get_KaczmarzMethod_input_full
 
     # test with custom cs
-    alg = SequentialAMSHyperplane(A, b, cs=[2, 1, 0])
+    alg = KaczmarzMethod(A, b, cs=[2, 1, 0])
 
     x_1 = np.array([2.0, 2.0])
     x_2 = np.array([1.0, 3.0])
@@ -342,13 +342,13 @@ def test_SequentialAMSHyperplane_custom_cs(get_SequentialAMSHyperplane_input_ful
     assert np.array_equal(x_n, x_5)
 
 
-def test_SequentialAMSHyperplane_proximity(get_SequentialAMSHyperplane_input_full):
-    """Test the proximity function of the SequentialAMSHyperplane class."""
+def test_KaczmarzMethod_proximity(get_KaczmarzMethod_input_full):
+    """Test the proximity function of the KaczmarzMethod class."""
     (
         alg,
         _,
         _,
-    ) = get_SequentialAMSHyperplane_input_full
+    ) = get_KaczmarzMethod_input_full
 
     x_1 = np.array([2.0, 2.0])
     x_2 = np.array([1.0, 3.0])

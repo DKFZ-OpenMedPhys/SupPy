@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 import scipy.sparse as sparse
-from suppy.feasibility import SimultaneousAMSHyperplane
+from suppy.feasibility import SimultaneousKaczmarzMethod
 from suppy.utils import LinearMapping
 
 
@@ -20,14 +20,14 @@ def get_sparse_variables():
     return A, b
 
 
-def test_SimultaneousAMSHyperplane_no_relaxation_no_weights_constructor_full(get_full_variables):
+def test_SimultaneousKaczmarzMethod_no_relaxation_no_weights_constructor_full(get_full_variables):
     """
-    Test the SimultaneousAMSHyperplane constructor with no relaxation and a
+    Test the SimultaneousKaczmarzMethod constructor with no relaxation and a
     full
     matrix.
     """
     A, b = get_full_variables
-    alg = SimultaneousAMSHyperplane(A, b)
+    alg = SimultaneousKaczmarzMethod(A, b)
 
     assert isinstance(alg.A, LinearMapping)
     assert np.array_equal(alg.A, A)
@@ -37,16 +37,16 @@ def test_SimultaneousAMSHyperplane_no_relaxation_no_weights_constructor_full(get
     assert alg.algorithmic_relaxation == 1.0
 
 
-def test_SimultaneousAMSHyperplane_no_relaxation_no_weights_constructor_sparse(
+def test_SimultaneousKaczmarzMethod_no_relaxation_no_weights_constructor_sparse(
     get_sparse_variables,
 ):
     """
-    Test the SimultaneousAMSHyperplane constructor with no relaxation and a
+    Test the SimultaneousKaczmarzMethod constructor with no relaxation and a
     sparse
     matrix.
     """
     A, b = get_sparse_variables
-    alg = SimultaneousAMSHyperplane(A, b)
+    alg = SimultaneousKaczmarzMethod(A, b)
 
     assert isinstance(alg.A, LinearMapping)
     assert np.array_equal(alg.A.todense(), A.todense())
@@ -56,14 +56,14 @@ def test_SimultaneousAMSHyperplane_no_relaxation_no_weights_constructor_sparse(
     assert alg.algorithmic_relaxation == 1.0
 
 
-def testSimultaneousAMSHyperplane_relaxation_weights_constructor_full(get_full_variables):
+def testSimultaneousKaczmarzMethod_relaxation_weights_constructor_full(get_full_variables):
     """
-    Test the SimultaneousAMSHyperplane constructor with relaxation and
+    Test the SimultaneousKaczmarzMethod constructor with relaxation and
     custom
     weights.
     """
     A, b = get_full_variables
-    alg = SimultaneousAMSHyperplane(
+    alg = SimultaneousKaczmarzMethod(
         A, b, algorithmic_relaxation=1.5, relaxation=1.5, weights=np.ones(len(A))
     )
 
@@ -75,14 +75,14 @@ def testSimultaneousAMSHyperplane_relaxation_weights_constructor_full(get_full_v
     assert alg.relaxation == 1.5
 
 
-def testSimultaneousAMSHyperplane_relaxation_weights_constructor_sparse(get_sparse_variables):
+def testSimultaneousKaczmarzMethod_relaxation_weights_constructor_sparse(get_sparse_variables):
     """
-    Test the SimultaneousAMSHyperplane constructor with relaxation and
+    Test the SimultaneousKaczmarzMethod constructor with relaxation and
     custom
     weights.
     """
     A, b = get_sparse_variables
-    alg = SimultaneousAMSHyperplane(
+    alg = SimultaneousKaczmarzMethod(
         A,
         b,
         algorithmic_relaxation=1.5,
@@ -98,10 +98,10 @@ def testSimultaneousAMSHyperplane_relaxation_weights_constructor_sparse(get_spar
     assert alg.relaxation == 1.5
 
 
-def test_SimultaneousAMSHyperplane_step_full(get_full_variables):
-    """Test the step function of the SimultaneousAMSHyperplane class."""
+def test_SimultaneousKaczmarzMethod_step_full(get_full_variables):
+    """Test the step function of the SimultaneousKaczmarzMethod class."""
     A, b = get_full_variables
-    alg = SimultaneousAMSHyperplane(A, b, weights=np.ones(len(A)) / A.shape[0])
+    alg = SimultaneousKaczmarzMethod(A, b, weights=np.ones(len(A)) / A.shape[0])
 
     x_1 = np.array([2.0, 2.0])
     x_2 = np.array([1.0, 3.0])
@@ -137,11 +137,11 @@ def test_SimultaneousAMSHyperplane_step_full(get_full_variables):
     assert np.array_equal(x_n, x_5)
 
 
-def test_SimultaneousAMSHyperplane_step_sparse(get_sparse_variables):
-    """Test the step function of the SimultaneousAMSHyperplane class."""
+def test_SimultaneousKaczmarzMethod_step_sparse(get_sparse_variables):
+    """Test the step function of the SimultaneousKaczmarzMethod class."""
     A, b = get_sparse_variables
 
-    alg = SimultaneousAMSHyperplane(A, b, weights=np.ones(A.shape[0]))
+    alg = SimultaneousKaczmarzMethod(A, b, weights=np.ones(A.shape[0]))
 
     x_1 = np.array([2.0, 2.0])
     x_2 = np.array([1.0, 3.0])
@@ -177,13 +177,13 @@ def test_SimultaneousAMSHyperplane_step_sparse(get_sparse_variables):
     assert np.array_equal(x_n, x_5)
 
 
-def test_SimultaneousAMSHyperplane_algorithmic_relaxation_step(get_sparse_variables):
-    """Test the step function with relaxation of the SimultaneousAMSHyperplane
+def test_SimultaneousKaczmarzMethod_algorithmic_relaxation_step(get_sparse_variables):
+    """Test the step function with relaxation of the SimultaneousKaczmarzMethod
     class.
     """
     A, b = get_sparse_variables
 
-    alg = SimultaneousAMSHyperplane(A, b, weights=np.ones(A.shape[0]), algorithmic_relaxation=2.0)
+    alg = SimultaneousKaczmarzMethod(A, b, weights=np.ones(A.shape[0]), algorithmic_relaxation=2.0)
 
     x_1 = np.array([2.0, 2.0])
     x_2 = np.array([1.0, 3.0])
@@ -219,13 +219,13 @@ def test_SimultaneousAMSHyperplane_algorithmic_relaxation_step(get_sparse_variab
     assert np.array_equal(x_n, x_5)
 
 
-def test_SimultaneousAMSHyperplane_relaxation_step(get_sparse_variables):
-    """Test the step function with relaxation of the SimultaneousAMSHyperplane
+def test_SimultaneousKaczmarzMethod_relaxation_step(get_sparse_variables):
+    """Test the step function with relaxation of the SimultaneousKaczmarzMethod
     class.
     """
     A, b = get_sparse_variables
 
-    alg = SimultaneousAMSHyperplane(A, b, weights=np.ones(A.shape[0]), relaxation=2.0)
+    alg = SimultaneousKaczmarzMethod(A, b, weights=np.ones(A.shape[0]), relaxation=2.0)
     x_1 = np.array([2.0, 2.0])
     x_2 = np.array([1.0, 3.0])
     x_3 = np.array([0.0, 3.0])
@@ -250,10 +250,10 @@ def test_SimultaneousAMSHyperplane_relaxation_step(get_sparse_variables):
     assert np.all(abs(x_n - np.array([4 / 6, -2 / 6])) < 1e-10)
 
 
-def test_SimultaneousAMSHyperplane_proximity(get_full_variables):
-    """Test the proximity function of the SimultaneousAMSHyperplane class."""
+def test_SimultaneousKaczmarzMethod_proximity(get_full_variables):
+    """Test the proximity function of the SimultaneousKaczmarzMethod class."""
     A, b = get_full_variables
-    alg = SimultaneousAMSHyperplane(A, b, weights=np.ones(len(A)) / len(A))
+    alg = SimultaneousKaczmarzMethod(A, b, weights=np.ones(len(A)) / len(A))
 
     x_1 = np.array([2.0, 2.0])
     x_2 = np.array([1.0, 3.0])

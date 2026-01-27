@@ -6,7 +6,7 @@ Linear algorithms
 =========================
 
 
-Hyperslab AMS algorithms :math:`(lb \leq Ax \leq ub)`
+Hyperslab algorithms :math:`(lb \leq Ax \leq ub)`
 ------------------------------------------------------
 
 .. currentmodule:: suppy.feasibility
@@ -20,18 +20,18 @@ Hyperslab AMS algorithms :math:`(lb \leq Ax \leq ub)`
    BlockIterativeAMSHyperslab
 
 
-Hyperplane AMS algorithms :math:`( Ax \leq b)`
+Hyperplane algorithms :math:`( Ax \leq b)`
 --------------------------------------------------
 .. autosummary::
    :toctree: generated/Hyperplane/
 
-   SequentialAMSHyperplane
-   SimultaneousAMSHyperplane
-   StringAveragedAMSHyperplane
-   BlockIterativeAMSHyperplane
+   KaczmarzMethod
+   SimultaneousKaczmarzMethod
+   StringAveragedKaczmarz
+   BlockIterativeKaczmarz
 
 
-Halfspace AMS algorithms :math:`( Ax = b)`
+Halfspace algorithms :math:`( Ax = b)`
 --------------------------------------------------
 
 .. autosummary::

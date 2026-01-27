@@ -16,9 +16,9 @@ from suppy.feasibility._linear_algorithms import HyperplaneFeasibility
 from suppy.utils import LinearMapping
 
 
-class HyperplaneAMSAlgorithm(HyperplaneFeasibility, ABC):
+class HyperplaneAlgorithm(HyperplaneFeasibility, ABC):
     """
-    The HyperplaneAMSAlgorithm class is used to find a feasible solution to
+    The HyperplaneAlgorithm class is used to find a feasible solution to
     a
     set of linear inequalities.
 
@@ -47,7 +47,7 @@ class HyperplaneAMSAlgorithm(HyperplaneFeasibility, ABC):
         super().__init__(A, b, algorithmic_relaxation, relaxation, proximity_flag)
 
 
-class SequentialAMSHyperplane(HyperplaneAMSAlgorithm):
+class KaczmarzMethod(HyperplaneAlgorithm):
     """
     SequentialAMS class for sequentially applying the AMS algorithm.
 
@@ -110,7 +110,7 @@ class SequentialAMSHyperplane(HyperplaneAMSAlgorithm):
         return x
 
 
-class SequentialWeightedAMSHyperplane(SequentialAMSHyperplane):
+class SequentialWeightedKaczmarz(KaczmarzMethod):
     """
     Parameters
     ----------
@@ -203,10 +203,10 @@ class SequentialWeightedAMSHyperplane(SequentialAMSHyperplane):
         return x
 
 
-class SimultaneousAMSHyperplane(HyperplaneAMSAlgorithm):
+class SimultaneousKaczmarzMethod(HyperplaneAlgorithm):
     """
-    SimultaneousAMS is an implementation of the AMS (Alternating
-    Minimization Scheme) algorithm
+    SimultaneousKaczmarzMethod is an implementation of the Kaczmarz
+    algorithm
     that performs simultaneous projections and proximity calculations.
 
     Parameters
@@ -272,7 +272,7 @@ class SimultaneousAMSHyperplane(HyperplaneAMSAlgorithm):
         return measures
 
 
-class BlockIterativeAMSHyperplane(HyperplaneAMSAlgorithm):
+class BlockIterativeKaczmarz(HyperplaneAlgorithm):
     """
     Block Iterative AMS Algorithm.
     This class implements a block iterative version of the AMS (Alternating
@@ -361,10 +361,10 @@ class BlockIterativeAMSHyperplane(HyperplaneAMSAlgorithm):
         return measures
 
 
-class StringAveragedAMSHyperplane(HyperplaneAMSAlgorithm):
+class StringAveragedKaczmarz(HyperplaneAlgorithm):
 
     """
-    StringAveragedAMS is an implementation of the HyperplaneAMSAlgorithm
+    StringAveragedAMS is an implementation of the HyperplaneAlgorithm
     that
     performs
     string averaged projections.

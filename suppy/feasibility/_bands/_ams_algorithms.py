@@ -16,9 +16,9 @@ from suppy.feasibility._linear_algorithms import HyperslabFeasibility
 from suppy.utils import LinearMapping
 
 
-class HyperslabAMSAlgorithm(HyperslabFeasibility, ABC):
+class HyperslabAlgorithm(HyperslabFeasibility, ABC):
     """
-    The HyperslabAMSAlgorithm class is used to find a feasible solution to a
+    The HyperslabAlgorithm class is used to find a feasible solution to a
     set of
     linear inequalities.
 
@@ -50,7 +50,7 @@ class HyperslabAMSAlgorithm(HyperslabFeasibility, ABC):
         super().__init__(A, lb, ub, algorithmic_relaxation, relaxation, proximity_flag)
 
 
-class SequentialAMSHyperslab(HyperslabAMSAlgorithm):
+class SequentialAMSHyperslab(HyperslabAlgorithm):
     """
     SequentialAMSHyperslab class for sequentially applying the AMS algorithm
     on hyperslabs.
@@ -254,7 +254,7 @@ class SequentialWeightedAMSHyperslab(SequentialAMSHyperslab):
         return measures
 
 
-class SimultaneousAMSHyperslab(HyperslabAMSAlgorithm):
+class SimultaneousAMSHyperslab(HyperslabAlgorithm):
     """
     SimultaneousAMSHyperslab class for simultaneous application of the AMS
     algorithm on hyperslabs.
@@ -394,7 +394,7 @@ class SARTHyperslab(SimultaneousAMSHyperslab):
         return x
 
 
-class BlockIterativeAMSHyperslab(HyperslabAMSAlgorithm):
+class BlockIterativeAMSHyperslab(HyperslabAlgorithm):
     """
     Block Iterative AMS Algorithm for hyperslabs.
 
@@ -499,7 +499,7 @@ class BlockIterativeAMSHyperslab(HyperslabAMSAlgorithm):
         return measures
 
 
-class StringAveragedAMSHyperslab(HyperslabAMSAlgorithm):
+class StringAveragedAMSHyperslab(HyperslabAlgorithm):
     """
     StringAveragedAMSHyperslab is a string averaged implementation of the
     AMS algorithm.

@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 import scipy.sparse as sparse
-from suppy.feasibility import BlockIterativeAMSHyperplane
+from suppy.feasibility import BlockIterativeKaczmarz
 from suppy.utils import LinearMapping
 
 
@@ -21,46 +21,46 @@ def get_sparse_variables():
 
 
 @pytest.fixture
-def get_BlockIterativeAMSHyperplane_input_full_sequential(get_full_variables):
+def get_BlockIterativeKaczmarz_input_full_sequential(get_full_variables):
     A, b = get_full_variables
-    return BlockIterativeAMSHyperplane(A, b, weights=np.eye(3)), A, b
+    return BlockIterativeKaczmarz(A, b, weights=np.eye(3)), A, b
 
 
 @pytest.fixture
-def get_BlockIterativeAMSHyperplane_input_full_simultaneous(get_full_variables):
+def get_BlockIterativeKaczmarz_input_full_simultaneous(get_full_variables):
     A, b = get_full_variables
     return (
-        BlockIterativeAMSHyperplane(A, b, weights=[[1 / 3, 1 / 3, 1 / 3]]),
+        BlockIterativeKaczmarz(A, b, weights=[[1 / 3, 1 / 3, 1 / 3]]),
         A,
         b,
     )
 
 
 @pytest.fixture
-def get_BlockIterativeAMSHyperplane_input_sparse_sequential(get_sparse_variables):
+def get_BlockIterativeKaczmarz_input_sparse_sequential(get_sparse_variables):
     A, b = get_sparse_variables
-    return BlockIterativeAMSHyperplane(A, b, weights=np.eye(3)), A, b
+    return BlockIterativeKaczmarz(A, b, weights=np.eye(3)), A, b
 
 
 @pytest.fixture
-def get_BlockIterativeAMSHyperplane_input_sparse_simultaneous(get_sparse_variables):
+def get_BlockIterativeKaczmarz_input_sparse_simultaneous(get_sparse_variables):
     A, b = get_sparse_variables
     return (
-        BlockIterativeAMSHyperplane(A, b, weights=[[1 / 3, 1 / 3, 1 / 3]]),
+        BlockIterativeKaczmarz(A, b, weights=[[1 / 3, 1 / 3, 1 / 3]]),
         A,
         b,
     )
 
 
-def test_BlockIterativeAMSHyperplane_sequential_constructor_full(
-    get_BlockIterativeAMSHyperplane_input_full_sequential,
+def test_BlockIterativeKaczmarz_sequential_constructor_full(
+    get_BlockIterativeKaczmarz_input_full_sequential,
 ):
     """
-    Test the BlockIterativeAMSHyperplane constructor with sequential weights
+    Test the BlockIterativeKaczmarz constructor with sequential weights
     and a
     full matrix.
     """
-    alg, A, b = get_BlockIterativeAMSHyperplane_input_full_sequential
+    alg, A, b = get_BlockIterativeKaczmarz_input_full_sequential
 
     assert isinstance(alg.A, LinearMapping)
     assert np.array_equal(alg.A, A)
@@ -71,14 +71,14 @@ def test_BlockIterativeAMSHyperplane_sequential_constructor_full(
     assert alg.algorithmic_relaxation == 1.0
 
 
-def test_BlockIterativeAMSHyperplane_simultaneous_constructor_full(
-    get_BlockIterativeAMSHyperplane_input_full_simultaneous,
+def test_BlockIterativeKaczmarz_simultaneous_constructor_full(
+    get_BlockIterativeKaczmarz_input_full_simultaneous,
 ):
     """
-    Test the BlockIterativeAMSHyperplane constructor with simultaneous
+    Test the BlockIterativeKaczmarz constructor with simultaneous
     weights and a full matrix.
     """
-    alg, A, b = get_BlockIterativeAMSHyperplane_input_full_simultaneous
+    alg, A, b = get_BlockIterativeKaczmarz_input_full_simultaneous
 
     assert isinstance(alg.A, LinearMapping)
     assert np.array_equal(alg.A, A)
@@ -89,15 +89,15 @@ def test_BlockIterativeAMSHyperplane_simultaneous_constructor_full(
     assert alg.algorithmic_relaxation == 1.0
 
 
-def test_BlockIterativeAMSHyperplane_sequential_constructor_sparse(
-    get_BlockIterativeAMSHyperplane_input_sparse_sequential,
+def test_BlockIterativeKaczmarz_sequential_constructor_sparse(
+    get_BlockIterativeKaczmarz_input_sparse_sequential,
 ):
     """
-    Test the BlockIterativeAMSHyperplane constructor with sequential weights
+    Test the BlockIterativeKaczmarz constructor with sequential weights
     and a
     sparse matrix.
     """
-    alg, A, b = get_BlockIterativeAMSHyperplane_input_sparse_sequential
+    alg, A, b = get_BlockIterativeKaczmarz_input_sparse_sequential
 
     assert isinstance(alg.A, LinearMapping)
     assert np.array_equal(alg.A.todense(), A.todense())
@@ -108,15 +108,15 @@ def test_BlockIterativeAMSHyperplane_sequential_constructor_sparse(
     assert alg.algorithmic_relaxation == 1.0
 
 
-def test_BlockIterativeAMSHyperplane_simultaneous_constructor_sparse(
-    get_BlockIterativeAMSHyperplane_input_sparse_simultaneous,
+def test_BlockIterativeKaczmarz_simultaneous_constructor_sparse(
+    get_BlockIterativeKaczmarz_input_sparse_simultaneous,
 ):
     """
-    Test the BlockIterativeAMSHyperplane constructor with simultaneous
+    Test the BlockIterativeKaczmarz constructor with simultaneous
     weights and a
     sparse matrix.
     """
-    alg, A, b = get_BlockIterativeAMSHyperplane_input_sparse_simultaneous
+    alg, A, b = get_BlockIterativeKaczmarz_input_sparse_simultaneous
 
     assert isinstance(alg.A, LinearMapping)
     assert np.array_equal(alg.A.todense(), A.todense())
@@ -127,73 +127,73 @@ def test_BlockIterativeAMSHyperplane_simultaneous_constructor_sparse(
     assert alg.algorithmic_relaxation == 1.0
 
 
-def test_BlockIterativeAMSHyperplane_map_full(
-    get_BlockIterativeAMSHyperplane_input_full_sequential,
+def test_BlockIterativeKaczmarz_map_full(
+    get_BlockIterativeKaczmarz_input_full_sequential,
 ):
     """
-    Test the map function of the BlockIterativeAMSHyperplane class with
+    Test the map function of the BlockIterativeKaczmarz class with
     sequential
     weights and full matrix.
     """
-    alg, _, _ = get_BlockIterativeAMSHyperplane_input_full_sequential
+    alg, _, _ = get_BlockIterativeKaczmarz_input_full_sequential
 
     # test map function(s)
     x_map = np.array([1, 1])
     assert np.array_equal(alg.map(x_map), np.array([1, 0, 1]))
 
 
-def test_BlockIterativeAMSHyperplane_map_sparse(
-    get_BlockIterativeAMSHyperplane_input_sparse_sequential,
+def test_BlockIterativeKaczmarz_map_sparse(
+    get_BlockIterativeKaczmarz_input_sparse_sequential,
 ):
     """
-    Test the map function of the BlockIterativeAMSHyperplane class with
+    Test the map function of the BlockIterativeKaczmarz class with
     sequential
     weights and sparse matrix.
     """
-    alg, _, _ = get_BlockIterativeAMSHyperplane_input_sparse_sequential
+    alg, _, _ = get_BlockIterativeKaczmarz_input_sparse_sequential
 
     # test map function(s)
     x_map = np.array([1, 1])
     assert np.array_equal(alg.map(x_map), np.array([1, 0, 1]))
 
 
-def test_BlockIterativeAMSHyperplane_indexed_map_full(
-    get_BlockIterativeAMSHyperplane_input_full_sequential,
+def test_BlockIterativeKaczmarz_indexed_map_full(
+    get_BlockIterativeKaczmarz_input_full_sequential,
 ):
     """
-    Test the indexed_map function of the BlockIterativeAMSHyperplane class
+    Test the indexed_map function of the BlockIterativeKaczmarz class
     with
     sequential weights and full matrix.
     """
-    alg, _, _ = get_BlockIterativeAMSHyperplane_input_full_sequential
+    alg, _, _ = get_BlockIterativeKaczmarz_input_full_sequential
     idx = [0, 1]
     # test map function(s)
     x_map = np.array([1, 1])
     assert np.array_equal(alg.indexed_map(x_map, idx), np.array([1, 0]))
 
 
-def test_BlockIterativeAMSHyperplane_indexed_map_sparse(
-    get_BlockIterativeAMSHyperplane_input_sparse_sequential,
+def test_BlockIterativeKaczmarz_indexed_map_sparse(
+    get_BlockIterativeKaczmarz_input_sparse_sequential,
 ):
     """
-    Test the indexed_map function of the BlockIterativeAMSHyperplane class
+    Test the indexed_map function of the BlockIterativeKaczmarz class
     with sequential weights and sparse matrix.
     """
-    alg, _, _ = get_BlockIterativeAMSHyperplane_input_sparse_sequential
+    alg, _, _ = get_BlockIterativeKaczmarz_input_sparse_sequential
     idx = [0, 1]
     # test map function(s)
     x_map = np.array([1, 1])
     assert np.array_equal(alg.indexed_map(x_map, idx), np.array([1, 0]))
 
 
-def test_BlockIterativeAMSHyperplane_sequential_step_full(
-    get_BlockIterativeAMSHyperplane_input_full_sequential,
+def test_BlockIterativeKaczmarz_sequential_step_full(
+    get_BlockIterativeKaczmarz_input_full_sequential,
 ):
     """
-    Test the step function of the BlockIterativeAMSHyperplane class with
+    Test the step function of the BlockIterativeKaczmarz class with
     sequential weights and full matrix.
     """
-    alg, _, _ = get_BlockIterativeAMSHyperplane_input_full_sequential
+    alg, _, _ = get_BlockIterativeKaczmarz_input_full_sequential
 
     x_1 = np.array([2.0, 2.0])
     x_2 = np.array([1.0, 3.0])
@@ -229,15 +229,15 @@ def test_BlockIterativeAMSHyperplane_sequential_step_full(
     assert np.array_equal(x_n, x_5)
 
 
-def test_BlockIterativeAMSHyperplane_simultaneous_step_full(
-    get_BlockIterativeAMSHyperplane_input_full_simultaneous,
+def test_BlockIterativeKaczmarz_simultaneous_step_full(
+    get_BlockIterativeKaczmarz_input_full_simultaneous,
 ):
     """
-    Test the step function of the BlockIterativeAMSHyperplane class with
+    Test the step function of the BlockIterativeKaczmarz class with
     simultaneous
     weights and full matrix.
     """
-    alg, _, _ = get_BlockIterativeAMSHyperplane_input_full_simultaneous
+    alg, _, _ = get_BlockIterativeKaczmarz_input_full_simultaneous
 
     x_1 = np.array([2.0, 2.0])
     x_2 = np.array([1.0, 3.0])
@@ -273,15 +273,15 @@ def test_BlockIterativeAMSHyperplane_simultaneous_step_full(
     assert np.array_equal(x_n, x_5)
 
 
-def test_BlockIterativeAMSHyperplane_simultaneous_step_sparse(
-    get_BlockIterativeAMSHyperplane_input_sparse_simultaneous,
+def test_BlockIterativeKaczmarz_simultaneous_step_sparse(
+    get_BlockIterativeKaczmarz_input_sparse_simultaneous,
 ):
     """
-    Test the step function of the BlockIterativeAMSHyperplane class with
+    Test the step function of the BlockIterativeKaczmarz class with
     simultaneous
     weights and sparse matrix.
     """
-    alg, _, _ = get_BlockIterativeAMSHyperplane_input_sparse_simultaneous
+    alg, _, _ = get_BlockIterativeKaczmarz_input_sparse_simultaneous
 
     x_1 = np.array([2.0, 2.0])
     x_2 = np.array([1.0, 3.0])
@@ -317,11 +317,11 @@ def test_BlockIterativeAMSHyperplane_simultaneous_step_sparse(
     assert np.array_equal(x_n, x_5)
 
 
-def test_BlockIterativeAMSHyperplane_proximity_sequential(
-    get_BlockIterativeAMSHyperplane_input_full_sequential,
+def test_BlockIterativeKaczmarz_proximity_sequential(
+    get_BlockIterativeKaczmarz_input_full_sequential,
 ):
 
-    alg, _, _ = get_BlockIterativeAMSHyperplane_input_full_sequential
+    alg, _, _ = get_BlockIterativeKaczmarz_input_full_sequential
 
     x_1 = np.array([2.0, 2.0])
     x_2 = np.array([1.0, 3.0])
@@ -356,11 +356,11 @@ def test_BlockIterativeAMSHyperplane_proximity_sequential(
     assert np.abs(prox_5[1] - 4) < 1e-10
 
 
-def test_BlockIterativeAMSHyperplane_proximity_simultaneous(
-    get_BlockIterativeAMSHyperplane_input_full_simultaneous,
+def test_BlockIterativeKaczmarz_proximity_simultaneous(
+    get_BlockIterativeKaczmarz_input_full_simultaneous,
 ):
 
-    alg, _, _ = get_BlockIterativeAMSHyperplane_input_full_simultaneous
+    alg, _, _ = get_BlockIterativeKaczmarz_input_full_simultaneous
 
     x_1 = np.array([2.0, 2.0])
     x_2 = np.array([1.0, 3.0])

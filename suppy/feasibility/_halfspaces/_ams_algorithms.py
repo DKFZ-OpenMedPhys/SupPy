@@ -16,9 +16,9 @@ from suppy.feasibility._linear_algorithms import HalfspaceFeasibility
 from suppy.utils import LinearMapping
 
 
-class HalfspaceAMSAlgorithm(HalfspaceFeasibility, ABC):
+class HalfspaceAlgorithm(HalfspaceFeasibility, ABC):
     """
-    The HalfspaceAMSAlgorithm class is used to find a feasible solution to a
+    The HalfspaceAlgorithm class is used to find a feasible solution to a
     set of linear inequalities.
 
     Parameters
@@ -46,7 +46,7 @@ class HalfspaceAMSAlgorithm(HalfspaceFeasibility, ABC):
         super().__init__(A, b, algorithmic_relaxation, relaxation, proximity_flag)
 
 
-class SequentialAMSHalfspace(HalfspaceAMSAlgorithm):
+class SequentialAMSHalfspace(HalfspaceAlgorithm):
     """
     SequentialAMS class for sequentially applying the AMS algorithm.
 
@@ -206,7 +206,7 @@ class SequentialWeightedAMSHalfspace(SequentialAMSHalfspace):
         return x
 
 
-class SimultaneousAMSHalfspace(HalfspaceAMSAlgorithm):
+class SimultaneousAMSHalfspace(HalfspaceAlgorithm):
     """
     SimultaneousAMS is an implementation of the AMS (Alternating
     Minimization Scheme) algorithm
@@ -284,7 +284,7 @@ class SimultaneousAMSHalfspace(HalfspaceAMSAlgorithm):
         return measures
 
 
-class BlockIterativeAMSHalfspace(HalfspaceAMSAlgorithm):
+class BlockIterativeAMSHalfspace(HalfspaceAlgorithm):
     """
     Block Iterative AMS Algorithm.
     This class implements a block iterative version of the AMS (Alternating
@@ -380,9 +380,9 @@ class BlockIterativeAMSHalfspace(HalfspaceAMSAlgorithm):
         return measures
 
 
-class StringAveragedAMSHalfspace(HalfspaceAMSAlgorithm):
+class StringAveragedAMSHalfspace(HalfspaceAlgorithm):
     """
-    StringAveragedAMS is an implementation of the HalfspaceAMSAlgorithm that
+    StringAveragedAMS is an implementation of the HalfspaceAlgorithm that
     performs
     string averaged projections.
 

@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 import scipy.sparse as sparse
-from suppy.feasibility import SequentialWeightedAMSHyperplane
+from suppy.feasibility import SequentialWeightedKaczmarz
 from suppy.utils import LinearMapping
 
 
@@ -21,28 +21,28 @@ def get_sparse_variables():
 
 
 @pytest.fixture
-def get_SequentialWeightedAMSHyperplane_input(get_full_variables):
+def get_SequentialWeightedKaczmarz_input(get_full_variables):
     A, b = get_full_variables
-    return SequentialWeightedAMSHyperplane(A, b, algorithmic_relaxation=1.5), A, b
+    return SequentialWeightedKaczmarz(A, b, algorithmic_relaxation=1.5), A, b
 
 
 @pytest.fixture
-def get_SequentialWeightedAMSHyperplane_input_sparse(get_sparse_variables):
+def get_SequentialWeightedKaczmarz_input_sparse(get_sparse_variables):
     A, b = get_sparse_variables
-    return SequentialWeightedAMSHyperplane(A, b, algorithmic_relaxation=1.5), A, b
+    return SequentialWeightedKaczmarz(A, b, algorithmic_relaxation=1.5), A, b
 
 
-def test_SequentialWeightedAMSHyperplane_constructor_no_weights_full(
-    get_SequentialWeightedAMSHyperplane_input,
+def test_SequentialWeightedKaczmarz_constructor_no_weights_full(
+    get_SequentialWeightedKaczmarz_input,
 ):
     """
-    Test the SequentialWeightedAMSHyperplane constructor with no weights and
+    Test the SequentialWeightedKaczmarz constructor with no weights and
     full
     matrix.
     """
-    alg, A, b = get_SequentialWeightedAMSHyperplane_input
+    alg, A, b = get_SequentialWeightedKaczmarz_input
 
-    alg = SequentialWeightedAMSHyperplane(A, b, algorithmic_relaxation=1.5)
+    alg = SequentialWeightedKaczmarz(A, b, algorithmic_relaxation=1.5)
     assert isinstance(alg.A, LinearMapping)
     assert np.array_equal(alg.A, A)
     assert np.array_equal(alg.b, b)
@@ -52,17 +52,17 @@ def test_SequentialWeightedAMSHyperplane_constructor_no_weights_full(
     assert np.all(alg.weights == np.ones(len(A)))
 
 
-def test_SequentialWeightedAMSHyperplane_constructor_no_weights_sparse(
-    get_SequentialWeightedAMSHyperplane_input_sparse,
+def test_SequentialWeightedKaczmarz_constructor_no_weights_sparse(
+    get_SequentialWeightedKaczmarz_input_sparse,
 ):
     """
-    Test the SequentialWeightedAMSHyperplane constructor with no weights and
+    Test the SequentialWeightedKaczmarz constructor with no weights and
     sparse
     matrix.
     """
-    alg, A, b = get_SequentialWeightedAMSHyperplane_input_sparse
+    alg, A, b = get_SequentialWeightedKaczmarz_input_sparse
 
-    alg = SequentialWeightedAMSHyperplane(A, b, algorithmic_relaxation=1.5)
+    alg = SequentialWeightedKaczmarz(A, b, algorithmic_relaxation=1.5)
 
     assert isinstance(alg.A, LinearMapping)
     assert np.array_equal(alg.A.todense(), A.todense())
@@ -73,14 +73,12 @@ def test_SequentialWeightedAMSHyperplane_constructor_no_weights_sparse(
     assert np.all(alg.weights == np.ones(A.shape[0]))
 
 
-def test_SequentialWeightedAMSHyperplane_constructor_custom_weights(get_full_variables):
-    """Test the SequentialWeightedAMSHyperplane constructor with custom
+def test_SequentialWeightedKaczmarz_constructor_custom_weights(get_full_variables):
+    """Test the SequentialWeightedKaczmarz constructor with custom
     weights.
     """
     A, b = get_full_variables
-    alg = SequentialWeightedAMSHyperplane(
-        A, b, algorithmic_relaxation=1.5, weights=np.ones(len(A))
-    )
+    alg = SequentialWeightedKaczmarz(A, b, algorithmic_relaxation=1.5, weights=np.ones(len(A)))
 
     assert isinstance(alg.A, LinearMapping)
     assert np.array_equal(alg.A, A)
@@ -94,10 +92,10 @@ def test_SequentialWeightedAMSHyperplane_constructor_custom_weights(get_full_var
     # does weight decay work?
 
 
-def test_SequentialWeightedAMSHyperplane_weight_decay_full(get_full_variables):
-    """Test the weight decay of the SequentialWeightedAMSHyperplane class."""
+def test_SequentialWeightedKaczmarz_weight_decay_full(get_full_variables):
+    """Test the weight decay of the SequentialWeightedKaczmarz class."""
     A, b = get_full_variables
-    alg = SequentialWeightedAMSHyperplane(A, b, weights=np.ones(len(A)), weight_decay=0.5)
+    alg = SequentialWeightedKaczmarz(A, b, weights=np.ones(len(A)), weight_decay=0.5)
 
     x_1 = np.array([2.0, 2.0])
     x_n = alg.step(x_1)
@@ -106,10 +104,10 @@ def test_SequentialWeightedAMSHyperplane_weight_decay_full(get_full_variables):
     assert alg.temp_weight_decay == 0.5
 
 
-def test_SequentialWeightedAMSHyperplane_weight_decay_sparse(get_sparse_variables):
-    """Test the weight decay of the SequentialWeightedAMSHyperplane class."""
+def test_SequentialWeightedKaczmarz_weight_decay_sparse(get_sparse_variables):
+    """Test the weight decay of the SequentialWeightedKaczmarz class."""
     A, b = get_sparse_variables
-    alg = SequentialWeightedAMSHyperplane(A, b, weights=np.ones(A.shape[0]), weight_decay=0.5)
+    alg = SequentialWeightedKaczmarz(A, b, weights=np.ones(A.shape[0]), weight_decay=0.5)
 
     x_1 = np.array([2.0, 2.0])
     x_n = alg.step(x_1)
@@ -118,12 +116,10 @@ def test_SequentialWeightedAMSHyperplane_weight_decay_sparse(get_sparse_variable
     assert alg.temp_weight_decay == 0.5
 
 
-def test_SequentialWeightedAMSHyperplane_weight_decay_step_full(get_full_variables):
-    """Test the weight decay of the SequentialWeightedAMSHyperplane class."""
+def test_SequentialWeightedKaczmarz_weight_decay_step_full(get_full_variables):
+    """Test the weight decay of the SequentialWeightedKaczmarz class."""
     A, b = get_full_variables
-    alg = SequentialWeightedAMSHyperplane(
-        A, b, algorithmic_relaxation=1.5, weights=np.ones(len(A))
-    )
+    alg = SequentialWeightedKaczmarz(A, b, algorithmic_relaxation=1.5, weights=np.ones(len(A)))
     alg.temp_weight_decay = 2 / 3
     assert alg.temp_weight_decay == 2 / 3
 
@@ -161,12 +157,10 @@ def test_SequentialWeightedAMSHyperplane_weight_decay_step_full(get_full_variabl
     assert np.array_equal(x_n, x_5)
 
 
-def test_SequentialWeightedAMSHyperplane_weight_decay_step_sparse(get_sparse_variables):
-    """Test the weight decay of the SequentialWeightedAMSHyperplane class."""
+def test_SequentialWeightedKaczmarz_weight_decay_step_sparse(get_sparse_variables):
+    """Test the weight decay of the SequentialWeightedKaczmarz class."""
     A, b = get_sparse_variables
-    alg = SequentialWeightedAMSHyperplane(
-        A, b, algorithmic_relaxation=1.5, weights=np.ones(A.shape[0])
-    )
+    alg = SequentialWeightedKaczmarz(A, b, algorithmic_relaxation=1.5, weights=np.ones(A.shape[0]))
     alg.temp_weight_decay = 2 / 3
     assert alg.temp_weight_decay == 2 / 3
 

@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Callable
 
 import numpy as np
 import numpy.typing as npt
@@ -124,6 +124,8 @@ class SplitSuperiorization(FeasibilityPerturbation):
         del_input_objective_n: int = 5,
         del_target_objective_tol: float = 1e-6,
         del_target_objective_n: int = 5,
+        alternative_stopping_criterion: Callable | None = None,
+        alternative_stopping_criterion_initial_call: Callable | None = None,
     ) -> npt.NDArray:
         """
         Solves the optimization problem using the superiorization method.
@@ -177,7 +179,11 @@ class SplitSuperiorization(FeasibilityPerturbation):
         )
 
         self._k = 0  # reset counter if necessary
-        stop = False
+
+        if alternative_stopping_criterion_initial_call is not None:
+            stop = alternative_stopping_criterion_initial_call(x, self)
+        else:
+            stop = False  # criterion for stopping the algorithm
 
         # initial function and proximity values
         # self.input_f_k = self.input_perturbation_scheme.func(x_0)
@@ -257,15 +263,18 @@ class SplitSuperiorization(FeasibilityPerturbation):
             self._k += 1
 
             # enable different stopping criteria for different superiorization algorithms
-            stop = self._stopping_criterion(
-                del_input_objective_tol,
-                del_input_objective_n,
-                del_target_objective_tol,
-                del_target_objective_n,
-                prox_tol,
-                del_prox_tol,
-                del_prox_n,
-            )
+            if alternative_stopping_criterion is not None:
+                stop = alternative_stopping_criterion(x, self)
+            else:
+                stop = self._stopping_criterion(
+                    del_input_objective_tol,
+                    del_input_objective_n,
+                    del_target_objective_tol,
+                    del_target_objective_n,
+                    prox_tol,
+                    del_prox_tol,
+                    del_prox_n,
+                )
 
             self._additional_action(x, y)
 

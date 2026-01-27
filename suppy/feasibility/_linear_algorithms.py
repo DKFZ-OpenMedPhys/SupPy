@@ -1,6 +1,6 @@
 """Base classes for linear feasibility problems."""
 from abc import ABC
-from typing import List
+from typing import List, Callable
 import numpy as np
 import numpy.typing as npt
 
@@ -68,6 +68,8 @@ class Feasibility(Projection, ABC):
         del_prox_n: int = 5,
         storage: bool = False,
         proximity_measures: List | None = None,
+        alternative_stopping_criterion: Callable | None = None,
+        alternative_stopping_criterion_initial_call: Callable | None = None,
     ) -> npt.NDArray:
         """
         Solves the optimization problem using an iterative approach.
@@ -113,7 +115,10 @@ class Feasibility(Projection, ABC):
             else:
                 self.all_x.append((x.get()))
 
-        stop = False  # criterion for stopping the algorithm
+        if alternative_stopping_criterion_initial_call is not None:
+            stop = alternative_stopping_criterion_initial_call(x, self)
+        else:
+            stop = False  # criterion for stopping the algorithm
 
         while i < max_iter and not stop:
             x = self.project(x)
@@ -126,7 +131,11 @@ class Feasibility(Projection, ABC):
             self.proximities.append(self.proximity(x, proximity_measures))
 
             # TODO: If proximity changes x some potential issues!
-            stop = self._stopping_criterion(prox_tol, del_prox_tol, del_prox_n)
+            if alternative_stopping_criterion is not None:
+                stop = alternative_stopping_criterion(x, self)
+            else:
+                stop = self._stopping_criterion(prox_tol, del_prox_tol, del_prox_n)
+
             i += 1
 
         if self.all_x is not None:

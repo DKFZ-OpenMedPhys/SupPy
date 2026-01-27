@@ -3,7 +3,7 @@ General implementation for sequential, simultaneous, block iterative and
 string averaged projection methods.
 """
 from abc import ABC
-from typing import List
+from typing import List, Callable
 import numpy as np
 import numpy.typing as npt
 
@@ -80,6 +80,8 @@ class ProjectionMethod(Projection, ABC):
         del_prox_tol: float = 1e-8,
         del_prox_n: int = 5,
         proximity_measures: List | None = None,
+        alternative_stopping_criterion: Callable | None = None,
+        alternative_stopping_criterion_initial_call: Callable | None = None,
     ) -> npt.NDArray:
         """
         Solves the optimization problem using an iterative approach.
@@ -120,7 +122,11 @@ class ProjectionMethod(Projection, ABC):
             else:
                 self.all_x.append((x.get()))
 
-        stop = False  # criterion for stopping the algorithm
+        if alternative_stopping_criterion_initial_call is not None:
+            stop = alternative_stopping_criterion_initial_call(x, self)
+        else:
+            stop = False  # criterion for stopping the algorithm
+
         self._n_tol = 0
 
         while i < max_iter and not stop:
@@ -134,7 +140,10 @@ class ProjectionMethod(Projection, ABC):
             self.proximities.append(self.proximity(x, proximity_measures))
 
             # TODO: If proximity changes x some potential issues!
-            stop = self._stopping_criterion(prox_tol, del_prox_tol, del_prox_n)
+            if alternative_stopping_criterion is not None:
+                stop = alternative_stopping_criterion(x, self)
+            else:
+                stop = self._stopping_criterion(prox_tol, del_prox_tol, del_prox_n)
 
             i += 1
 

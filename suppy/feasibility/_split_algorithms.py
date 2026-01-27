@@ -1,6 +1,6 @@
 """Algorithms for split feasibility problem."""
 from abc import ABC, abstractmethod
-from typing import List
+from typing import List, Callable
 import numpy as np
 import numpy.typing as npt
 from scipy import sparse
@@ -72,6 +72,8 @@ class SplitFeasibility(Feasibility, ABC):
         del_prox_n: int = 5,
         storage: bool = False,
         proximity_measures: List | None = None,
+        alternative_stopping_criterion: Callable | None = None,
+        alternative_stopping_criterion_initial_call: Callable | None = None,
     ) -> npt.NDArray:
         """
         Solves the split feasibility problem for a given input array.
@@ -119,7 +121,10 @@ class SplitFeasibility(Feasibility, ABC):
             else:
                 self.all_x.append(np.array(x.copy()))
 
-        stop = False  # criterion for stopping the algorithm
+        if alternative_stopping_criterion_initial_call is not None:
+            stop = alternative_stopping_criterion_initial_call(x, self)
+        else:
+            stop = False  # criterion for stopping the algorithm
 
         while i < max_iter and not stop:
             x, _ = self.step(x)
@@ -131,7 +136,11 @@ class SplitFeasibility(Feasibility, ABC):
             self.proximities.append(self.proximity(x, proximity_measures))
 
             # TODO: If proximity changes x some potential issues!
-            stop = self._stopping_criterion(prox_tol, del_prox_tol, del_prox_n)
+            if alternative_stopping_criterion is not None:
+                stop = alternative_stopping_criterion(x, self)
+            else:
+                stop = self._stopping_criterion(prox_tol, del_prox_tol, del_prox_n)
+
             i += 1
 
         if self.all_x is not None:

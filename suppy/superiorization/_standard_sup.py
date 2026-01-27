@@ -1,5 +1,5 @@
 """Normal superiorization algorithm."""
-from typing import List
+from typing import List, Callable
 import numpy as np
 import time
 import numpy.typing as npt
@@ -91,9 +91,11 @@ class Superiorization(FeasibilityPerturbation):
         prox_tol: float = 1e-6,
         del_prox_tol: float = 1e-8,
         del_prox_n: int = 5,
-        proximity_measures: List | None = None,
         del_objective_tol: float = 1e-6,
         del_objective_n: int = 5,
+        proximity_measures: List | None = None,
+        alternative_stopping_criterion: Callable | None = None,
+        alternative_stopping_criterion_initial_call: Callable | None = None,
     ) -> npt.NDArray:
         """
         Solve the optimization problem using the superiorization method.
@@ -152,7 +154,11 @@ class Superiorization(FeasibilityPerturbation):
         )
 
         self._k = 0  # reset counter if necessary
-        stop = False
+
+        if alternative_stopping_criterion_initial_call is not None:
+            stop = alternative_stopping_criterion_initial_call(x, self)
+        else:
+            stop = False  # criterion for stopping the algorithm
 
         self.t.append(0)
         t_current = time.time()
@@ -205,9 +211,12 @@ class Superiorization(FeasibilityPerturbation):
             # self.l.append(self.perturbation_scheme._l)
 
             # enable different stopping criteria for different superiorization algorithms
-            stop = self._stopping_criterion(
-                del_objective_tol, del_objective_n, prox_tol, del_prox_tol, del_prox_n
-            )
+            if alternative_stopping_criterion is not None:
+                stop = alternative_stopping_criterion(x, self)
+            else:
+                stop = self._stopping_criterion(
+                    del_objective_tol, del_objective_n, prox_tol, del_prox_tol, del_prox_n
+                )
 
             self._additional_action(x)
             self.t.append(time.time() - t_init)

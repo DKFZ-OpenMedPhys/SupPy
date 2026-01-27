@@ -302,8 +302,12 @@ class PowerSeriesGradientPerturbation(GradientPerturbation):
         The number of reductions, by default 1.
     step_size : float, optional
         The step size for the gradient descent, by default 0.5.
+    step_size_modifier : float, optional
+        Scaling factor for the step size power series, by default 1.0.
     n_restart : int, optional
         The number of steps after which to restart the power series, by default -1 (no restart).
+    disable_gradient_scaling: bool, optional
+        If true, skip the normalization of the gradient, by default False.
     iterative_scaling: bool, optional
         If true, the power series is scaled by the iteration k without checking whether this actually decreas, by default False.
     """

@@ -186,7 +186,7 @@ class SplitSuperiorization(FeasibilityPerturbation):
         self.t = [0]  # array storing the time for each iteration
         self.l = []
 
-        x = x_0
+        x_0 = x.copy()
 
         self._initial_storage(
             x,
@@ -410,7 +410,6 @@ class SplitSuperiorization(FeasibilityPerturbation):
                 f_temp.append(el.get())
             else:
                 f_temp.append(el)
-        self.all_function_values.append(f_temp)
 
         # modify proximities
         p_temp = []
@@ -419,7 +418,6 @@ class SplitSuperiorization(FeasibilityPerturbation):
                 p_temp.append(el.get())
             else:
                 p_temp.append(el)
-        self.proximities.append(p_temp)
 
         self.all_function_values.append(f_temp)
         self.all_function_values_basic.append(f_temp)

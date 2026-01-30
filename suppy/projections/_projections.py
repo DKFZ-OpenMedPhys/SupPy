@@ -40,7 +40,7 @@ class Projection(ABC):
     #    @ensure_float_array
     # removed decorator since it leads to unwanted behavior
 
-    def step(self, x: npt.NDArray) -> npt.NDArray:
+    def step(self, x: npt.NDArray) -> np.ndarray:
         """
         Perform the (possibly relaxed) projection of input array 'x' onto
         the constraint.
@@ -57,7 +57,7 @@ class Projection(ABC):
         """
         return self.project(x)
 
-    def project(self, x: npt.NDArray) -> npt.NDArray:
+    def project(self, x: npt.NDArray) -> np.ndarray:
         """
         Perform the (possibly relaxed) projection of input array 'x' onto
         the constraint.
@@ -78,7 +78,7 @@ class Projection(ABC):
         return x.copy() * (1 - self.relaxation) + self.relaxation * (self._project(x))
 
     @abstractmethod
-    def _project(self, x: npt.NDArray) -> npt.NDArray:
+    def _project(self, x: npt.NDArray) -> np.ndarray:
         """Internal method to project the point x onto the set."""
 
     def proximity(self, x: npt.NDArray, proximity_measures: List) -> float:
@@ -153,7 +153,7 @@ class BasicProjection(Projection, ABC):
         self.idx = idx if idx is not None else np.s_[:]
 
     # NOTE: This method should not be required since the base class implementation is sufficient
-    # def project(self, x: npt.NDArray) -> npt.NDArray:
+    # def project(self, x: npt.NDArray) -> np.ndarray:
     #     """
     #     Perform the (possibly relaxed) projection of input array 'x' onto the constraint.
 

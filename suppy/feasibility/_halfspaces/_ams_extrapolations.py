@@ -22,10 +22,10 @@ class ExtrapolatedLandweberHalfspace(SimultaneousAMSHalfspace):
 
     Parameters
     ----------
-    A : npt.NDArray
-        The matrix representing the linear constraints.
+    A : npt.NDArray or sparse.sparray
+        Matrix for linear systems
     b : npt.NDArray
-        Bound for linear inequalities
+        Bound for linear systems
     weights : List[List[float]] or List[npt.NDArray]
         A list of lists or arrays representing the weights for each block. Each list/array should sum to 1.
     relaxation : float, optional
@@ -63,10 +63,10 @@ class AdaptiveStepLandweberHalfspace(SimultaneousAMSHalfspace):
 
     Parameters
     ----------
-    A : npt.NDArray
-        The matrix representing the linear constraints.
+    A : npt.NDArray or sparse.sparray
+        Matrix for linear systems
     b : npt.NDArray
-        Bound for linear inequalities
+        Bound for linear systems
     weights : List[List[float]] or List[npt.NDArray]
         A list of lists or arrays representing the weights for each block. Each list/array should sum to 1.
     relaxation : float, optional

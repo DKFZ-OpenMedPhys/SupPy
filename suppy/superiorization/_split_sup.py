@@ -113,9 +113,8 @@ class SplitSuperiorization(FeasibilityPerturbation):
     @ensure_float_array
     def solve(
         self,
-        x_0: npt.NDArray,
+        x: npt.NDArray,
         max_iter: int = 10,
-        storage=False,
         prox_tol: float = 1e-6,
         del_prox_tol: float = 1e-8,
         del_prox_n: int = 5,
@@ -124,20 +123,41 @@ class SplitSuperiorization(FeasibilityPerturbation):
         del_input_objective_n: int = 5,
         del_target_objective_tol: float = 1e-6,
         del_target_objective_n: int = 5,
+        storage=False,
         alternative_stopping_criterion: Callable | None = None,
         alternative_stopping_criterion_initial_call: Callable | None = None,
-    ) -> npt.NDArray:
+    ) -> np.ndarray:
         """
         Solves the optimization problem using the superiorization method.
 
         Parameters
         ----------
-        x_0 : npt.NDArray
-            Initial guess for the solution.
+        x : npt.NDArray
+            Starting point for the algorithm.
         max_iter : int, optional
-            Maximum number of iterations to perform (default is 10).
+            Maximum number of iterations to perform, by default 500.
+        prox_tol : float, optional
+            The tolerance for the proximity on the constraints, by default 1e-6.
+        del_prox_tol : float, optional
+            The tolerance for the change in proximity over the last del_prox_n iterations, by default 1e-8.
+        del_prox_n : int, optional
+            The number of iterations that del_prox_tol needs to be met in a row, by default 5.
+        proximity_measures : List, optional
+            The proximity measures to calculate, by default a l2 norm measure is used. Right now only the first in the list is used to check the feasibility.
+        del_input_objective_tol
+            The tolerance for change in the objective function over the last del_input_objective_n iterations, by default 1e-8.
+        del_input_objective_n
+            The number of iterations that del_input_objective_tol needs to be met in a row, by default 5.
+        del_target_objective_tol
+            The tolerance for change in the objective function over the last del_target_objective_n iterations, by default 1e-8.
+        del_target_objective_n
+            The number of iterations that del_target_objective_tol needs to be met in a row, by default 5.
         storage : bool, optional
-            If True, stores intermediate results (default is False).
+            Flag indicating whether to store intermediate solutions, by default False.
+        alternative_stopping_criterion : callable, optional
+            Alternative stopping criterion
+        alternative_stopping_criterion_initial_call : callable, optional
+            Initial call for an alternative stopping criterion
 
         Returns
         -------

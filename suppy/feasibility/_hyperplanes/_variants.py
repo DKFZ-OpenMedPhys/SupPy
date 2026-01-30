@@ -24,14 +24,14 @@ class DROPHyperplane(SimultaneousKaczmarzMethod):
 
     Parameters
     ----------
-    A : npt.NDArray
-        The matrix representing the constraints.
+    A : npt.NDArray or sparse.sparray
+        Matrix for linear systems
     b : npt.NDArray
-        Bound for linear inequalities
+        Bound for linear systems
     algorithmic_relaxation : npt.NDArray or float, optional
-        The relaxation parameter for the algorithm, by default 1.
+        The relaxation parameter used by the algorithm, by default 1.0.
     relaxation : float, optional
-        The relaxation parameter for the projections, by default 1.
+        Outer relaxation parameter, applied to the entire solution of the iterate by default 1.0.
     proximity_flag : bool, optional
         Flag to indicate if proximity calculations should be performed, by default True.
     """

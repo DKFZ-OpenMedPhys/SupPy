@@ -33,7 +33,7 @@ class ConjugatedGradients(HyperplaneFeasibility):
         self.last_g = None
         self.last_p = None
 
-    def _project(self, x: npt.NDArray) -> npt.NDArray:
+    def _project(self, x: npt.NDArray) -> np.ndarray:
         if self.last_p is None:  # no previous run
             self.last_g = self.A.T @ (self.A @ x - self.b)
             self.last_p = -self.last_g
@@ -49,7 +49,7 @@ class ConjugatedGradients(HyperplaneFeasibility):
         x += alpha * self.last_p
         return x
 
-    def precondition(self, x: npt.NDArray) -> npt.NDArray:
+    def precondition(self, x: npt.NDArray) -> np.ndarray:
         g = self.A.T @ (self.A @ x - self.b)
         self.last_g = g
         self.last_p = -g

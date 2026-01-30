@@ -77,7 +77,7 @@ class SubgradientProjection(BasicProjection):
         """
         return self.grad(x[self.idx], *self.grad_args)
 
-    def _project(self, x: npt.NDArray) -> npt.NDArray:
+    def _project(self, x: npt.NDArray) -> np.ndarray:
         """
         Project the input array onto the specified level.
 

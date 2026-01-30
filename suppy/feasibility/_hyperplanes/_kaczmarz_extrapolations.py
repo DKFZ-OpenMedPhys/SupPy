@@ -23,14 +23,14 @@ class ExtrapolatedLandweberHyperplane(SimultaneousKaczmarzMethod):
 
     Parameters
     ----------
-    A : npt.NDArray
-        The matrix representing the constraints.
+    A : npt.NDArray or sparse.sparray
+        Matrix for linear systems
     b : npt.NDArray
-        Bound for linear inequalities
+        Bound for linear systems
     algorithmic_relaxation : npt.NDArray or float, optional
-        The relaxation parameter for the algorithm, by default 1.
+        The relaxation parameter used by the algorithm, by default 1.0.
     relaxation : float, optional
-        The relaxation parameter for the projections, by default 1.
+        Outer relaxation parameter, applied to the entire solution of the iterate by default 1.0.
     weights : None or List[float], optional
         The weights for the constraints, by default None.
     proximity_flag : bool, optional
@@ -118,10 +118,10 @@ class AdaptiveStepLandweberHyperplane(SimultaneousKaczmarzMethod):
 
     Parameters
     ----------
-    A : npt.NDArray
-        The matrix representing the constraints.
+    A : npt.NDArray or sparse.sparray
+        Matrix for linear systems
     b : npt.NDArray
-        Bound for linear inequalities
+        Bound for linear systems
     relaxation : float, optional
         The relaxation parameter for the projections, by default 1.
     weights : None or List[float], optional

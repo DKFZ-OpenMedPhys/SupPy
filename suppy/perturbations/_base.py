@@ -21,7 +21,7 @@ class Perturbation(ABC):
     """
 
     @abstractmethod
-    def perturbation_step(self, x: npt.NDArray) -> npt.NDArray:
+    def perturbation_step(self, x: npt.NDArray) -> np.ndarray:
         """
         Perform a perturbation step.
 
@@ -66,7 +66,7 @@ class ObjectivePerturbation(Perturbation, ABC):
         self.n_red = n_red
         self._k = 0  # keeps track of the number of performed perturbations
 
-    def perturbation_step(self, x: npt.NDArray) -> npt.NDArray:
+    def perturbation_step(self, x: npt.NDArray) -> np.ndarray:
         """
         Perform n_red perturbation steps on the input array.
 
@@ -89,7 +89,7 @@ class ObjectivePerturbation(Perturbation, ABC):
         return x
 
     @abstractmethod
-    def _function_reduction_step(self, x: npt.NDArray) -> npt.NDArray:
+    def _function_reduction_step(self, x: npt.NDArray) -> np.ndarray:
         """
         Abstract method to perform that should implement the individual
         function reduction steps on the input array.
@@ -153,7 +153,7 @@ class DummyPerturbation(ObjectivePerturbation):
         self.n_red = 1
         self._k = 0  # keeps track of the number of performed perturbations
 
-    def _function_reduction_step(self, x: npt.NDArray) -> npt.NDArray:
+    def _function_reduction_step(self, x: npt.NDArray) -> np.ndarray:
         return x
 
 
@@ -233,7 +233,7 @@ class AdaptiveStepGradientPerturbation(GradientPerturbation):
         self.update_direction = -1 if noisy else 1
         self.func_levels = [func_level]  # Store the history of func_levels
 
-    def _function_reduction_step(self, x: npt.NDArray) -> npt.NDArray:
+    def _function_reduction_step(self, x: npt.NDArray) -> np.ndarray:
         """
         Perform a function reduction step using gradient descent with a step
         size based on a subgradient projection.
@@ -333,7 +333,7 @@ class PowerSeriesGradientPerturbation(GradientPerturbation):
         self.disable_gradient_scaling = disable_gradient_scaling
         self.iterative_scaling = iterative_scaling
 
-    def _function_reduction_step(self, x: npt.NDArray) -> npt.NDArray:
+    def _function_reduction_step(self, x: npt.NDArray) -> np.ndarray:
         """
         Perform a function reduction step using gradient descent.
 

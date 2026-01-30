@@ -75,29 +75,37 @@ class ProjectionMethod(Projection, ABC):
         self,
         x: npt.NDArray,
         max_iter: int = 500,
-        storage: bool = False,
         prox_tol: float = 1e-6,
         del_prox_tol: float = 1e-8,
         del_prox_n: int = 5,
         proximity_measures: List | None = None,
+        storage: bool = False,
         alternative_stopping_criterion: Callable | None = None,
         alternative_stopping_criterion_initial_call: Callable | None = None,
-    ) -> npt.NDArray:
+    ) -> np.ndarray:
         """
         Solves the optimization problem using an iterative approach.
 
         Parameters
         ----------
         x : npt.NDArray
-            Initial guess for the solution.
-        max_iter : int
-            Maximum number of iterations to perform.
-        storage : bool, optional
-            Flag indicating whether to store the intermediate solutions, by default False.
+            Starting point for the algorithm.
+        max_iter : int, optional
+            Maximum number of iterations to perform, by default 500.
         prox_tol : float, optional
-            The tolerance for the constraints, by default 1e-6.
+            The tolerance for the proximity on the constraints, by default 1e-6.
+        del_prox_tol : float, optional
+            The tolerance for the change in proximity over the last del_prox_n iterations, by default 1e-8.
+        del_prox_n : int, optional
+            The number of iterations that del_prox_tol needs to be met in a row, by default 5.
         proximity_measures : List, optional
-            The proximity measures to calculate, by default None. Right now only the first in the list is used to check the feasibility.
+            The proximity measures to calculate, by default a l2 norm measure is used. Right now only the first in the list is used to check the feasibility.
+        storage : bool, optional
+            Flag indicating whether to store intermediate solutions, by default False.
+        alternative_stopping_criterion : callable, optional
+            Alternative stopping criterion
+        alternative_stopping_criterion_initial_call : callable, optional
+            Initial call for an alternative stopping criterion
 
         Returns
         -------
@@ -230,7 +238,7 @@ class SequentialProjection(ProjectionMethod):
         else:
             self.control_seq = control_seq
 
-    def _project(self, x: npt.NDArray) -> npt.NDArray:
+    def _project(self, x: npt.NDArray) -> np.ndarray:
         """
         Sequentially projects the input array `x` using the control
         sequence.
@@ -392,7 +400,7 @@ class StringAveragedProjection(ProjectionMethod):
             self.weights = weights / weights.sum()
         self.strings = strings
 
-    def _project(self, x: npt.NDArray) -> npt.NDArray:
+    def _project(self, x: npt.NDArray) -> np.ndarray:
         """
         String averaged projection of the input array `x`.
 
@@ -481,7 +489,7 @@ class BlockIterativeProjection(ProjectionMethod):
             self.weights.append(el[xp.array(el) > 0])  # remove non zero weights
             self.total_weights += el / len(weights)
 
-    def _project(self, x: npt.NDArray) -> npt.NDArray:
+    def _project(self, x: npt.NDArray) -> np.ndarray:
         # TODO: Can this be parallelized?
         for weight, block_idx in zip(self.weights, self.block_idxs):
             x_new = 0  # for simultaneous projection, later replaces x
@@ -549,7 +557,7 @@ class SequentialMultiBallProjection(MultiBallProjection):
 
     #     super().__init__(centers, radii, relaxation,idx)
 
-    def _project(self, x: npt.NDArray) -> npt.NDArray:
+    def _project(self, x: npt.NDArray) -> np.ndarray:
 
         for i in range(len(self.centers)):
             if np.linalg.norm(x[self.idx] - self.centers[i]) > self.radii[i]:
@@ -575,7 +583,7 @@ class SimultaneousMultiBallProjection(MultiBallProjection):
         super().__init__(centers, radii, relaxation, idx, proximity_flag)
         self.weights = weights
 
-    def _project(self, x: npt.NDArray) -> npt.NDArray:
+    def _project(self, x: npt.NDArray) -> np.ndarray:
         # get all indices
         dists = np.linalg.norm(x[self.idx] - self.centers, axis=1)
         idx = (dists - self.radii) > 0

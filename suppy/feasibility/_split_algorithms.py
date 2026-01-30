@@ -30,7 +30,7 @@ class SplitFeasibility(Feasibility, ABC):
     A : npt.NDArray
         Matrix connecting input and target space.
     algorithmic_relaxation : npt.NDArray or float, optional
-        Relaxation applied to the entire solution of the projection step, by default 1.
+        The relaxation parameter used by the algorithm, by default 1.0.
     proximity_flag : bool, optional
         A flag indicating whether to use this object for proximity calculations, by default True.
 
@@ -40,8 +40,8 @@ class SplitFeasibility(Feasibility, ABC):
         Linear mapping between input and target space.
     proximities : list
         A list to store proximity values during the solve process.
-    algorithmic_relaxation : float
-        Relaxation applied to the entire solution of the projection step.
+    algorithmic_relaxation : npt.NDArray or float, optional
+        The relaxation parameter used by the algorithm, by default 1.0.
     proximity_flag : bool, optional
         A flag indicating whether to use this object for proximity calculations.
     relaxation : float, optional
@@ -74,7 +74,7 @@ class SplitFeasibility(Feasibility, ABC):
         proximity_measures: List | None = None,
         alternative_stopping_criterion: Callable | None = None,
         alternative_stopping_criterion_initial_call: Callable | None = None,
-    ) -> npt.NDArray:
+    ) -> np.ndarray:
         """
         Solves the split feasibility problem for a given input array.
 
@@ -163,7 +163,7 @@ class SplitFeasibility(Feasibility, ABC):
                 return True
         return False
 
-    def project(self, x: npt.NDArray, y: npt.NDArray | None = None) -> npt.NDArray:
+    def project(self, x: npt.NDArray, y: npt.NDArray | None = None) -> np.ndarray:
         """
         Projects the input array onto the feasible set.
 
@@ -182,14 +182,14 @@ class SplitFeasibility(Feasibility, ABC):
 
         return self._project(x, y)
 
-    def step(self, x: npt.NDArray, y: npt.NDArray | None = None) -> npt.NDArray:
+    def step(self, x: npt.NDArray, y: npt.NDArray | None = None) -> np.ndarray:
         return self.project(x, y)
 
     @abstractmethod
-    def _project(self, x: npt.NDArray, y: npt.NDArray | None = None) -> npt.NDArray:
+    def _project(self, x: npt.NDArray, y: npt.NDArray | None = None) -> np.ndarray:
         pass
 
-    def map(self, x: npt.NDArray) -> npt.NDArray:
+    def map(self, x: npt.NDArray) -> np.ndarray:
         """
         Maps the input space array to the target space via matrix
         multiplication.
@@ -207,7 +207,7 @@ class SplitFeasibility(Feasibility, ABC):
 
         return self.A @ x
 
-    def map_back(self, y: npt.NDArray) -> npt.NDArray:
+    def map_back(self, y: npt.NDArray) -> np.ndarray:
         """
         Transposed map of the target space array to the input space.
 
@@ -238,7 +238,7 @@ class CQAlgorithm(SplitFeasibility):
     Q_projection : Projection
         The projection operator onto the set Q.
     algorithmic_relaxation : npt.NDArray or float, optional
-        Relaxation applied to the entire solution of the projection step, by default 1.
+        The relaxation parameter used by the algorithm, by default 1.0.
     proximity_flag : bool, optional
         A flag indicating whether to use this object for proximity calculations, by default True.
     use_gpu : bool, optional
@@ -254,12 +254,10 @@ class CQAlgorithm(SplitFeasibility):
         The projection operator onto the set Q.
     proximities : list
         A list to store proximity values during the solve process.
-    algorithmic_relaxation : float
-        Relaxation applied to the entire solution of the projection step.
+    algorithmic_relaxation : npt.NDArray or float, optional
+        The relaxation parameter used by the algorithm, by default 1.0.
     proximity_flag : bool
         A flag indicating whether to use this object for proximity calculations.
-    relaxation : float, optional
-        The relaxation parameter for the projection, by default 1.0.
     """
 
     def __init__(
@@ -276,7 +274,7 @@ class CQAlgorithm(SplitFeasibility):
         self.c_projection = C_projection
         self.q_projection = Q_projection
 
-    def _project(self, x: npt.NDArray, y: npt.NDArray | None = None) -> npt.NDArray:
+    def _project(self, x: npt.NDArray, y: npt.NDArray | None = None) -> np.ndarray:
         """
         Perform one step of the CQ algorithm.
 
@@ -354,7 +352,7 @@ class CQAlgorithm(SplitFeasibility):
 #         super().__init__(A, algorithmic_relaxation, proximity_flag)
 #         self.bounds = Bounds(lb, ub)
 
-#     def _project(self, x: npt.NDArray, y: npt.NDArray | None = None) -> npt.NDArray:
+#     def _project(self, x: npt.NDArray, y: npt.NDArray | None = None) -> np.ndarray:
 #         """
 #         Perform one step of the linear extrapolated Landweber algorithm.
 
@@ -405,7 +403,7 @@ class ProductSpaceAlgorithm(SplitFeasibility):
     Q_projection : Projection
         The projection operator onto the set Q.
     algorithmic_relaxation : npt.NDArray or float, optional
-        Relaxation applied to the entire solution of the projection step, by default 1.
+        The relaxation parameter used by the algorithm, by default 1.0.
     proximity_flag : bool, optional
         A flag indicating whether to use this object for proximity calculations, by default True.
     """
@@ -433,7 +431,7 @@ class ProductSpaceAlgorithm(SplitFeasibility):
         self.xs = []
         self.ys = []
 
-    def _project(self, x: npt.NDArray, y: npt.NDArray | None = None) -> npt.NDArray:
+    def _project(self, x: npt.NDArray, y: npt.NDArray | None = None) -> np.ndarray:
         """
         Perform one step of the product space algorithm.
 

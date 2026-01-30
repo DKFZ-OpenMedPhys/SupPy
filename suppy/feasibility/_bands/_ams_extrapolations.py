@@ -23,12 +23,12 @@ class ExtrapolatedLandweberHyperslab(SimultaneousAMSHyperslab):
 
     Parameters
     ----------
-    A : npt.NDArray
-        The matrix representing the linear constraints.
+    A : npt.NDArray or sparse.sparray
+        Matrix for linear systems
     lb : npt.NDArray
-        The lower bounds for the constraints.
+        The lower bounds for the hyperslab.
     ub : npt.NDArray
-        The upper bounds for the constraints.
+        The upper bounds for the hyperslab.
     weights : List[List[float]] or List[npt.NDArray]
         A list of lists or arrays representing the weights for each block. Each list/array should sum to 1.
     relaxation : float, optional
@@ -128,12 +128,12 @@ class AdaptiveStepLandweberHyperslab(SimultaneousAMSHyperslab):
 
     Parameters
     ----------
-    A : npt.NDArray
-        The matrix representing the linear constraints.
+    A : npt.NDArray or sparse.sparray
+        Matrix for linear systems
     lb : npt.NDArray
-        The lower bounds for the constraints.
+        The lower bounds for the hyperslab.
     ub : npt.NDArray
-        The upper bounds for the constraints.
+        The upper bounds for the hyperslab.
     weights : List[List[float]] or List[npt.NDArray]
         A list of lists or arrays representing the weights for each block. Each list/array should sum to 1.
     relaxation : float, optional

@@ -22,16 +22,16 @@ class ART3plusAlgorithm(HyperslabFeasibility, ABC):
 
     Parameters
     ----------
-    A : npt.NDArray
-        The matrix A involved in the feasibility problem.
+    A : npt.NDArray or sparse.sparray
+        Matrix for linear systems
     lb : npt.NDArray
-        The lower bounds for the feasibility problem.
+        The lower bounds for the hyperslab.
     ub : npt.NDArray
-        The upper bounds for the feasibility problem.
+        The upper bounds for the hyperslab.
     algorithmic_relaxation : npt.NDArray or float, optional
-        The relaxation parameter for the algorithm, by default 1.
+        The relaxation parameter used by the algorithm, by default 1.0.
     relaxation : float, optional
-        The relaxation parameter for the feasibility problem, by default 1.
+        Outer relaxation parameter, applied to the entire solution of the iterate by default 1.0.
     proximity_flag : bool, optional
         Flag to indicate whether to use proximity in the algorithm, by default True.
     """
@@ -55,12 +55,12 @@ class SequentialART3plus(ART3plusAlgorithm):
 
     Parameters
     ----------
-    A : npt.NDArray
-        The matrix representing the system of linear inequalities.
+    A : npt.NDArray or sparse.sparray
+        Matrix for linear systems
     lb : npt.NDArray
-        The lower bounds for the variables.
+        The lower bounds for the hyperslab.
     ub : npt.NDArray
-        The upper bounds for the variables.
+        The upper bounds for the hyperslab.
     cs : None or List[int], optional
         The control sequence for the algorithm. If None, it will be initialized to the range of the number of rows in A.
     proximity_flag : bool, optional
@@ -101,7 +101,7 @@ class SequentialART3plus(ART3plusAlgorithm):
 
         self.cs = self.initial_cs.copy()
 
-    def _project(self, x: npt.NDArray) -> npt.NDArray:
+    def _project(self, x: npt.NDArray) -> np.ndarray:
         to_remove = []
         for i in self.cs:
             # TODO: add a boolean variable that skips this if the projection did not move the point?
@@ -147,26 +147,30 @@ class SequentialART3plus(ART3plusAlgorithm):
         del_prox_n: int = 5,
         storage: bool = False,
         proximity_measures: List | None = None,
-    ) -> npt.NDArray:
+    ) -> np.ndarray:
         """
         Solves the optimization problem using an iterative approach.
 
         Parameters
         ----------
         x : npt.NDArray
-            Initial guess for the solution.
+            Starting point for the algorithm.
         max_iter : int, optional
             Maximum number of iterations to perform.
-        storage : bool, optional
-            Flag indicating whether to store the intermediate solutions, by default False.
         prox_tol : float, optional
-            The tolerance for the constraints, by default 1e-6.
+            The tolerance for the proximity on the constraints, by default 1e-6.
         del_prox_tol : float, optional
-            The tolerance for the change in proximity over the last del_prox_n iterations, by default 1e-6.
+            The tolerance for the change in proximity over the last del_prox_n iterations, by default 1e-8.
         del_prox_n : int, optional
-            The number of iterations to check for the change in proximity, by default 5.
+            The number of iterations that del_prox_tol needs to be met in a row, by default 5.
         proximity_measures : List, optional
-            The proximity measures to calculate, by default None. Right now only the first in the list is used to check the feasibility.
+            The proximity measures to calculate, by default a l2 norm measure is used. Right now only the first in the list is used to check the feasibility.
+        storage : bool, optional
+            Flag indicating whether to store intermediate solutions, by default False.
+        alternative_stopping_criterion : callable, optional
+            Alternative stopping criterion
+        alternative_stopping_criterion_initial_call : callable, optional
+            Initial call for an alternative stopping criterion
 
         Returns
         -------
@@ -228,12 +232,12 @@ class SimultaneousART3plus(ART3plusAlgorithm):
 
     Parameters
     ----------
-    A : npt.NDArray
-        The matrix representing the system of linear inequalities.
+    A : npt.NDArray or sparse.sparray
+        Matrix for linear systems
     lb : npt.NDArray
-        The lower bounds for the variables.
+        The lower bounds for the hyperslab.
     ub : npt.NDArray
-        The upper bounds for the variables.
+        The upper bounds for the hyperslab.
     weights : None | List[float] | npt.NDArray, optional
         The weights for the constraints. If None, default weights are used. Default is None.
     proximity_flag : bool, optional
@@ -268,7 +272,7 @@ class SimultaneousART3plus(ART3plusAlgorithm):
 
         self._not_met_init = self._not_met.copy()
 
-    def _project(self, x: npt.NDArray) -> npt.NDArray:
+    def _project(self, x: npt.NDArray) -> np.ndarray:
         """
         Perform one step of the ART3plus algorithm.
 

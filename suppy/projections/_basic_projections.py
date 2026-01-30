@@ -69,7 +69,7 @@ class BoxProjection(BasicProjection):
         self.lb = lb
         self.ub = ub
 
-    def _project(self, x: npt.NDArray) -> npt.NDArray:
+    def _project(self, x: npt.NDArray) -> np.ndarray:
         """
         Projects the input array `x` onto the bounds defined by `self.lb`
         and `self.ub`.
@@ -218,7 +218,7 @@ class WeightedBoxProjection(BasicProjection):
         self.ub = ub
         self.weights = weights / weights.sum()
 
-    def _project(self, x: npt.NDArray) -> npt.NDArray:
+    def _project(self, x: npt.NDArray) -> np.ndarray:
         """
         Projects the input array `x`.
 
@@ -242,7 +242,7 @@ class WeightedBoxProjection(BasicProjection):
         )
         return x
 
-    def _full_project(self, x: npt.NDArray) -> npt.NDArray:
+    def _full_project(self, x: npt.NDArray) -> np.ndarray:
         """
         Projects the elements of the input array `x` within the specified
         bounds.
@@ -389,7 +389,7 @@ class HalfspaceProjection(BasicProjection):
     def _linear_map(self, x):
         return self.a @ x
 
-    def _project(self, x: npt.NDArray) -> npt.NDArray:
+    def _project(self, x: npt.NDArray) -> np.ndarray:
         """
         Projects the input array `x`.
 
@@ -565,7 +565,7 @@ class BandProjection(BasicProjection):
         self.lb = lb
         self.ub = ub
 
-    def _project(self, x: npt.NDArray) -> npt.NDArray:
+    def _project(self, x: npt.NDArray) -> np.ndarray:
         """
         Projects the input array `x`.
 
@@ -718,7 +718,7 @@ class BallProjection(BasicProjection):
         self.center = center
         self.radius = radius
 
-    def _project(self, x: npt.NDArray) -> npt.NDArray:
+    def _project(self, x: npt.NDArray) -> np.ndarray:
         """
         Projects the input array `x` onto the surface of the ball.
 
@@ -845,7 +845,7 @@ class MaxDVHProjection(BasicProjection):
             else:
                 self._idx_indices = self.idx
 
-    def _project(self, x: npt.NDArray) -> npt.NDArray:
+    def _project(self, x: npt.NDArray) -> np.ndarray:
         """
         Projects the input array `x` onto the DVH constraint.
 
@@ -864,7 +864,7 @@ class MaxDVHProjection(BasicProjection):
 
         return self._project_subset(x)
 
-    def _project_all(self, x: npt.NDArray) -> npt.NDArray:
+    def _project_all(self, x: npt.NDArray) -> np.ndarray:
         n = len(x)
         am = math.floor(self.max_percentage * n)
 
@@ -876,7 +876,7 @@ class MaxDVHProjection(BasicProjection):
             x[x.argsort()[n - l : n - am]] = self.d_max
         return x
 
-    def _project_subset(self, x: npt.NDArray) -> npt.NDArray:
+    def _project_subset(self, x: npt.NDArray) -> np.ndarray:
 
         n = self.idx.sum() if self.idx.dtype == bool else len(self.idx)
 
@@ -891,7 +891,7 @@ class MaxDVHProjection(BasicProjection):
 
         return x
 
-    # def _project(self, x: npt.NDArray) -> npt.NDArray:
+    # def _project(self, x: npt.NDArray) -> np.ndarray:
     #     """
     #     Projects the input array `x` onto the DVH constraint.
 
@@ -1029,7 +1029,7 @@ class MinDVHProjection(BasicProjection):
             else:
                 self._idx_indices = self.idx
 
-    def _project(self, x: npt.NDArray) -> npt.NDArray:
+    def _project(self, x: npt.NDArray) -> np.ndarray:
         """
         Projects the input array `x` onto the DVH constraint.
 
@@ -1048,7 +1048,7 @@ class MinDVHProjection(BasicProjection):
 
         return self._project_subset(x)
 
-    def _project_all(self, x: npt.NDArray) -> npt.NDArray:
+    def _project_all(self, x: npt.NDArray) -> np.ndarray:
         n = len(x)
         am = math.ceil(self.min_percentage * n)
 
@@ -1060,7 +1060,7 @@ class MinDVHProjection(BasicProjection):
             x[x.argsort()[n - am : l]] = self.d_min
         return x
 
-    def _project_subset(self, x: npt.NDArray) -> npt.NDArray:
+    def _project_subset(self, x: npt.NDArray) -> np.ndarray:
 
         n = self.idx.sum() if self.idx.dtype == bool else len(self.idx)
 

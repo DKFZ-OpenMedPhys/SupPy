@@ -87,16 +87,16 @@ class Superiorization(FeasibilityPerturbation):
         self,
         x_0: npt.NDArray,
         max_iter: int = 10,
-        storage=False,
         prox_tol: float = 1e-6,
         del_prox_tol: float = 1e-8,
         del_prox_n: int = 5,
         del_objective_tol: float = 1e-6,
         del_objective_n: int = 5,
         proximity_measures: List | None = None,
+        storage=False,
         alternative_stopping_criterion: Callable | None = None,
         alternative_stopping_criterion_initial_call: Callable | None = None,
-    ) -> npt.NDArray:
+    ) -> np.ndarray:
         """
         Solve the optimization problem using the superiorization method.
 
@@ -106,8 +106,6 @@ class Superiorization(FeasibilityPerturbation):
             Initial guess for the solution.
         max_iter : int, optional
             Maximum number of iterations to perform (default is 10).
-        storage : bool, optional
-            If True, store intermediate results (default is False).
         prox_tol : float, optional
             Tolerance for the constraint function value to determine stopping criteria, by default 1e-6.
         del_prox_tol : float, optional
@@ -120,6 +118,12 @@ class Superiorization(FeasibilityPerturbation):
             Tolernace for the objective function value to determine stopping criteria, by default 1e-6.
         del_objective_n : int, optional
             Number of iterations with objective function changes below the threshold to determine stopping criteria, by default 5.
+        storage : bool, optional
+            If True, store intermediate results (default is False).
+        alternative_stopping_criterion : callable, optional
+            Alternative stopping criterion
+        alternative_stopping_criterion_initial_call : callable, optional
+            Initial call for an alternative stopping criterion
 
         Returns
         -------
@@ -240,14 +244,16 @@ class Superiorization(FeasibilityPerturbation):
 
         Parameters
         ----------
-        f_temp : float
-            The current value of the objective function.
-        p_temp : List[float]
-            The current proximity values to the constraints.
-        objective_tol : float
-            Tolerance for the objective function value change to determine stopping criteria.
-        prox_tol : float
-            Tolerance for the constraint proximity value change to determine stopping criteria.
+        del_objective_tol : float, optional
+            Tolernace for the objective function value to determine stopping criteria, by default 1e-6.
+        del_objective_n : int, optional
+            Number of iterations with objective function changes below the threshold to determine stopping criteria, by default 5.
+        prox_tol : float, optional
+            Tolerance for the constraint function value to determine stopping criteria, by default 1e-6.
+        del_prox_tol : float, optional
+            Tolerance for the proximity function value change to determine stopping criteria, by default 1e-8.
+        del_prox_n : int, optional
+            Number of iterations with proximity changes below the threshold to determine stopping criteria, by default 5.
 
         Returns
         -------

@@ -9,6 +9,7 @@ from ._basic_projections import (
     BallProjection,
     MinDVHProjection,
     MaxDVHProjection,
+    CustomProjection,
 )
 from ._projection_methods import (
     SequentialProjection,
@@ -34,4 +35,5 @@ __all__ = [
     "StringAveragedProjection",
     "SubgradientProjection",
     "EUDProjection",
+    "CustomProjection",
 ]

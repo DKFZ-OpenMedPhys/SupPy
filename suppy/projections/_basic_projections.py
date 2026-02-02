@@ -1178,3 +1178,39 @@ class MinDVHProjection(BasicProjection):
             else:
                 raise ValueError("Invalid proximity measure")
         return measures
+
+
+class CustomProjection(BasicProjection):
+    """
+    CustomProjection allows users to set up custom projection objects.
+
+    Parameters
+    ----------
+    projection_function : callable
+        User-defined function for projection.
+    proximity_function : callable, optional
+        User-defined function for proximity calculation, by default None.
+        If None, the proximity is calculated based on P(x)-x residuals.
+    """
+
+    def __init__(
+        self,
+        projection_function,
+        proximity_function=None,
+        relaxation=1,
+        idx: npt.NDArray | None = None,
+        proximity_flag=True,
+        _use_gpu=False,
+    ):
+        super().__init__(relaxation, idx, proximity_flag, _use_gpu)
+        self.projection_function = projection_function
+        self.proximity_function = proximity_function
+
+    def _project(self, x: npt.NDArray) -> npt.NDArray:
+        return self.projection_function(x)
+
+    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> List[float]:
+        if self.proximity_function is None:
+            return super()._proximity(x, proximity_measures)
+        else:
+            return self.proximity_function(x, proximity_measures)

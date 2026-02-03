@@ -4,7 +4,10 @@ suppy.superiorization
 Module contents
 ---------------
 
-.. automodule:: suppy.superiorization
-   :members:
-   :undoc-members:
-   :show-inheritance:
+.. currentmodule:: suppy.superiorization
+
+.. autosummary::
+   :toctree: generated/Superiorization/
+
+   Superiorization
+   SplitSuperiorization

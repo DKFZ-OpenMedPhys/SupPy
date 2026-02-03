@@ -14,17 +14,17 @@ sys.path.insert(0, os.path.abspath("../suppy"))  # Adjust to your source folder
 project = "suppy"
 copyright = "2024, Tobias Becher"
 author = "Tobias Becher"
-release = "0.2.0"
-version = "0.2.0"
+release = "0.3.0"
+version = "0.3.0"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 extensions = [
     "sphinx.ext.autodoc",
+    "sphinx.ext.autosummary",
     "sphinx.ext.coverage",
     "sphinx.ext.viewcode",
-    "sphinx.ext.napoleon",
     "numpydoc",
     "sphinx_autodoc_typehints",
     "sphinx_design",
@@ -39,12 +39,18 @@ add_module_names = False
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 html_theme = "pydata_sphinx_theme"
+html_theme_options = {
+    "show_nav_level": 2,
+    "show_toc_level": 1,
+}
+
 html_static_path = ["_static"]
 
 autodoc_default_options = {
     "no-module": True,  # Suppress the module/package labels
     "members": True,  # Include members
     "inherited-members": True,  # Include inherited members
+    "show-inheritance": True,  # Show inheritance
 }
 autodoc_type_aliases = {
     "npt.NDArray": "npt.NDArray",

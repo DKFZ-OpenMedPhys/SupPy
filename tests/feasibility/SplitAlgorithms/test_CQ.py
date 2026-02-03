@@ -40,8 +40,15 @@ def test_cq_proximity(get_simple_cq):
     cq, _, _, _ = get_simple_cq
     proximity_measures = [("p_norm", 2), "max_norm"]
     x = np.array([3, 3])
-    assert cq.proximity(x, proximity_measures)[0] == 5.0
-    assert cq.proximity(x, proximity_measures)[1] == 3.0
+    print(cq.proximity(x, proximity_measures))
+
+    # test c proximity
+    assert cq.proximity(x, proximity_measures)[0][0] == 4.0
+    assert cq.proximity(x, proximity_measures)[0][1] == 2.0
+
+    # test q proximity
+    assert cq.proximity(x, proximity_measures)[1][0] == 5.0
+    assert cq.proximity(x, proximity_measures)[1][1] == 3.0
 
 
 def test_cq_step(get_simple_cq):
@@ -51,9 +58,9 @@ def test_cq_step(get_simple_cq):
     s_1_x, s_1_y = cq.step(x_1)
     s_2_x, s_2_y = cq.step(x_2)
     assert np.array_equal(s_1_x, np.array([0, 1]))
-    assert np.array_equal(s_1_y, np.array([1, 0]))
+    assert s_1_y is None
     assert np.array_equal(s_2_x, np.array([0, 1]))
-    assert np.array_equal(s_2_y, np.array([2, 0]))
+    assert s_2_y is None
 
 
 def test_cq_relaxed_step(get_simple_cq):
@@ -64,9 +71,9 @@ def test_cq_relaxed_step(get_simple_cq):
     s_1_x, s_1_y = cq_relaxed.step(x_1)
     s_2_x, s_2_y = cq_relaxed.step(x_2)
     assert np.array_equal(s_1_x, np.array([0.0, 1.0]))
-    assert np.array_equal(s_1_y, np.array([1.0, 0.0]))
+    assert s_1_y is None
     assert np.array_equal(s_2_x, np.array([0.0, 1.0]))
-    assert np.array_equal(s_2_y, np.array([2.0, 0.0]))
+    assert s_2_y is None
 
 
 def test_cq_solve(get_simple_cq):
@@ -74,4 +81,4 @@ def test_cq_solve(get_simple_cq):
     x = np.array([3, 3])
     x_n = cq.solve(x)
     assert np.array_equal(x_n, np.array([0, 1]))
-    assert np.array_equal(cq.proximities, [[5.0], [0.0]])
+    assert np.array_equal(cq.proximities, [[[4.0], [5.0]], [[0.0], [0.0]]])

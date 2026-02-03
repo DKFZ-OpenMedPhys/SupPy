@@ -7,8 +7,15 @@ from ._bands._ams_algorithms import (
     StringAveragedAMSHyperslab,
     BlockIterativeAMSHyperslab,
 )
+
+
+from ._bands._ams_extrapolations import (
+    ExtrapolatedLandweberHyperslab,
+    AdaptiveStepLandweberHyperslab,
+)
 from ._bands._arm_algorithms import SequentialARM, SimultaneousARM, StringAveragedARM
 from ._bands._art3_algorithms import SequentialART3plus
+
 
 from ._halfspaces._ams_algorithms import (
     SequentialAMSHalfspace,
@@ -18,12 +25,22 @@ from ._halfspaces._ams_algorithms import (
     BlockIterativeAMSHalfspace,
 )
 
-from ._hyperplanes._ams_algorithms import (
-    SequentialAMSHyperplane,
-    SequentialWeightedAMSHyperplane,
-    SimultaneousAMSHyperplane,
-    StringAveragedAMSHyperplane,
-    BlockIterativeAMSHyperplane,
+from ._halfspaces._ams_extrapolations import (
+    ExtrapolatedLandweberHalfspace,
+    AdaptiveStepLandweberHalfspace,
+)
+
+from ._hyperplanes._kaczmarz_algorithms import (
+    KaczmarzMethod,
+    SequentialWeightedKaczmarz,
+    SimultaneousKaczmarzMethod,
+    StringAveragedKaczmarz,
+    BlockIterativeKaczmarz,
+)
+
+from ._hyperplanes._kaczmarz_extrapolations import (
+    ExtrapolatedLandweberHyperplane,
+    AdaptiveStepLandweberHyperplane,
 )
 
 from ._split_algorithms import CQAlgorithm
@@ -34,16 +51,22 @@ __all__ = [
     "SimultaneousAMSHyperslab",
     "StringAveragedAMSHyperslab",
     "BlockIterativeAMSHyperslab",
+    "ExtrapolatedLandweberHyperslab",
+    "AdaptiveStepLandweberHyperslab",
     "SequentialAMSHalfspace",
     "SequentialWeightedAMSHalfspace",
     "SimultaneousAMSHalfspace",
     "StringAveragedAMSHalfspace",
     "BlockIterativeAMSHalfspace",
-    "SequentialAMSHyperplane",
-    "SequentialWeightedAMSHyperplane",
-    "SimultaneousAMSHyperplane",
-    "StringAveragedAMSHyperplane",
-    "BlockIterativeAMSHyperplane",
+    "ExtrapolatedLandweberHalfspace",
+    "AdaptiveStepLandweberHalfspace",
+    "KaczmarzMethod",
+    "SequentialWeightedKaczmarz",
+    "SimultaneousKaczmarzMethod",
+    "StringAveragedKaczmarz",
+    "BlockIterativeKaczmarz",
+    "ExtrapolatedLandweberHyperplane",
+    "AdaptiveStepLandweberHyperplane",
     "SequentialARM",
     "SimultaneousARM",
     "StringAveragedARM",

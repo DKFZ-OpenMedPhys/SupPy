@@ -421,6 +421,52 @@ def test_MaxDVHProjection_project_odd_overflow_idxs():
     assert np.all(proj == np.array([0, 1, 2, 3, 4, 5, 5, 5, 5, 5, 10]))
 
 
+def test_MaxDVHProjection_proximity():
+    d_max = 10
+    max_overflow = 0.05
+    DVH_Proj = MaxDVHProjection(d_max, max_overflow)
+    x = np.ones(99) * 11
+    proximity_measures = [("p_norm", 2), "max_norm"]
+    prox = DVH_Proj.proximity(x, proximity_measures)
+    # test p norm
+    assert np.abs(prox[0] - 95 / 99) < 1e-10
+    assert np.abs(prox[1] - 1) < 1e-10
+
+    x_2 = np.ones(99) * 9
+    prox_2 = DVH_Proj.proximity(x_2, proximity_measures)
+    assert np.abs(prox_2[0] - 0) < 1e-10
+    assert np.abs(prox_2[1] - 0) < 1e-10
+
+    x[:10] = 9
+
+    prox_3 = DVH_Proj.proximity(x, proximity_measures)
+    assert np.abs(prox_3[0] - 85 / 99) < 1e-10
+    assert np.abs(prox_3[1] - 1) < 1e-10
+
+
+def test_MaxDVHProjection_proximity_idxs():
+    d_max = 10
+    max_overflow = 0.05
+    DVH_Proj = MaxDVHProjection(d_max, max_overflow, idx=np.arange(0, 99))
+    x = np.ones(100) * 11
+    proximity_measures = [("p_norm", 2), "max_norm"]
+    prox = DVH_Proj.proximity(x, proximity_measures)
+    # test p norm
+    assert np.abs(prox[0] - 95 / 99) < 1e-10
+    assert np.abs(prox[1] - 1) < 1e-10
+
+    x_2 = np.ones(100) * 9
+    prox_2 = DVH_Proj.proximity(x_2, proximity_measures)
+    assert np.abs(prox_2[0] - 0) < 1e-10
+    assert np.abs(prox_2[1] - 0) < 1e-10
+
+    x[:10] = 9
+
+    prox_3 = DVH_Proj.proximity(x, proximity_measures)
+    assert np.abs(prox_3[0] - 85 / 99) < 1e-10
+    assert np.abs(prox_3[1] - 1) < 1e-10
+
+
 def test_MinDVHProjection_constructor():
     """Test the constructor of the DVH projection."""
     # check that the constructor works properly
@@ -484,3 +530,49 @@ def test_MinDVHProjection_project_odd_overflow_idxs():
     x = np.arange(11)
     proj = DVH_Proj.project(x)
     assert np.all(proj == np.array([5, 5, 5, 5, 5, 5, 6, 7, 8, 9, 10]))
+
+
+def test_MinDVHProjection_proximity():
+    d_min = 5
+    min_percentage = 0.95
+    DVH_Proj = MinDVHProjection(d_min, min_percentage)
+    x = np.ones(101) * 4
+    proximity_measures = [("p_norm", 2), "max_norm"]
+    prox = DVH_Proj.proximity(x, proximity_measures)
+    # test p norm
+    assert np.abs(prox[0] - 96 / 101) < 1e-10
+    assert np.abs(prox[1] - 1) < 1e-10
+
+    x_2 = np.ones(101) * 6
+    prox_2 = DVH_Proj.proximity(x_2, proximity_measures)
+    assert np.abs(prox_2[0] - 0) < 1e-10
+    assert np.abs(prox_2[1] - 0) < 1e-10
+
+    x[:10] = 6
+
+    prox_3 = DVH_Proj.proximity(x, proximity_measures)
+    assert np.abs(prox_3[0] - 86 / 101) < 1e-10
+    assert np.abs(prox_3[1] - 1) < 1e-10
+
+
+def test_MinDVHProjection_proximity_idxs():
+    d_min = 5
+    min_percentage = 0.95
+    DVH_Proj = MinDVHProjection(d_min, min_percentage, idx=np.arange(0, 101))
+    x = np.ones(102) * 4
+    proximity_measures = [("p_norm", 2), "max_norm"]
+    prox = DVH_Proj.proximity(x, proximity_measures)
+    # test p norm
+    assert np.abs(prox[0] - 96 / 101) < 1e-10
+    assert np.abs(prox[1] - 1) < 1e-10
+
+    x_2 = np.ones(102) * 6
+    prox_2 = DVH_Proj.proximity(x_2, proximity_measures)
+    assert np.abs(prox_2[0] - 0) < 1e-10
+    assert np.abs(prox_2[1] - 0) < 1e-10
+
+    x[:10] = 6
+
+    prox_3 = DVH_Proj.proximity(x, proximity_measures)
+    assert np.abs(prox_3[0] - 86 / 101) < 1e-10
+    assert np.abs(prox_3[1] - 1) < 1e-10

@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 import scipy.sparse as sparse
-from suppy.feasibility import StringAveragedAMSHyperplane
+from suppy.feasibility import StringAveragedKaczmarz
 from suppy.utils import LinearMapping
 
 
@@ -20,10 +20,10 @@ def get_sparse_variables():
     return A, b
 
 
-def test_StringAveragedAMSHyperplane_constructor_full(get_full_variables):
-    """Test the StringAveragedAMSHyperplane constructor."""
+def test_StringAveragedKaczmarz_constructor_full(get_full_variables):
+    """Test the StringAveragedKaczmarz constructor."""
     A, b = get_full_variables
-    alg = StringAveragedAMSHyperplane(A, b, strings=[[0, 1, 2]])  # sequential like
+    alg = StringAveragedKaczmarz(A, b, strings=[[0, 1, 2]])  # sequential like
 
     assert isinstance(alg.A, LinearMapping)
     assert np.array_equal(alg.A, A)
@@ -33,15 +33,15 @@ def test_StringAveragedAMSHyperplane_constructor_full(get_full_variables):
     assert alg.relaxation == 1.0
     assert alg.algorithmic_relaxation == 1.0
 
-    alg = StringAveragedAMSHyperplane(A, b, strings=[[0], [1], [2]])  # simultaneous like
+    alg = StringAveragedKaczmarz(A, b, strings=[[0], [1], [2]])  # simultaneous like
     assert alg.strings == [[0], [1], [2]]
     assert np.array_equal(alg.weights, np.ones(3) / 3)
 
 
-def test_StringAveragedAMSHyperplane_constructor_sparse(get_sparse_variables):
-    """Test the StringAveragedAMSHyperplane constructor."""
+def test_StringAveragedKaczmarz_constructor_sparse(get_sparse_variables):
+    """Test the StringAveragedKaczmarz constructor."""
     A, b = get_sparse_variables
-    alg = StringAveragedAMSHyperplane(A, b, strings=[[0, 1, 2]])  # sequential like
+    alg = StringAveragedKaczmarz(A, b, strings=[[0, 1, 2]])  # sequential like
 
     assert isinstance(alg.A, LinearMapping)
     assert np.array_equal(alg.A.todense(), A.todense())
@@ -51,20 +51,20 @@ def test_StringAveragedAMSHyperplane_constructor_sparse(get_sparse_variables):
     assert alg.relaxation == 1.0
     assert alg.algorithmic_relaxation == 1.0
 
-    alg = StringAveragedAMSHyperplane(A, b, strings=[[0], [1], [2]])  # simultaneous like
+    alg = StringAveragedKaczmarz(A, b, strings=[[0], [1], [2]])  # simultaneous like
     assert alg.strings == [[0], [1], [2]]
     assert np.array_equal(alg.weights, np.ones(3) / 3)
 
 
-def test_StringAveragedAMSHyperplane_step_full_sequential_like(get_full_variables):
+def test_StringAveragedKaczmarz_step_full_sequential_like(get_full_variables):
     """
-    Test the step function of the StringAveragedAMSHyperplane class for
+    Test the step function of the StringAveragedKaczmarz class for
     sequential
     like strings.
     """
 
     A, b = get_full_variables
-    alg = StringAveragedAMSHyperplane(A, b, strings=[[0, 1, 2]])  # sequential like
+    alg = StringAveragedKaczmarz(A, b, strings=[[0, 1, 2]])  # sequential like
 
     x_1 = np.array([2.0, 2.0])
     x_2 = np.array([1.0, 3.0])
@@ -100,14 +100,14 @@ def test_StringAveragedAMSHyperplane_step_full_sequential_like(get_full_variable
     assert np.array_equal(x_n, x_5)
 
 
-def test_StringAveragedAMSHyperplane_step_sparse_sequential_like(get_sparse_variables):
+def test_StringAveragedKaczmarz_step_sparse_sequential_like(get_sparse_variables):
     """
-    Test the step function of the StringAveragedAMSHyperplane class for
+    Test the step function of the StringAveragedKaczmarz class for
     sequential
     like strings.
     """
     A, b = get_sparse_variables
-    alg = StringAveragedAMSHyperplane(A, b, strings=[[0, 1, 2]])  # sequential like
+    alg = StringAveragedKaczmarz(A, b, strings=[[0, 1, 2]])  # sequential like
 
     x_1 = np.array([2.0, 2.0])
     x_2 = np.array([1.0, 3.0])
@@ -143,14 +143,14 @@ def test_StringAveragedAMSHyperplane_step_sparse_sequential_like(get_sparse_vari
     assert np.array_equal(x_n, x_5)
 
 
-def test_StringAveragedAMSHyperplane_step_full_simultaneous_like(get_sparse_variables):
+def test_StringAveragedKaczmarz_step_full_simultaneous_like(get_sparse_variables):
     """
-    Test the step function of the StringAveragedAMSHyperplane class for
+    Test the step function of the StringAveragedKaczmarz class for
     simultaneous
     like strings.
     """
     A, b = get_sparse_variables
-    alg = StringAveragedAMSHyperplane(A, b, strings=[[0], [1], [2]])  # simultaneous like
+    alg = StringAveragedKaczmarz(A, b, strings=[[0], [1], [2]])  # simultaneous like
 
     x_1 = np.array([2.0, 2.0])
     x_2 = np.array([1.0, 3.0])
@@ -186,14 +186,14 @@ def test_StringAveragedAMSHyperplane_step_full_simultaneous_like(get_sparse_vari
     assert np.array_equal(x_n, x_5)
 
 
-def test_StringAveragedAMSHyperplane_step_sparse_simultaneous_like(get_sparse_variables):
+def test_StringAveragedKaczmarz_step_sparse_simultaneous_like(get_sparse_variables):
     """
-    Test the step function of the StringAveragedAMSHyperplane class for
+    Test the step function of the StringAveragedKaczmarz class for
     simultaneous
     like strings.
     """
     A, b = get_sparse_variables
-    alg = StringAveragedAMSHyperplane(A, b, strings=[[0], [1], [2]])  # simultaneous like
+    alg = StringAveragedKaczmarz(A, b, strings=[[0], [1], [2]])  # simultaneous like
 
     x_1 = np.array([2.0, 2.0])
     x_2 = np.array([1.0, 3.0])

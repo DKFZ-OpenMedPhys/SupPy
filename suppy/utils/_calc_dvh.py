@@ -10,5 +10,6 @@ def calc_dvh(dose, idxs: list):
     dose_grid = np.linspace(0, 1.05 * d_max, n)
     dvh = []
     for struct in idxs:
-        dvh.append((dose[struct, None] > dose_grid).sum(axis=0) / (struct.sum()))
+        n_struct = dose[struct].shape[0]
+        dvh.append((dose[struct, None] >= dose_grid).sum(axis=0) / n_struct)
     return dvh, dose_grid

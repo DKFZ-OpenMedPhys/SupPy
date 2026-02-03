@@ -3,7 +3,7 @@ General implementation for sequential, simultaneous, block iterative and
 string averaged projection methods.
 """
 from abc import ABC
-from typing import List
+from typing import List, Callable
 import numpy as np
 import numpy.typing as npt
 
@@ -75,25 +75,37 @@ class ProjectionMethod(Projection, ABC):
         self,
         x: npt.NDArray,
         max_iter: int = 500,
-        storage: bool = False,
-        constr_tol: float = 1e-6,
+        prox_tol: float = 1e-6,
+        del_prox_tol: float = 1e-8,
+        del_prox_n: int = 5,
         proximity_measures: List | None = None,
-    ) -> npt.NDArray:
+        storage: bool = False,
+        alternative_stopping_criterion: Callable | None = None,
+        alternative_stopping_criterion_initial_call: Callable | None = None,
+    ) -> np.ndarray:
         """
         Solves the optimization problem using an iterative approach.
 
         Parameters
         ----------
         x : npt.NDArray
-            Initial guess for the solution.
-        max_iter : int
-            Maximum number of iterations to perform.
-        storage : bool, optional
-            Flag indicating whether to store the intermediate solutions, by default False.
-        constr_tol : float, optional
-            The tolerance for the constraints, by default 1e-6.
+            Starting point for the algorithm.
+        max_iter : int, optional
+            Maximum number of iterations to perform, by default 500.
+        prox_tol : float, optional
+            The tolerance for the proximity on the constraints, by default 1e-6.
+        del_prox_tol : float, optional
+            The tolerance for the change in proximity over the last del_prox_n iterations, by default 1e-8.
+        del_prox_n : int, optional
+            The number of iterations that del_prox_tol needs to be met in a row, by default 5.
         proximity_measures : List, optional
-            The proximity measures to calculate, by default None. Right now only the first in the list is used to check the feasibility.
+            The proximity measures to calculate, by default a l2 norm measure is used. Right now only the first in the list is used to check the feasibility.
+        storage : bool, optional
+            Flag indicating whether to store intermediate solutions, by default False.
+        alternative_stopping_criterion : callable, optional
+            Alternative stopping criterion
+        alternative_stopping_criterion_initial_call : callable, optional
+            Initial call for an alternative stopping criterion
 
         Returns
         -------
@@ -101,34 +113,66 @@ class ProjectionMethod(Projection, ABC):
             The solution after the iterative process.
         """
         xp = cp if isinstance(x, cp.ndarray) else np
+
         if proximity_measures is None:
             proximity_measures = [("p_norm", 2)]
         else:
             # TODO: Check if the proximity measures are valid
             _ = None
 
-        self.proximities = []
+        self.proximities = [self.proximity(x, proximity_measures)]
         i = 0
-        feasible = False
 
         if storage is True:
             self.all_x = []
-            self.all_x.append(x.copy())
+            if isinstance(x, np.ndarray):
+                self.all_x.append(np.array(x.copy()))
+            else:
+                self.all_x.append((x.get()))
 
-        while i < max_iter and not feasible:
+        if alternative_stopping_criterion_initial_call is not None:
+            stop = alternative_stopping_criterion_initial_call(x, self)
+        else:
+            stop = False  # criterion for stopping the algorithm
+
+        self._n_tol = 0
+
+        while i < max_iter and not stop:
             x = self.project(x)
             if storage is True:
-                self.all_x.append(x.copy())
+                if isinstance(x, np.ndarray):  # convert to np array if cp
+                    self.all_x.append(np.array(x.copy()))
+                else:
+                    self.all_x.append((x.get()))
+
             self.proximities.append(self.proximity(x, proximity_measures))
 
             # TODO: If proximity changes x some potential issues!
-            if self.proximities[-1][0] < constr_tol:
+            if alternative_stopping_criterion is not None:
+                stop = alternative_stopping_criterion(x, self)
+            else:
+                stop = self._stopping_criterion(prox_tol, del_prox_tol, del_prox_n)
 
-                feasible = True
             i += 1
+
         if self.all_x is not None:
-            self.all_x = xp.array(self.all_x)
+            self.all_x = np.array(self.all_x)
+
+        self.proximities = xp.array(self.proximities)
         return x
+
+    def _stopping_criterion(self, prox_tol: float, del_prox_tol: float, del_prox_n: float):
+        """"""
+        if self.proximities[-1][0] < prox_tol:  # proximity below goal/tolerance
+            return True
+        else:  # check that last n proximity changes are below a threshold
+            if self.proximities[-2][0] - self.proximities[-1][0] < del_prox_tol:
+                self._n_tol += 1
+            else:
+                self._n_tol = 0
+            if self._n_tol >= del_prox_n:  # n proximity changes below threshold
+                return True
+        return False
 
     def _proximity(self, x: npt.NDArray, proximity_measures: List) -> List[float]:
         xp = cp if isinstance(x, cp.ndarray) else np
@@ -194,7 +238,7 @@ class SequentialProjection(ProjectionMethod):
         else:
             self.control_seq = control_seq
 
-    def _project(self, x: npt.NDArray) -> npt.NDArray:
+    def _project(self, x: npt.NDArray) -> np.ndarray:
         """
         Sequentially projects the input array `x` using the control
         sequence.
@@ -356,7 +400,7 @@ class StringAveragedProjection(ProjectionMethod):
             self.weights = weights / weights.sum()
         self.strings = strings
 
-    def _project(self, x: npt.NDArray) -> npt.NDArray:
+    def _project(self, x: npt.NDArray) -> np.ndarray:
         """
         String averaged projection of the input array `x`.
 
@@ -445,7 +489,7 @@ class BlockIterativeProjection(ProjectionMethod):
             self.weights.append(el[xp.array(el) > 0])  # remove non zero weights
             self.total_weights += el / len(weights)
 
-    def _project(self, x: npt.NDArray) -> npt.NDArray:
+    def _project(self, x: npt.NDArray) -> np.ndarray:
         # TODO: Can this be parallelized?
         for weight, block_idx in zip(self.weights, self.block_idxs):
             x_new = 0  # for simultaneous projection, later replaces x
@@ -513,7 +557,7 @@ class SequentialMultiBallProjection(MultiBallProjection):
 
     #     super().__init__(centers, radii, relaxation,idx)
 
-    def _project(self, x: npt.NDArray) -> npt.NDArray:
+    def _project(self, x: npt.NDArray) -> np.ndarray:
 
         for i in range(len(self.centers)):
             if np.linalg.norm(x[self.idx] - self.centers[i]) > self.radii[i]:
@@ -539,7 +583,7 @@ class SimultaneousMultiBallProjection(MultiBallProjection):
         super().__init__(centers, radii, relaxation, idx, proximity_flag)
         self.weights = weights
 
-    def _project(self, x: npt.NDArray) -> npt.NDArray:
+    def _project(self, x: npt.NDArray) -> np.ndarray:
         # get all indices
         dists = np.linalg.norm(x[self.idx] - self.centers, axis=1)
         idx = (dists - self.radii) > 0

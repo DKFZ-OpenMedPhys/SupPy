@@ -16,24 +16,24 @@ from suppy.feasibility._linear_algorithms import HyperslabFeasibility
 from suppy.utils import LinearMapping
 
 
-class HyperslabAMSAlgorithm(HyperslabFeasibility, ABC):
+class HyperslabAlgorithm(HyperslabFeasibility, ABC):
     """
-    The HyperslabAMSAlgorithm class is used to find a feasible solution to a
+    The HyperslabAlgorithm class is used to find a feasible solution to a
     set of
     linear inequalities.
 
     Parameters
     ----------
-    A : npt.NDArray
-        The matrix representing the coefficients of the linear inequalities.
+    A : npt.NDArray or sparse.sparray
+        Matrix for linear systems
     lb : npt.NDArray
-        The lower bounds for the inequalities.
+        The lower bounds for the hyperslab.
     ub : npt.NDArray
-        The upper bounds for the inequalities.
+        The upper bounds for the hyperslab.
     algorithmic_relaxation : npt.NDArray or float, optional
-        The relaxation parameter for the algorithm, by default 1.
+        The relaxation parameter used by the algorithm, by default 1.0.
     relaxation : float, optional
-        The relaxation parameter for the feasibility problem, by default 1.
+        Outer relaxation parameter, applied to the entire solution of the iterate by default 1.0.
     proximity_flag : bool, optional
         A flag indicating whether to use proximity in the algorithm, by default True.
     """
@@ -43,30 +43,30 @@ class HyperslabAMSAlgorithm(HyperslabFeasibility, ABC):
         A: npt.NDArray,
         lb: npt.NDArray,
         ub: npt.NDArray,
-        algorithmic_relaxation: npt.NDArray | float = 1,
-        relaxation: float = 1,
+        algorithmic_relaxation: npt.NDArray | float = 1.0,
+        relaxation: float = 1.0,
         proximity_flag: bool = True,
     ):
         super().__init__(A, lb, ub, algorithmic_relaxation, relaxation, proximity_flag)
 
 
-class SequentialAMSHyperslab(HyperslabAMSAlgorithm):
+class SequentialAMSHyperslab(HyperslabAlgorithm):
     """
     SequentialAMSHyperslab class for sequentially applying the AMS algorithm
     on hyperslabs.
 
     Parameters
     ----------
-    A : npt.NDArray
-        The matrix A used in the AMS algorithm.
+    A : npt.NDArray or sparse.sparray
+        Matrix for linear systems
     lb : npt.NDArray
-        The lower bounds for the constraints.
+        The lower bounds for the hyperslab.
     ub : npt.NDArray
-        The upper bounds for the constraints.
+        The upper bounds for the hyperslab.
     algorithmic_relaxation : npt.NDArray or float, optional
-        The relaxation parameter for the algorithm, by default 1.
+        The relaxation parameter used by the algorithm, by default 1.0.
     relaxation : float, optional
-        The relaxation parameter, by default 1.
+        Outer relaxation parameter, applied to the entire solution of the iterate by default 1.0.
     cs : None or List[int], optional
         The list of indices for the constraints, by default None.
     proximity_flag : bool, optional
@@ -91,7 +91,7 @@ class SequentialAMSHyperslab(HyperslabAMSAlgorithm):
         else:
             self.cs = cs
 
-    def _project(self, x: npt.NDArray) -> npt.NDArray:
+    def _project(self, x: npt.NDArray) -> np.ndarray:
         """
         Projects the input array `x` onto the feasible region defined by the
         constraints.
@@ -128,19 +128,20 @@ class SequentialWeightedAMSHyperslab(SequentialAMSHyperslab):
     """
     Parameters
     ----------
-    A : npt.NDArray
-        The constraint matrix.
+    A : npt.NDArray or sparse.sparray
+        Matrix for linear systems
     lb : npt.NDArray
-        The lower bounds of the constraints.
+        The lower bounds of the hyperslab.
     ub : npt.NDArray
-        The upper bounds of the constraints.
+        The upper bounds of the hyperslab.
     weights : None, list of float, or npt.NDArray, optional
         The weights assigned to each constraint. If None, default weights are
     used.
     algorithmic_relaxation : npt.NDArray or float, optional
-        The relaxation parameter for the algorithm. Default is 1.
+        The relaxation parameter used by the algorithm, by default 1.0.
     relaxation : float, optional
-        The relaxation parameter for the algorithm. Default is 1.
+        Outer relaxation parameter, applied to the entire solution of the
+    iterate by default 1.0.
     weight_decay : float, optional
         Parameter that determines the rate at which the weights are reduced
     after each phase (weights * weight_decay). Default is 1.
@@ -181,9 +182,11 @@ class SequentialWeightedAMSHyperslab(SequentialAMSHyperslab):
             self.weights = xp.ones(self.A.shape[0])
         elif xp.abs((weights.sum() - 1)) > 1e-10:
             print("Weights do not add up to 1! Renormalizing to 1...")
+            self.weights = weights / weights.max()
+        else:
             self.weights = weights
 
-    def _project(self, x: npt.NDArray) -> npt.NDArray:
+    def _project(self, x: npt.NDArray) -> np.ndarray:
         """
         Projects the input array `x` onto a feasible region defined by the
         constraints.
@@ -230,24 +233,45 @@ class SequentialWeightedAMSHyperslab(SequentialAMSHyperslab):
         self.temp_weight_decay *= self.weight_decay
         return x
 
+    def _proximity(self, x: npt.NDArray, proximity_measures: List[str]) -> float:
+        p = self.map(x)
+        # residuals are positive if constraints are met
+        (res_l, res_u) = self.bounds.residual(p)
+        res_u[res_u > 0] = 0
+        res_l[res_l > 0] = 0
+        res = -res_u - res_l
+        measures = []
+        for measure in proximity_measures:
+            if isinstance(measure, tuple):
+                if measure[0] == "p_norm":
+                    measures.append((self.weights @ (res ** measure[1])) / (self.weights.sum()))
 
-class SimultaneousAMSHyperslab(HyperslabAMSAlgorithm):
+                else:
+                    raise ValueError("Invalid proximity measure")
+            elif isinstance(measure, str) and measure == "max_norm":
+                measures.append(res.max())
+            else:
+                raise ValueError("Invalid proximity measure)")
+        return measures
+
+
+class SimultaneousAMSHyperslab(HyperslabAlgorithm):
     """
     SimultaneousAMSHyperslab class for simultaneous application of the AMS
     algorithm on hyperslabs.
 
     Parameters
     ----------
-    A : npt.NDArray
-        The matrix representing the constraints.
+    A : npt.NDArray or sparse.sparray
+        Matrix for linear systems
     lb : npt.NDArray
-        The lower bounds for the constraints.
+        The lower bounds for the hyperslab.
     ub : npt.NDArray
-        The upper bounds for the constraints.
+        The upper bounds for the hyperslab.
     algorithmic_relaxation : npt.NDArray or float, optional
-        The relaxation parameter for the algorithm, by default 1.
+        The relaxation parameter used by the algorithm, by default 1.0.
     relaxation : float, optional
-        The relaxation parameter for the projections, by default 1.
+        Outer relaxation parameter, applied to the entire solution of the iterate by default 1.0.
     weights : None or List[float], optional
         The weights for the constraints, by default None.
     proximity_flag : bool, optional
@@ -311,56 +335,84 @@ class SimultaneousAMSHyperslab(HyperslabAMSAlgorithm):
         return measures
 
 
-class ExtrapolatedLandweber(SimultaneousAMSHyperslab):
+class SARTHyperslab(SimultaneousAMSHyperslab):
+    """
+    SART Hyperslab class for simultaneous application of the SART
+    algorithm on hyperslabs.
+
+    Parameters
+    ----------
+    A : npt.NDArray or sparse.sparray
+        Matrix for linear systems
+    lb : npt.NDArray
+        The lower bounds for the hyperslab.
+    ub : npt.NDArray
+        The upper bounds for the hyperslab.
+    algorithmic_relaxation : npt.NDArray or float, optional
+        The relaxation parameter used by the algorithm, by default 1.0.
+    relaxation : float, optional
+        Outer relaxation parameter, applied to the entire solution of the iterate by default 1.0.
+    weights : None or List[float], optional
+        The weights for the constraints, by default None.
+    proximity_flag : bool, optional
+        Flag to indicate if proximity calculations should be performed, by default True.
+    """
+
     def __init__(
-        self, A, lb, ub, algorithmic_relaxation=1, relaxation=1, weights=None, proximity_flag=True
+        self,
+        A: npt.NDArray,
+        lb: npt.NDArray,
+        ub: npt.NDArray,
+        algorithmic_relaxation: npt.NDArray | float = 1,
+        relaxation: float = 1,
+        weights: None | List[float] = None,
+        proximity_flag: bool = True,
     ):
+
         super().__init__(A, lb, ub, algorithmic_relaxation, relaxation, weights, proximity_flag)
-        self.a_i = self.A.row_norm(2, 2)
-        self.weight_norm = self.weights / self.a_i
-        self.sigmas = []
+        self.inverse_linear_row_norm = 1 / self.A.row_norm(1, 1)
+        self.inverse_linear_column_norm = 1 / self.A.column_norm(1, 1)
 
     def _project(self, x):
-        xp = cp if self._use_gpu else np
+        # SART projection
         p = self.map(x)
         (res_l, res_u) = self.bounds.residual(p)
         d_idx = res_u < 0
         c_idx = res_l < 0
-        if not (xp.any(d_idx) or xp.any(c_idx)):
-            self.sigmas.append(0)
-            return x
-        t_u = self.weight_norm[d_idx] * res_u[d_idx]  # D*(Ax-b)+
-        t_l = self.weight_norm[c_idx] * res_l[c_idx]
-        t_u_2 = t_u @ self.A[d_idx, :]
-        t_l_2 = t_l @ self.A[c_idx, :]
-
-        sig = ((res_l[c_idx] @ (t_l)) + (res_u[d_idx] @ (t_u))) / (
-            (t_u_2 - t_l_2) @ (t_u_2 - t_l_2)
+        x += (
+            self.algorithmic_relaxation
+            * self.inverse_linear_column_norm
+            * (
+                (self.weights * self.inverse_linear_row_norm)[d_idx]
+                * res_u[d_idx]
+                @ self.A[d_idx, :]
+                - (self.weights * self.inverse_linear_row_norm)[c_idx]
+                * res_l[c_idx]
+                @ self.A[c_idx, :]
+            )
         )
-        self.sigmas.append(sig)
-        x += sig * (t_u_2 - t_l_2)
 
         return x
 
 
-class BlockIterativeAMSHyperslab(HyperslabAMSAlgorithm):
+class BlockIterativeAMSHyperslab(HyperslabAlgorithm):
     """
     Block Iterative AMS Algorithm for hyperslabs.
 
     Parameters
     ----------
-    A : npt.NDArray
-        The matrix representing the linear constraints.
+    A : npt.NDArray or sparse.sparray
+        Matrix for linear systems
     lb : npt.NDArray
-        The lower bounds for the constraints.
+        The lower bounds for the hyperslab.
     ub : npt.NDArray
-        The upper bounds for the constraints.
+        The upper bounds for the hyperslab.
     weights : List[List[float]] or List[npt.NDArray]
         A list of lists or arrays representing the weights for each block. Each list/array should sum to 1.
     algorithmic_relaxation : npt.NDArray or float, optional
-        The relaxation parameter for the algorithm, by default 1.
+        The relaxation parameter used by the algorithm, by default 1.0.
     relaxation : float, optional
-        The relaxation parameter for the constraints, by default 1.
+        Outer relaxation parameter, applied to the entire solution of the iterate by default 1.0.
     proximity_flag : bool, optional
         A flag indicating whether to use proximity measures, by default True.
 
@@ -448,25 +500,25 @@ class BlockIterativeAMSHyperslab(HyperslabAMSAlgorithm):
         return measures
 
 
-class StringAveragedAMSHyperslab(HyperslabAMSAlgorithm):
+class StringAveragedAMSHyperslab(HyperslabAlgorithm):
     """
     StringAveragedAMSHyperslab is a string averaged implementation of the
     AMS algorithm.
 
     Parameters
     ----------
-    A : npt.NDArray
-        The matrix A used in the algorithm.
+    A : npt.NDArray or sparse.sparray
+        Matrix for linear systems
     lb : npt.NDArray
-        The lower bounds for the variables.
+        The lower bounds for the hyperslab.
     ub : npt.NDArray
-        The upper bounds for the variables.
+        The upper bounds for the hyperslab.
     strings : List[List[int]]
         A list of lists, where each inner list represents a string of indices.
     algorithmic_relaxation : npt.NDArray or float, optional
-        The relaxation parameter for the algorithm, by default 1.
+        The relaxation parameter used by the algorithm, by default 1.0.
     relaxation : float, optional
-        The relaxation parameter for the projection, by default 1.
+        Outer relaxation parameter, applied to the entire solution of the iterate by default 1.0.
     weights : None or List[float], optional
         The weights for each string, by default None. If None, equal weights are assigned.
     proximity_flag : bool, optional

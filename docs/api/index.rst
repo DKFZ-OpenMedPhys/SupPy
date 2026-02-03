@@ -16,8 +16,7 @@ The feasibility and projection module contains algorithms and components for sol
 It is divided into the following modules:
 
 .. toctree::
-   :maxdepth: 1
-   :caption: Modules:
+   :maxdepth: 2
 
    projections
    feasibility

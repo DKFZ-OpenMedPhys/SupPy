@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Callable
+from suppy.projections import Projection
 import numpy.typing as npt
 
 
@@ -19,7 +19,7 @@ class FeasibilityPerturbation(ABC):
         The underlying feasibility seeking algorithm.
     """
 
-    def __init__(self, basic: Callable):
+    def __init__(self, basic: Projection):
         self.basic = basic
 
     @abstractmethod

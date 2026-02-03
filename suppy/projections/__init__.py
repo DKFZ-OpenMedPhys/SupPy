@@ -1,4 +1,6 @@
 """Module for simple projection objects."""
+from ._projections import Projection
+
 from ._basic_projections import (
     BoxProjection,
     WeightedBoxProjection,
@@ -7,6 +9,7 @@ from ._basic_projections import (
     BallProjection,
     MinDVHProjection,
     MaxDVHProjection,
+    CustomProjection,
 )
 from ._projection_methods import (
     SequentialProjection,
@@ -18,6 +21,7 @@ from ._projection_methods import (
 from ._subgradient_projections import SubgradientProjection, EUDProjection
 
 __all__ = [
+    "Projection",
     "BoxProjection",
     "WeightedBoxProjection",
     "HalfspaceProjection",
@@ -31,4 +35,5 @@ __all__ = [
     "StringAveragedProjection",
     "SubgradientProjection",
     "EUDProjection",
+    "CustomProjection",
 ]

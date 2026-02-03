@@ -13,7 +13,7 @@ These cover the following problems:
 * Halfspace :math:`Ax \leq b`
 * Hyperslab/Bands :math:`lb \leq Ax \leq ub`
 
-For all three implementations the AMS algorithm/Kamzarz's method are available (sequentially and simultaenously).
+For all three implementations the AMS algorithm/Kaczmarz's method are available (sequentially and simultaenously).
 Furthermore the ART3+ (Algebraic reconstruction technique) and ARM (Automatic relaxation method) algorithms are available for the hyperslab/bands problems.
 Once a class is initialized a single step of the algorithm can be performed using the :meth:`project()` method, while a full run can be done using the :meth:`solve()` method.
 
@@ -66,7 +66,7 @@ Halfspace
 
 Hyperplane
 ==========
-* :class:`~suppy.feasibility._hyperplane._ams_algorithms.SequentialAMSHyperplane`
-* :class:`~suppy.feasibility._hyperplane._ams_algorithms.SimultaneousAMSHyperplane`
-* :class:`~suppy.feasibility._hyperplane._ams_algorithms.BlockIterativeAMSHyperplane`
-* :class:`~suppy.feasibility._hyperplane._arm_algorithms.StringAveragedAMSHyperplane`
+* :class:`~suppy.feasibility._hyperplane._kaczmarz_algorithms.KaczmarzMethod`
+* :class:`~suppy.feasibility._hyperplane._kaczmarz_algorithms.SimultaneousKaczmarzMethod`
+* :class:`~suppy.feasibility._hyperplane._kaczmarz_algorithms.BlockIterativeKaczmarz`
+* :class:`~suppy.feasibility._hyperplane._arm_algorithms.StringAveragedKaczmarz`

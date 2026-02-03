@@ -1,10 +1,12 @@
 """General class for easier matrix operations."""
 import numpy as np
 from scipy import sparse
+import warnings
 
 try:
     import cupy as cp
     import cupyx.scipy.sparse as csparse
+    import cupyx.scipy.sparse.linalg as clinalg
 
     NO_GPU = False
 
@@ -35,7 +37,15 @@ class LinearMapping:
             elif csparse.issparse(A):
                 self.flag = "cupy_sparse"
                 self.gpu = True  # set a flag for gpu
-                self.A = csparse.csr_matrix(A)  # transform to csr format
+
+                if isinstance(A, csparse.csr_matrix):
+                    self.A = A
+
+                else:
+                    warnings.warn(
+                        "Converting to csr matrix format. This creates a copy of your matrix!"
+                    )
+                    self.A = csparse.csr_matrix(A)  # transform to csr format
 
         # set a flag based on class
 
@@ -52,7 +62,12 @@ class LinearMapping:
 
         elif sparse.issparse(A):
             self.flag = "scipy_sparse"
-            self.A = sparse.csr_array(A)  # transform to csr format
+            if isinstance(A, sparse.csr_array):
+                self.A = A
+
+            else:
+                warnings.warn("Converting to csr array format. This creates a copy of your array!")
+                self.A = sparse.csr_array(A)  # transform to csr format
 
     @staticmethod
     def get_flags(A):
@@ -153,7 +168,7 @@ class LinearMapping:
             return cp.linalg.norm(self.A, ord=order) ** power
 
         if self.flag == "cupy_sparse":
-            return csparse.linalg.norm(self.A, ord=order) ** power
+            return clinalg.norm(self.A, ord=order) ** power
         raise ValueError("Unknown flag.")
 
     # def normalize_rows(self, order=None, power=1):
@@ -190,7 +205,7 @@ class LinearMapping:
             return cp.linalg.norm(self.A, axis=1, ord=order) ** power
 
         if self.flag == "cupy_sparse":
-            return csparse.linalg.norm(self.A, axis=1, ord=order) ** power
+            return clinalg.norm(self.A, axis=1, ord=order) ** power
 
         raise ValueError("Unknown flag.")
 

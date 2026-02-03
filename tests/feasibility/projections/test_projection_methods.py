@@ -178,3 +178,31 @@ def test_simultaneous_BlockIterativeProjection_project(
     x0, BlockIterProj = get_simultaneous_BlockIterativeProjection_input
     x = BlockIterProj.project(x0)
     assert np.array_equal(x, np.array([0, 1.5]))  # check projection
+
+
+def test_ProjectionMethod_solve(get_SequentialProjection_input):
+    """Test the solve function of the ProjectionMethod class."""
+    x0, seq_proj = get_SequentialProjection_input
+
+    assert np.array_equal(
+        np.array([1 / np.sqrt(2), 1 / np.sqrt(2)]), seq_proj.solve(x0.copy())
+    )  # check that x0 is not changed
+    assert np.array_equal(seq_proj.proximities, [[6 * (1 - 1 / np.sqrt(2))], [0]])
+
+    assert seq_proj.all_x is None
+
+    x0_2, seq_proj_2 = get_SequentialProjection_input
+
+    seq_proj_2.solve(x0_2.copy(), storage=True)
+    assert np.array_equal(seq_proj_2.proximities, [[6 * (1 - 1 / np.sqrt(2))], [0]])
+
+    assert np.array_equal(seq_proj_2.all_x, [x0_2, np.array([1 / np.sqrt(2), 1 / np.sqrt(2)])])
+
+
+# def test_ProjectionMethod_stopping_criterion(get_SequentialProjection_input):
+#     """Test the stopping_criterion function of the ProjectionMethod class."""
+#     x0, seq_proj = get_SequentialProjection_input
+
+#     assert not seq_proj._stopping_criterion()  # check that x0 is not changed
+#     x = seq_proj.project(x0)
+#     assert seq_proj._stopping_criterion(x)  # check that x is in the set

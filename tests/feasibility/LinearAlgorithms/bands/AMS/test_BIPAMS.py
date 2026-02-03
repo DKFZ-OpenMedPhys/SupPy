@@ -311,3 +311,123 @@ def test_BlockIterativeAMSHyperslab_simultaneous_step_sparse(
 
     x_n = alg.step(x_5)
     assert np.all(abs(x_n - 1 / 4 * np.array([6.5, -6.5])) < 1e-10)
+
+
+def test_BlockIterativeAMSHyperslab_proximity_full(
+    get_BlockIterativeAMSHyperslab_input_full_sequential,
+):
+    """
+    Test the proximity function of the BlockIterativeAMSHyperslab class
+    with
+    sequential weights and full matrix.
+    """
+    alg, _, _, _ = get_BlockIterativeAMSHyperslab_input_full_sequential
+
+    x_1 = np.array([1.2, 1.2])
+    x_2 = np.array([2.0, 2.0])
+    x_3 = np.array([-1.2, -1.2])
+    x_4 = np.array([-2.0, -2.0])
+    x_5 = np.array([2.0, -2.0])
+
+    prox_measures = []
+    no_prox = alg.proximity(x_1, prox_measures)
+    assert no_prox.size == 0
+
+    prox_measures = [("p_norm", 2), "max_norm"]
+    prox_1 = alg.proximity(x_1, prox_measures)
+    prox_2 = alg.proximity(x_2, prox_measures)
+    prox_3 = alg.proximity(x_3, prox_measures)
+    prox_4 = alg.proximity(x_4, prox_measures)
+    prox_5 = alg.proximity(x_5, prox_measures)
+
+    assert np.abs(prox_1[0] - 0.04) < 1e-10
+    assert np.abs(prox_1[1] - 0.4) < 1e-10
+
+    assert np.abs(prox_2[0] - 9 / 8) < 1e-10
+    assert np.abs(prox_2[1] - 2) < 1e-10
+
+    assert np.abs(prox_3[0] - 0.04) < 1e-10
+    assert np.abs(prox_3[1] - 0.4) < 1e-10
+
+    assert np.abs(prox_4[0] - 9 / 8) < 1e-10
+    assert np.abs(prox_4[1] - 2) < 1e-10
+
+    assert np.abs(prox_5[0] - 9 / 8) < 1e-10
+    assert np.abs(prox_5[1] - 2) < 1e-10
+
+
+def test_BlockIterativeAMSHyperslab_proximity_sparse(
+    get_BlockIterativeAMSHyperslab_input_sparse_sequential,
+):
+
+    alg, _, _, _ = get_BlockIterativeAMSHyperslab_input_sparse_sequential
+
+    x_1 = np.array([1.2, 1.2])
+    x_2 = np.array([2.0, 2.0])
+    x_3 = np.array([-1.2, -1.2])
+    x_4 = np.array([-2.0, -2.0])
+    x_5 = np.array([2.0, -2.0])
+
+    prox_measures = []
+    no_prox = alg.proximity(x_1, prox_measures)
+    assert no_prox.size == 0
+
+    prox_measures = [("p_norm", 2), "max_norm"]
+    prox_1 = alg.proximity(x_1, prox_measures)
+    prox_2 = alg.proximity(x_2, prox_measures)
+    prox_3 = alg.proximity(x_3, prox_measures)
+    prox_4 = alg.proximity(x_4, prox_measures)
+    prox_5 = alg.proximity(x_5, prox_measures)
+
+    assert np.abs(prox_1[0] - 0.04) < 1e-10
+    assert np.abs(prox_1[1] - 0.4) < 1e-10
+
+    assert np.abs(prox_2[0] - 9 / 8) < 1e-10
+    assert np.abs(prox_2[1] - 2) < 1e-10
+
+    assert np.abs(prox_3[0] - 0.04) < 1e-10
+    assert np.abs(prox_3[1] - 0.4) < 1e-10
+
+    assert np.abs(prox_4[0] - 9 / 8) < 1e-10
+    assert np.abs(prox_4[1] - 2) < 1e-10
+
+    assert np.abs(prox_5[0] - 9 / 8) < 1e-10
+    assert np.abs(prox_5[1] - 2) < 1e-10
+
+
+def test_BlockIterativeAMSHyperslab_proximity_simultaneous(
+    get_BlockIterativeAMSHyperslab_input_full_simultaneous,
+):
+    alg, _, _, _ = get_BlockIterativeAMSHyperslab_input_full_simultaneous
+
+    x_1 = np.array([1.2, 1.2])
+    x_2 = np.array([2.0, 2.0])
+    x_3 = np.array([-1.2, -1.2])
+    x_4 = np.array([-2.0, -2.0])
+    x_5 = np.array([2.0, -2.0])
+
+    prox_measures = []
+    no_prox = alg.proximity(x_1, prox_measures)
+    assert no_prox.size == 0
+
+    prox_measures = [("p_norm", 2), "max_norm"]
+    prox_1 = alg.proximity(x_1, prox_measures)
+    prox_2 = alg.proximity(x_2, prox_measures)
+    prox_3 = alg.proximity(x_3, prox_measures)
+    prox_4 = alg.proximity(x_4, prox_measures)
+    prox_5 = alg.proximity(x_5, prox_measures)
+
+    assert np.abs(prox_1[0] - 0.04) < 1e-10
+    assert np.abs(prox_1[1] - 0.4) < 1e-10
+
+    assert np.abs(prox_2[0] - 9 / 8) < 1e-10
+    assert np.abs(prox_2[1] - 2) < 1e-10
+
+    assert np.abs(prox_3[0] - 0.04) < 1e-10
+    assert np.abs(prox_3[1] - 0.4) < 1e-10
+
+    assert np.abs(prox_4[0] - 9 / 8) < 1e-10
+    assert np.abs(prox_4[1] - 2) < 1e-10
+
+    assert np.abs(prox_5[0] - 9 / 8) < 1e-10
+    assert np.abs(prox_5[1] - 2) < 1e-10

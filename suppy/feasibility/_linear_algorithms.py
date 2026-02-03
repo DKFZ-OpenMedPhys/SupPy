@@ -1,6 +1,6 @@
 """Base classes for linear feasibility problems."""
 from abc import ABC
-from typing import List
+from typing import List, Callable
 import numpy as np
 import numpy.typing as npt
 
@@ -26,9 +26,10 @@ class Feasibility(Projection, ABC):
     Parameters
     ----------
     algorithmic_relaxation : npt.NDArray or float, optional
-        The relaxation parameter for the algorithm, by default 1.0.
+        The relaxation parameter used by the algorithm, by default 1.0.
     relaxation : float, optional
-        The relaxation parameter for the projection, by default 1.0.
+        Outer relaxation parameter, applied to the entire solution of the
+    iterate by default 1.0.
     proximity_flag : bool, optional
         A flag indicating whether to use this object for proximity
     calculations, by default True.
@@ -36,9 +37,9 @@ class Feasibility(Projection, ABC):
     Attributes
     ----------
     algorithmic_relaxation : npt.NDArray or float, optional
-        The relaxation parameter for the algorithm, by default 1.0.
+        The relaxation parameter used by the algorithm, by default 1.0.
     relaxation : float, optional
-        The relaxation parameter for the projection, by default 1.0.
+        Outer relaxation parameter, applied to the entire solution of the iterate by default 1.0.
     proximity_flag : bool, optional
         Flag to indicate whether to calculate proximity, by default True.
     _use_gpu : bool, optional
@@ -56,31 +57,44 @@ class Feasibility(Projection, ABC):
         self.algorithmic_relaxation = algorithmic_relaxation
         self.all_x = None
         self.proximities = None
+        # self._n_tol = 0  # counter for stopping criterion
 
     @ensure_float_array
     def solve(
         self,
         x: npt.NDArray,
         max_iter: int = 500,
-        constr_tol: float = 1e-6,
+        prox_tol: float = 1e-6,
+        del_prox_tol: float = 1e-8,
+        del_prox_n: int = 5,
         storage: bool = False,
         proximity_measures: List | None = None,
-    ) -> npt.NDArray:
+        alternative_stopping_criterion: Callable | None = None,
+        alternative_stopping_criterion_initial_call: Callable | None = None,
+    ) -> np.ndarray:
         """
         Solves the optimization problem using an iterative approach.
 
         Parameters
         ----------
         x : npt.NDArray
-            Initial guess for the solution.
+            Starting point for the algorithm.
         max_iter : int, optional
-            Maximum number of iterations to perform.
-        storage : bool, optional
-            Flag indicating whether to store the intermediate solutions, by default False.
-        constr_tol : float, optional
-            The tolerance for the constraints, by default 1e-6.
+            Maximum number of iterations to perform, by default 500.
+        prox_tol : float, optional
+            The tolerance for the proximity on the constraints, by default 1e-6.
+        del_prox_tol : float, optional
+            The tolerance for the change in proximity over the last del_prox_n iterations, by default 1e-8.
+        del_prox_n : int, optional
+            The number of iterations that del_prox_tol needs to be met in a row, by default 5.
         proximity_measures : List, optional
-            The proximity measures to calculate, by default None. Right now only the first in the list is used to check the feasibility.
+            The proximity measures to calculate, by default a l2 norm measure is used. Right now only the first in the list is used to check the feasibility.
+        storage : bool, optional
+            Flag indicating whether to store intermediate solutions, by default False.
+        alternative_stopping_criterion : callable, optional
+            Alternative stopping criterion
+        alternative_stopping_criterion_initial_call : callable, optional
+            Initial call for an alternative stopping criterion
 
         Returns
         -------
@@ -88,34 +102,65 @@ class Feasibility(Projection, ABC):
             The solution after the iterative process.
         """
         xp = cp if isinstance(x, cp.ndarray) else np
+        self._n_tol = 0
+
         if proximity_measures is None:
             proximity_measures = [("p_norm", 2)]
         else:
             # TODO: Check if the proximity measures are valid
             _ = None
 
-        self.proximities = []
+        self.proximities = [self.proximity(x, proximity_measures)]
         i = 0
-        feasible = False
 
         if storage is True:
             self.all_x = []
-            self.all_x.append(x.copy())
+            if isinstance(x, np.ndarray):
+                self.all_x.append(np.array(x.copy()))
+            else:
+                self.all_x.append((x.get()))
 
-        while i < max_iter and not feasible:
+        if alternative_stopping_criterion_initial_call is not None:
+            stop = alternative_stopping_criterion_initial_call(x, self)
+        else:
+            stop = False  # criterion for stopping the algorithm
+
+        while i < max_iter and not stop:
             x = self.project(x)
             if storage is True:
-                self.all_x.append(x.copy())
+                if isinstance(x, np.ndarray):  # convert to np array if cp
+                    self.all_x.append(np.array(x.copy()))
+                else:
+
+                    self.all_x.append((x.get()))
             self.proximities.append(self.proximity(x, proximity_measures))
 
-            # TODO: If proximity changes x some potential issues!
-            if self.proximities[-1][0] < constr_tol:
+            if alternative_stopping_criterion is not None:
+                stop = alternative_stopping_criterion(x, self)
+            else:
+                stop = self._stopping_criterion(prox_tol, del_prox_tol, del_prox_n)
 
-                feasible = True
             i += 1
+
         if self.all_x is not None:
-            self.all_x = xp.array(self.all_x)
+            self.all_x = np.array(self.all_x)
+
+        self.proximities = xp.array(self.proximities)
+
         return x
+
+    def _stopping_criterion(self, prox_tol: float, del_prox_tol: float, del_prox_n: float):
+        """"""
+        if self.proximities[-1][0] < prox_tol:  # proximity below goal/tolerance
+            return True
+        else:  # check that last n proximity changes are below a threshold
+            if self.proximities[-2][0] - self.proximities[-1][0] < del_prox_tol:
+                self._n_tol += 1
+            else:
+                self._n_tol = 0
+            if self._n_tol >= del_prox_n:  # n proximity changes below threshold
+                return True
+        return False
 
 
 class LinearFeasibility(Feasibility, ABC):
@@ -125,24 +170,24 @@ class LinearFeasibility(Feasibility, ABC):
     Parameters
     ----------
     A : npt.NDArray or sparse.sparray
-        Matrix for linear inequalities
+        Matrix for linear systems
     algorithmic_relaxation : npt.NDArray or float, optional
-        The relaxation parameter for the algorithm, by default 1.0.
+        The relaxation parameter used by the algorithm, by default 1.0.
     relaxation : float, optional
-        The relaxation parameter, by default 1.0.
+        Outer relaxation parameter, applied to the entire solution of the iterate by default 1.0.
     proximity_flag : bool, optional
-        Flag indicating whether to use proximity, by default True.
+        Flag indicating whether to consider this object for proximity calculations. If False proximity calculations will always return 0, by default True.
 
     Attributes
     ----------
     A : LinearMapping
-        Matrix for linear system (stored in internal LinearMapping object).
+        Matrix for linear system, represented through internal object.
     algorithmic_relaxation : npt.NDArray or float, optional
-        The relaxation parameter for the algorithm, by default 1.0.
+        The relaxation parameter used by the algorithm, by default 1.0.
     relaxation : float, optional
-        The relaxation parameter for the projection, by default 1.0.
+        Outer relaxation parameter, applied to the entire solution of the iterate by default 1.0.
     proximity_flag : bool, optional
-        Flag to indicate whether to calculate proximity, by default True.
+        Flag indicating whether to consider this object for proximity calculations. If False proximity calculations will always return 0, by default True.
     _use_gpu : bool, optional
         Flag to indicate whether to use GPU for computations, by default False.
     """
@@ -159,7 +204,7 @@ class LinearFeasibility(Feasibility, ABC):
         self.A = LinearMapping(A)
         self.inverse_row_norm = 1 / self.A.row_norm(2, 2)
 
-    def map(self, x: npt.NDArray) -> npt.NDArray:
+    def map(self, x: npt.NDArray) -> np.ndarray:
         """
         Applies the linear mapping to the input array x.
 
@@ -175,7 +220,7 @@ class LinearFeasibility(Feasibility, ABC):
         """
         return self.A @ x
 
-    def single_map(self, x: npt.NDArray, i: int) -> npt.NDArray:
+    def single_map(self, x: npt.NDArray, i: int) -> np.ndarray:
         """
         Applies the linear mapping to the input array x at a specific index
         i.
@@ -194,11 +239,10 @@ class LinearFeasibility(Feasibility, ABC):
         """
         return self.A.single_map(x, i)
 
-    def indexed_map(self, x: npt.NDArray, idx: List[int] | npt.NDArray) -> npt.NDArray:
+    def indexed_map(self, x: npt.NDArray, idx: List[int] | npt.NDArray) -> np.ndarray:
         """
         Applies the linear mapping to the input array x at multiple
-        specified
-        indices.
+        specified indices.
 
         Parameters
         ----------
@@ -215,7 +259,7 @@ class LinearFeasibility(Feasibility, ABC):
         return self.A.index_map(x, idx)
 
     # @abstractmethodpass
-    # def project(self, x: npt.NDArray) -> npt.NDArray:
+    # def project(self, x: npt.NDArray) -> np.ndarray:
     #
 
 
@@ -226,13 +270,13 @@ class HyperplaneFeasibility(LinearFeasibility, ABC):
     Parameters
     ----------
     A : npt.NDArray or sparse.sparray
-        Matrix for linear inequalities
+        Matrix for linear systems
     b : npt.NDArray
-        Bound for linear inequalities
+        Bound for linear systems
     algorithmic_relaxation : npt.NDArray or float, optional
-        The relaxation parameter for the algorithm, by default 1.0.
+        The relaxation parameter used by the algorithm, by default 1.0.
     relaxation : float, optional
-        The relaxation parameter, by default 1.0.
+        Outer relaxation parameter, applied to the entire solution of the iterate by default 1.0.
     proximity_flag : bool, optional
         Flag indicating whether to use proximity, by default True.
 
@@ -241,11 +285,11 @@ class HyperplaneFeasibility(LinearFeasibility, ABC):
     A : LinearMapping
         Matrix for linear system (stored in internal LinearMapping object).
     b : npt.NDArray
-        Bound for linear inequalities
+        Bound for linear systems
     algorithmic_relaxation : npt.NDArray or float, optional
-        The relaxation parameter for the algorithm, by default 1.0.
+        The relaxation parameter used by the algorithm, by default 1.0.
     relaxation : float, optional
-        The relaxation parameter for the projection, by default 1.0.
+        Outer relaxation parameter, applied to the entire solution of the iterate by default 1.0.
     proximity_flag : bool, optional
         Flag to indicate whether to calculate proximity, by default True.
     _use_gpu : bool, optional
@@ -298,13 +342,13 @@ class HalfspaceFeasibility(LinearFeasibility, ABC):
     Parameters
     ----------
     A : npt.NDArray or sparse.sparray
-        Matrix for linear inequalities
+        Matrix for linear systems
     b : npt.NDArray
-        Bound for linear inequalities
+        Bound for linear systems
     algorithmic_relaxation : npt.NDArray or float, optional
-        The relaxation parameter for the algorithm, by default 1.0.
+        The relaxation parameter used by the algorithm, by default 1.0.
     relaxation : float, optional
-        The relaxation parameter, by default 1.0.
+        Outer relaxation parameter, applied to the entire solution of the iterate by default 1.0.
     proximity_flag : bool, optional
         Flag indicating whether to use proximity, by default True.
 
@@ -313,11 +357,11 @@ class HalfspaceFeasibility(LinearFeasibility, ABC):
     A : LinearMapping
         Matrix for linear system (stored in internal LinearMapping object).
     b : npt.NDArray
-        Bound for linear inequalities
+        Bound for linear systems
     algorithmic_relaxation : npt.NDArray or float, optional
-        The relaxation parameter for the algorithm, by default 1.0.
+        The relaxation parameter used by the algorithm, by default 1.0.
     relaxation : float, optional
-        The relaxation parameter for the projection, by default 1.0.
+        Outer relaxation parameter, applied to the entire solution of the iterate by default 1.0.
     proximity_flag : bool, optional
         Flag to indicate whether to calculate proximity, by default True.
     _use_gpu : bool, optional
@@ -373,16 +417,16 @@ class HyperslabFeasibility(LinearFeasibility, ABC):
 
     Parameters
     ----------
-    A : npt.NDArray
-        The matrix representing the linear system.
+    A : npt.NDArray or sparse.sparray
+        Matrix for linear systems
     lb : npt.NDArray
         The lower bounds for the hyperslab.
     ub : npt.NDArray
         The upper bounds for the hyperslab.
     algorithmic_relaxation : npt.NDArray or float, optional
-        The relaxation parameter for the algorithm, by default 1.0.
-    relaxation : int, optional
-        The relaxation parameter, by default 1.
+        The relaxation parameter used by the algorithm, by default 1.0.
+    relaxation : float, optional
+        Outer relaxation parameter, applied to the entire solution of the iterate by default 1.0.
     proximity_flag : bool, optional
         A flag indicating whether to use proximity, by default True.
 
@@ -393,9 +437,9 @@ class HyperslabFeasibility(LinearFeasibility, ABC):
     A : LinearMapping
         Matrix for linear system (stored in internal LinearMapping object).
     algorithmic_relaxation : npt.NDArray or float, optional
-        The relaxation parameter for the algorithm, by default 1.0.
+        The relaxation parameter used by the algorithm, by default 1.0.
     relaxation : float, optional
-        The relaxation parameter for the projection, by default 1.0.
+        Outer relaxation parameter, applied to the entire solution of the iterate by default 1.0.
     proximity_flag : bool, optional
         Flag to indicate whether to calculate proximity, by default True.
     _use_gpu : bool, optional

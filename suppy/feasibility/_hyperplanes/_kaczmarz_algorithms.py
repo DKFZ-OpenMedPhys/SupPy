@@ -16,22 +16,22 @@ from suppy.feasibility._linear_algorithms import HyperplaneFeasibility
 from suppy.utils import LinearMapping
 
 
-class HyperplaneAMSAlgorithm(HyperplaneFeasibility, ABC):
+class HyperplaneAlgorithm(HyperplaneFeasibility, ABC):
     """
-    The HyperplaneAMSAlgorithm class is used to find a feasible solution to
+    The HyperplaneAlgorithm class is used to find a feasible solution to
     a
     set of linear inequalities.
 
     Parameters
     ----------
-    A : npt.NDArray
-        The matrix representing the coefficients of the linear inequalities.
+    A : npt.NDArray or sparse.sparray
+        Matrix for linear systems
     b : npt.NDArray
-        Bound for linear inequalities
+        Bound for linear systems
     algorithmic_relaxation : npt.NDArray or float, optional
-        The relaxation parameter for the algorithm, by default 1.
+        The relaxation parameter used by the algorithm, by default 1.0.
     relaxation : float, optional
-        The relaxation parameter for the feasibility problem, by default 1.
+        Outer relaxation parameter, applied to the entire solution of the iterate by default 1.0.
     proximity_flag : bool, optional
         A flag indicating whether to use proximity in the algorithm, by default True.
     """
@@ -47,20 +47,20 @@ class HyperplaneAMSAlgorithm(HyperplaneFeasibility, ABC):
         super().__init__(A, b, algorithmic_relaxation, relaxation, proximity_flag)
 
 
-class SequentialAMSHyperplane(HyperplaneAMSAlgorithm):
+class KaczmarzMethod(HyperplaneAlgorithm):
     """
     SequentialAMS class for sequentially applying the AMS algorithm.
 
     Parameters
     ----------
-    A : npt.NDArray
-        The matrix A used in the AMS algorithm.
+    A : npt.NDArray or sparse.sparray
+        Matrix for linear systems
     b : npt.NDArray
-        Bound for linear inequalities
+        Bound for linear systems
     algorithmic_relaxation : npt.NDArray or float, optional
-        The relaxation parameter for the algorithm, by default 1.
+        The relaxation parameter used by the algorithm, by default 1.0.
     relaxation : float, optional
-        The relaxation parameter, by default 1.
+        Outer relaxation parameter, applied to the entire solution of the iterate by default 1.0.
     cs : None or List[int], optional
         The list of indices for the constraints, by default None.
     proximity_flag : bool, optional
@@ -87,7 +87,7 @@ class SequentialAMSHyperplane(HyperplaneAMSAlgorithm):
         else:
             self.cs = cs
 
-    def _project(self, x: npt.NDArray) -> npt.NDArray:
+    def _project(self, x: npt.NDArray) -> np.ndarray:
         """
         Projects the input array `x` onto the feasible region defined by the
         constraints.
@@ -110,21 +110,22 @@ class SequentialAMSHyperplane(HyperplaneAMSAlgorithm):
         return x
 
 
-class SequentialWeightedAMSHyperplane(SequentialAMSHyperplane):
+class SequentialWeightedKaczmarz(KaczmarzMethod):
     """
     Parameters
     ----------
-    A : npt.NDArray
-        The constraint matrix.
+    A : npt.NDArray or sparse.sparray
+        Matrix for linear systems
     b : npt.NDArray
-        Bound for linear inequalities
+        Bound for linear systems
     weights : None, list of float, or npt.NDArray, optional
         The weights assigned to each constraint. If None, default weights are
     used.
     algorithmic_relaxation : npt.NDArray or float, optional
-        The relaxation parameter for the algorithm. Default is 1.
+        The relaxation parameter used by the algorithm, by default 1.0.
     relaxation : float, optional
-        The relaxation parameter for the algorithm. Default is 1.
+        Outer relaxation parameter, applied to the entire solution of the
+    iterate by default 1.0.
     weight_decay : float, optional
         Parameter that determines the rate at which the weights are reduced
     after each phase (weights * weight_decay). Default is 1.
@@ -166,7 +167,7 @@ class SequentialWeightedAMSHyperplane(SequentialAMSHyperplane):
             print("Weights do not add up to 1! Renormalizing to 1...")
             self.weights = weights
 
-    def _project(self, x: npt.NDArray) -> npt.NDArray:
+    def _project(self, x: npt.NDArray) -> np.ndarray:
         """
         Projects the input array `x` onto a feasible region defined by the
         constraints.
@@ -203,22 +204,22 @@ class SequentialWeightedAMSHyperplane(SequentialAMSHyperplane):
         return x
 
 
-class SimultaneousAMSHyperplane(HyperplaneAMSAlgorithm):
+class SimultaneousKaczmarzMethod(HyperplaneAlgorithm):
     """
-    SimultaneousAMS is an implementation of the AMS (Alternating
-    Minimization Scheme) algorithm
+    SimultaneousKaczmarzMethod is an implementation of the Kaczmarz
+    algorithm
     that performs simultaneous projections and proximity calculations.
 
     Parameters
     ----------
-    A : npt.NDArray
-        The matrix representing the constraints.
+    A : npt.NDArray or sparse.sparray
+        Matrix for linear systems
     b : npt.NDArray
-        Bound for linear inequalities
+        Bound for linear systems
     algorithmic_relaxation : npt.NDArray or float, optional
-        The relaxation parameter for the algorithm, by default 1.
+        The relaxation parameter used by the algorithm, by default 1.0.
     relaxation : float, optional
-        The relaxation parameter for the projections, by default 1.
+        Outer relaxation parameter, applied to the entire solution of the iterate by default 1.0.
     weights : None or List[float], optional
         The weights for the constraints, by default None.
     proximity_flag : bool, optional
@@ -272,32 +273,7 @@ class SimultaneousAMSHyperplane(HyperplaneAMSAlgorithm):
         return measures
 
 
-class ExtrapolatedLandweberHyperplane(SimultaneousAMSHyperplane):
-    def __init__(
-        self, A, b, algorithmic_relaxation=1, relaxation=1, weights=None, proximity_flag=True
-    ):
-        super().__init__(A, b, algorithmic_relaxation, relaxation, weights, proximity_flag)
-        self.a_i = self.A.row_norm(2, 2)
-        self.weight_norm = self.weights / self.a_i
-        self.sigmas = []
-
-    def _project(self, x):
-        p = self.map(x)
-        res = self.b - p
-        res_idx = res != 0
-        if not (np.any(res_idx)):
-            self.sigmas.append(0)
-            return x
-        t = self.weight_norm * res
-        t_2 = t @ self.A
-        sig = (res @ t) / (t_2 @ t_2)
-        self.sigmas.append(sig)
-        x += sig * t_2
-
-        return x
-
-
-class BlockIterativeAMSHyperplane(HyperplaneAMSAlgorithm):
+class BlockIterativeKaczmarz(HyperplaneAlgorithm):
     """
     Block Iterative AMS Algorithm.
     This class implements a block iterative version of the AMS (Alternating
@@ -306,16 +282,16 @@ class BlockIterativeAMSHyperplane(HyperplaneAMSAlgorithm):
 
     Parameters
     ----------
-    A : npt.NDArray
-        The matrix representing the linear constraints.
+    A : npt.NDArray or sparse.sparray
+        Matrix for linear systems
     b : npt.NDArray
-        Bound for linear inequalities
+        Bound for linear systems
     weights : List[List[float]] or List[npt.NDArray]
         A list of lists or arrays representing the weights for each block. Each list/array should sum to 1.
     algorithmic_relaxation : npt.NDArray or float, optional
-        The relaxation parameter for the algorithm, by default 1.
+        The relaxation parameter used by the algorithm, by default 1.0.
     relaxation : float, optional
-        The relaxation parameter for the constraints, by default 1.
+        Outer relaxation parameter, applied to the entire solution of the iterate by default 1.0.
     proximity_flag : bool, optional
         A flag indicating whether to use proximity measures, by default True.
 
@@ -386,26 +362,26 @@ class BlockIterativeAMSHyperplane(HyperplaneAMSAlgorithm):
         return measures
 
 
-class StringAveragedAMSHyperplane(HyperplaneAMSAlgorithm):
+class StringAveragedKaczmarz(HyperplaneAlgorithm):
 
     """
-    StringAveragedAMS is an implementation of the HyperplaneAMSAlgorithm
+    StringAveragedAMS is an implementation of the HyperplaneAlgorithm
     that
     performs
     string averaged projections.
 
     Parameters
     ----------
-    A : npt.NDArray
-        The matrix A used in the algorithm.
+    A : npt.NDArray or sparse.sparray
+        Matrix for linear systems
     b : npt.NDArray
-        Bound for linear inequalities
+        Bound for linear systems
     strings : List[List[int]]
         A list of lists, where each inner list represents a string of indices.
     algorithmic_relaxation : npt.NDArray or float, optional
-        The relaxation parameter for the algorithm, by default 1.
+        The relaxation parameter used by the algorithm, by default 1.0.
     relaxation : float, optional
-        The relaxation parameter for the projection, by default 1.
+        Outer relaxation parameter, applied to the entire solution of the iterate by default 1.0.
     weights : None or List[float], optional
         The weights for each string, by default None. If None, equal weights are assigned.
     proximity_flag : bool, optional

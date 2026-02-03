@@ -20,3 +20,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - General code cleanup
 
 ### Removed
+
+
+## [0.3.0] - 2026-02-03
+
+- Added various new algorithms for feasibility seeking
+- Aded option for custom projection algorithms
+- Added perturbation strategies with adaptive step sizes
+- Added option for custom stopping criteria
+- Removed old superiorization module
+- Proper volume based projections
+- Better documentation

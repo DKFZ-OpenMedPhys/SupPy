@@ -214,6 +214,10 @@ class AdaptiveStepGradientPerturbation(GradientPerturbation):
         Default value to update func_level by.
     noisy : bool, optional
         Changes the behavior of the update step.
+
+    References
+    ----------
+    - [1] https://doi.org/10.1007/s11075-021-01229-z
     """
 
     def __init__(

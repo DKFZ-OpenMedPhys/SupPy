@@ -34,6 +34,10 @@ class DROPHyperplane(SimultaneousKaczmarzMethod):
         Outer relaxation parameter, applied to the entire solution of the iterate by default 1.0.
     proximity_flag : bool, optional
         Flag to indicate if proximity calculations should be performed, by default True.
+
+    References
+    ----------
+    - [1] https://epubs.siam.org/doi/10.1137/050639399
     """
 
     def __init__(self, A, b, algorithmic_relaxation=1, relaxation=1, proximity_flag=True):

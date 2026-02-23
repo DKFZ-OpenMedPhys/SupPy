@@ -32,6 +32,11 @@ class ExtrapolatedLandweberHalfspace(SimultaneousAMSHalfspace):
         The relaxation parameter for the constraints, by default 1.
     proximity_flag : bool, optional
         A flag indicating whether to use proximity measures, by default True.
+
+    References
+    ----------
+    - [1] https://doi.org/10.1007/s11075-025-02163-0
+    - [2] https://doi.org/10.1007/978-3-642-30901-4
     """
 
     def __init__(self, A, b, relaxation=1, weights=None, proximity_flag=True):
@@ -73,6 +78,10 @@ class AdaptiveStepLandweberHalfspace(SimultaneousAMSHalfspace):
         The relaxation parameter for the constraints, by default 1.
     proximity_flag : bool, optional
         A flag indicating whether to use proximity measures, by default True.
+
+    References
+    ----------
+    - [1] https://doi.org/10.1515/jiip-2015-0082
     """
 
     def __init__(self, A, b, relaxation=1, weights=None, proximity_flag=True):

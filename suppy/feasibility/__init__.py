@@ -6,12 +6,14 @@ from ._bands._ams_algorithms import (
     SimultaneousAMSHyperslab,
     StringAveragedAMSHyperslab,
     BlockIterativeAMSHyperslab,
+    SARTHyperslab,
 )
 
 
 from ._bands._ams_extrapolations import (
     ExtrapolatedLandweberHyperslab,
     AdaptiveStepLandweberHyperslab,
+    BlockIterativeExtrapolatedLandweberHyperslab,
 )
 from ._bands._arm_algorithms import SequentialARM, SimultaneousARM, StringAveragedARM
 from ._bands._art3_algorithms import SequentialART3plus
@@ -38,6 +40,8 @@ from ._hyperplanes._kaczmarz_algorithms import (
     BlockIterativeKaczmarz,
 )
 
+from ._hyperplanes._variants import DROPHyperplane
+
 from ._hyperplanes._kaczmarz_extrapolations import (
     ExtrapolatedLandweberHyperplane,
     AdaptiveStepLandweberHyperplane,
@@ -53,6 +57,7 @@ __all__ = [
     "BlockIterativeAMSHyperslab",
     "ExtrapolatedLandweberHyperslab",
     "AdaptiveStepLandweberHyperslab",
+    "BlockIterativeExtrapolatedLandweberHyperslab",
     "SequentialAMSHalfspace",
     "SequentialWeightedAMSHalfspace",
     "SimultaneousAMSHalfspace",
@@ -72,4 +77,6 @@ __all__ = [
     "StringAveragedARM",
     "SequentialART3plus",
     "CQAlgorithm",
+    "DROPHyperplane",
+    "SARTHyperslab",
 ]

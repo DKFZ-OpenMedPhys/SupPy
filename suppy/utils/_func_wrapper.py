@@ -42,9 +42,16 @@ class FuncWrapper:
     def __call__(self, x):
         xp = cp if isinstance(x, cp.ndarray) else np
         self.fcount += 1
-        if self._intermediate_x is not None and xp.array_equal(x, self._intermediate_x):
+        if (
+            self._intermediate_x is not None
+            and x is not None
+            and xp.array_equal(x, self._intermediate_x)
+        ):
             return self._intermediate_value
         else:
-            self._intermediate_x = x.copy()
+            if x is None:  # should mainly happen when evaluating perturbation scheme for
+                self._intermediate_x = None
+            else:
+                self._intermediate_x = x.copy()
             self._intermediate_value = self.func(x, *self.args)
             return self._intermediate_value

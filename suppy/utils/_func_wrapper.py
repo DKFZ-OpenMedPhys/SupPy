@@ -1,4 +1,13 @@
 from typing import Callable
+import numpy as np
+
+try:
+    import cupy as cp
+
+    NO_GPU = False
+except ImportError:
+    cp = np
+    NO_GPU = True
 
 
 class FuncWrapper:
@@ -27,7 +36,15 @@ class FuncWrapper:
         self.func = func
         self.args = args
         self.fcount = 0
+        self._intermediate_x = None
+        self._intermediate_value = 0.0
 
     def __call__(self, x):
+        xp = cp if isinstance(x, cp.ndarray) else np
         self.fcount += 1
-        return self.func(x, *self.args)
+        if self._intermediate_x is not None and xp.array_equal(x, self._intermediate_x):
+            return self._intermediate_value
+        else:
+            self._intermediate_x = x.copy()
+            self._intermediate_value = self.func(x, *self.args)
+            return self._intermediate_value

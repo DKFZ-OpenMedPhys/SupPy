@@ -1,7 +1,7 @@
-from abc import ABC
 from typing import List
 import numpy as np
 import numpy.typing as npt
+from scipy import sparse
 
 try:
     import cupy as cp
@@ -26,10 +26,10 @@ class ExtrapolatedLandweberHalfspace(SimultaneousAMSHalfspace):
         Matrix for linear systems
     b : npt.NDArray
         Bound for linear systems
-    weights : List[List[float]] or List[npt.NDArray]
-        A list of lists or arrays representing the weights for each block. Each list/array should sum to 1.
+    weights : None or List[float], optional
+        The weights for the constraints, by default None.
     relaxation : float, optional
-        The relaxation parameter for the constraints, by default 1.
+        The outer relaxation parameter, by default 1.0.
     proximity_flag : bool, optional
         A flag indicating whether to use proximity measures, by default True.
 
@@ -39,17 +39,25 @@ class ExtrapolatedLandweberHalfspace(SimultaneousAMSHalfspace):
     - [2] https://doi.org/10.1007/978-3-642-30901-4
     """
 
-    def __init__(self, A, b, relaxation=1, weights=None, proximity_flag=True):
-        super().__init__(A, b, 1, relaxation, weights, proximity_flag)
+    def __init__(
+        self,
+        A: npt.NDArray | sparse.sparray,
+        b: npt.NDArray,
+        relaxation: float = 1.0,
+        weights: None | List[float] | npt.NDArray = None,
+        proximity_flag: bool = True,
+    ):
+        super().__init__(A, b, 1.0, relaxation, weights, proximity_flag)
         self.a_i = self.A.row_norm(2, 2)
         self.weight_norm = self.weights / self.a_i
         self.sigmas = []
 
-    def _project(self, x):
+    def _project(self, x: npt.NDArray) -> np.ndarray:
+        xp = cp if self._use_gpu else np
         p = self.map(x)
         res = self.b - p
         res_idx = res < 0
-        if not (np.any(res_idx)):
+        if not xp.any(res_idx):
             self.sigmas.append(0)
             return x
         t = self.weight_norm[res_idx] * res[res_idx]
@@ -63,8 +71,9 @@ class ExtrapolatedLandweberHalfspace(SimultaneousAMSHalfspace):
 
 class AdaptiveStepLandweberHalfspace(SimultaneousAMSHalfspace):
     """
-    Extrapolated Landweber algorithm for solving linear inequalities of the
-    form Ax <= b.
+    Adaptive step-size Landweber algorithm for solving linear inequalities
+    of
+    the form Ax <= b.
 
     Parameters
     ----------
@@ -72,10 +81,10 @@ class AdaptiveStepLandweberHalfspace(SimultaneousAMSHalfspace):
         Matrix for linear systems
     b : npt.NDArray
         Bound for linear systems
-    weights : List[List[float]] or List[npt.NDArray]
-        A list of lists or arrays representing the weights for each block. Each list/array should sum to 1.
+    weights : None or List[float], optional
+        The weights for the constraints, by default None.
     relaxation : float, optional
-        The relaxation parameter for the constraints, by default 1.
+        The outer relaxation parameter, by default 1.0.
     proximity_flag : bool, optional
         A flag indicating whether to use proximity measures, by default True.
 
@@ -84,17 +93,23 @@ class AdaptiveStepLandweberHalfspace(SimultaneousAMSHalfspace):
     - [1] https://doi.org/10.1515/jiip-2015-0082
     """
 
-    def __init__(self, A, b, relaxation=1, weights=None, proximity_flag=True):
-        super().__init__(A, b, 1, relaxation, weights, proximity_flag)
+    def __init__(
+        self,
+        A: npt.NDArray | sparse.sparray,
+        b: npt.NDArray,
+        relaxation: float = 1.0,
+        weights: None | List[float] | npt.NDArray = None,
+        proximity_flag: bool = True,
+    ):
+        super().__init__(A, b, 1.0, relaxation, weights, proximity_flag)
 
-    def _project(self, x):
+    def _project(self, x: npt.NDArray) -> np.ndarray:
         xp = cp if self._use_gpu else np
         p = self.map(x)
         res = self.b - p
         res_idx = res < 0
 
-        if not (np.any(res_idx)):
-            # self.sigmas.append(0)
+        if not xp.any(res_idx):
             return x
 
         u_t = (self.weights[res_idx] * res[res_idx]) @ self.A[res_idx, :]

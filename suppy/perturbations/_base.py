@@ -61,10 +61,10 @@ class ObjectivePerturbation(Perturbation, ABC):
         Keeps track of the number of performed perturbations.
     """
 
-    def __init__(self, func: Callable, func_args: List, n_red=1):
+    def __init__(self, func: Callable, func_args: List, n_red: int = 1):
         self.func = FuncWrapper(func, func_args)
         self.n_red = n_red
-        self._k = 0  # keeps track of the number of performed perturbations
+        self._k = 0
 
     def perturbation_step(self, x: npt.NDArray) -> np.ndarray:
         """
@@ -80,7 +80,6 @@ class ObjectivePerturbation(Perturbation, ABC):
         npt.NDArray
             The perturbed array after applying the reduction steps.
         """
-
         self._k += 1
         n = 0
         while n < self.n_red:
@@ -106,10 +105,10 @@ class ObjectivePerturbation(Perturbation, ABC):
             The array after the reduction step has been applied.
         """
 
-    def pre_step(self, x: npt.NDArray, *args, **kwargs):
+    def pre_step(self, x: npt.NDArray, *args, **kwargs) -> None:
         """
         If required perform any form of step previous to each
-        perturbation(?) in each iteration.
+        perturbation in each iteration.
 
         This method is intended to be overridden by subclasses to implement
         specific pre-step logic. By default, it does nothing.
@@ -120,7 +119,7 @@ class ObjectivePerturbation(Perturbation, ABC):
             Current iterate.
         """
 
-    def post_step(self, x: npt.NDArray, *args, **kwargs):
+    def post_step(self, x: npt.NDArray, *args, **kwargs) -> None:
         """
         If required perform any form of step after each perturbation in each
         iteration.
@@ -134,7 +133,7 @@ class ObjectivePerturbation(Perturbation, ABC):
             Current iterate.
         """
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset the perturbation to its initial state."""
         self._k = 0
 
@@ -187,7 +186,14 @@ class GradientPerturbation(ObjectivePerturbation, ABC):
         Keeps track of the number of performed perturbations.
     """
 
-    def __init__(self, func: Callable, grad: Callable, func_args: List, grad_args: List, n_red=1):
+    def __init__(
+        self,
+        func: Callable,
+        grad: Callable,
+        func_args: List,
+        grad_args: List,
+        n_red: int = 1,
+    ):
         super().__init__(func, func_args, n_red)
         self.grad = FuncWrapper(grad, grad_args)
 
@@ -195,9 +201,10 @@ class GradientPerturbation(ObjectivePerturbation, ABC):
 class AdaptiveStepGradientPerturbation(GradientPerturbation):
     """
     Objective function perturbation using gradient descent with adaptive
-    step size
-    reduction.
+    step size reduction.
 
+    Parameters
+    ----------
     func : Callable
         The function to be reduced.
     grad : Callable
@@ -209,7 +216,7 @@ class AdaptiveStepGradientPerturbation(GradientPerturbation):
     func_level : float, optional
         Value above which to perform a gradient step using a subgradient projection like step.
     max_func_level : float, optional
-        Upper bound for the func_level, once reached the update step is skipped, by default np.inf.
+        Upper bound for the func_level; once reached the update step is skipped, by default np.inf.
     epsilon : float, optional
         Default value to update func_level by.
     noisy : bool, optional
@@ -224,18 +231,23 @@ class AdaptiveStepGradientPerturbation(GradientPerturbation):
         self,
         func: Callable,
         grad: Callable,
-        func_args: List = [],
-        grad_args: List = [],
+        func_args: List | None = None,
+        grad_args: List | None = None,
         func_level: float = 0.5,
         max_func_level: float = np.inf,
         epsilon: float = 1e-6,
         noisy: bool = False,
     ):
+        if func_args is None:
+            func_args = []
+        if grad_args is None:
+            grad_args = []
         super().__init__(func, grad, func_args, grad_args, n_red=1)
         self.func_level = func_level
+        self.max_func_level = max_func_level
         self.epsilon = epsilon
         self.update_direction = -1 if noisy else 1
-        self.func_levels = [func_level]  # Store the history of func_levels
+        self.func_levels = [func_level]
 
     def _function_reduction_step(self, x: npt.NDArray) -> np.ndarray:
         """
@@ -252,22 +264,18 @@ class AdaptiveStepGradientPerturbation(GradientPerturbation):
         npt.NDArray
             The updated point after performing the reduction step.
         """
-        xp = cp if isinstance(x, cp.ndarray) else np
         grad_eval = self.grad(x)
         func_eval = self.func(x)
         if grad_eval @ grad_eval <= 0 or func_eval <= self.func_level:
             # if gradient is zero (or negative) or the function value is below alpha, skip
             return x
-        else:
-            return x - (func_eval - self.func_level) / (grad_eval @ grad_eval) * grad_eval
+        return x - (func_eval - self.func_level) / (grad_eval @ grad_eval) * grad_eval
 
-    def post_step(self, x, *args, **kwargs):
+    def post_step(self, x: npt.NDArray, *args, **kwargs) -> None:
         """Update func_level after each step."""
-
         last_proximity_function_reduction = kwargs.get("last_proximity_function_reduction")[0]
         last_proximity_basic = kwargs.get("last_proximity_basic")[0]
-        print(last_proximity_basic, last_proximity_function_reduction)
-        # calculate desirability number (only in case the problem was infeasible before and is still infeasible)
+
         if last_proximity_basic < 1e-10 or last_proximity_function_reduction < 1e-10:
             desirability = 0
         else:
@@ -278,10 +286,9 @@ class AdaptiveStepGradientPerturbation(GradientPerturbation):
         self.func_level = self.func_level + max(
             self.epsilon, self.update_direction * self.func_level * desirability
         )
-        self.func_levels.append(self.func_level)  # Store the updated func_level
-        print(f"Updated func_level: {self.func_level}, epsilon: {self.epsilon}")
+        self.func_levels.append(self.func_level)
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset the perturbation to its initial state."""
         super().reset()
         self._l = -1
@@ -294,6 +301,8 @@ class PowerSeriesGradientPerturbation(GradientPerturbation):
     Has the option to restart the power series after a certain number of
     steps.
 
+    Parameters
+    ----------
     func : Callable
         The function to be reduced.
     grad : Callable
@@ -310,25 +319,32 @@ class PowerSeriesGradientPerturbation(GradientPerturbation):
         Scaling factor for the step size power series, by default 1.0.
     n_restart : int, optional
         The number of steps after which to restart the power series, by default -1 (no restart).
-    disable_gradient_scaling: bool, optional
+    disable_gradient_scaling : bool, optional
         If true, skip the normalization of the gradient, by default False.
-    iterative_scaling: bool, optional
-        If true, the power series is scaled by the iteration k without checking whether this actually decreas, by default False.
+    iterative_scaling : bool, optional
+        If true, the power series is scaled by the iteration k without checking whether this actually decreases the objective, by default False.
+    bypass_objective_decrease : bool, optional
+        If true, the check whether the objective function value actually decreases is bypassed, by default False.
     """
 
     def __init__(
         self,
         func: Callable,
         grad: Callable,
-        func_args: List = [],
-        grad_args: List = [],
+        func_args: List | None = None,
+        grad_args: List | None = None,
         n_red: int = 1,
         step_size: float = 0.5,
         step_size_modifier: float = 1.0,
         n_restart: int = -1,
         disable_gradient_scaling: bool = False,
         iterative_scaling: bool = False,
+        bypass_objective_decrease: bool = False,
     ):
+        if func_args is None:
+            func_args = []
+        if grad_args is None:
+            grad_args = []
         super().__init__(func, grad, func_args, grad_args, n_red)
         self.step_size = step_size
         self.step_size_modifier = step_size_modifier
@@ -336,6 +352,7 @@ class PowerSeriesGradientPerturbation(GradientPerturbation):
         self.n_restart = np.inf if n_restart == -1 else n_restart
         self.disable_gradient_scaling = disable_gradient_scaling
         self.iterative_scaling = iterative_scaling
+        self.bypass_objective_decrease = bypass_objective_decrease
 
     def _function_reduction_step(self, x: npt.NDArray) -> np.ndarray:
         """
@@ -354,31 +371,26 @@ class PowerSeriesGradientPerturbation(GradientPerturbation):
         xp = cp if isinstance(x, cp.ndarray) else np
         grad_eval = self.grad(x)
         func_eval = self.func(x)
-        loop = True
 
         if grad_eval @ grad_eval <= 0:
-            # if the gradient is zero or negative, we cannot perform a step
             return x
-        elif self.disable_gradient_scaling:  # or (grad_eval@grad_eval < 1):
-            grad_norm = 1
-        else:
-            grad_norm = xp.linalg.norm(grad_eval)
+
+        grad_norm = 1 if self.disable_gradient_scaling else xp.linalg.norm(grad_eval)
+
         if not self.iterative_scaling:
-            while loop:
+            while True:
                 self._l += 1
                 x_ln = (
                     x - self.step_size_modifier * self.step_size**self._l * grad_eval / grad_norm
                 )
-                y_ln = self.func(x_ln)
-                if y_ln <= func_eval:
+                if self.bypass_objective_decrease or self.func(x_ln) <= func_eval:
                     return x_ln
         else:
-            x_ln = (
+            return (
                 x - self.step_size_modifier * self.step_size ** (self._k) * grad_eval / grad_norm
             )
-        return x_ln
 
-    def pre_step(self, x: npt.NDArray, *args, **kwargs):
+    def pre_step(self, x: npt.NDArray, *args, **kwargs) -> None:
         """
         Resets the power series after n steps.
 
@@ -386,18 +398,13 @@ class PowerSeriesGradientPerturbation(GradientPerturbation):
         ----------
         x : npt.NDArray
             Current iterate.
-
-        Returns
-        -------
-        None
         """
         if self._k <= 0:
             return
-        # possibly restart the power series
         if self._k % self.n_restart == 0:
             self._l = self._k // self.n_restart
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset the perturbation to its initial state."""
         super().reset()
         self._l = -1

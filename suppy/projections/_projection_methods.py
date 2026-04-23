@@ -28,7 +28,7 @@ class ProjectionMethod(Projection, ABC):
     ----------
     projections : List[Projection]
         A list of Projection objects to be used in the projection method.
-    relaxation : int, optional
+    relaxation : float, optional
         A relaxation parameter for the projection method (default is 1).
     proximity_flag : bool
         Flag to indicate whether to take this object into account when calculating proximity, by default True.
@@ -47,11 +47,9 @@ class ProjectionMethod(Projection, ABC):
         Flag to indicate whether to take this object into account when calculating proximity.
     """
 
-    def __init__(self, projections: List[Projection], relaxation=1, proximity_flag=True):
-        # if all([proj._use_gpu == projections[0]._use_gpu for proj in projections]):
-        #    self._use_gpu = projections[0]._use_gpu
-        # else:
-        #    raise ValueError("Projections do not have the same gpu flag!")
+    def __init__(
+        self, projections: List[Projection], relaxation: float = 1, proximity_flag: bool = True
+    ):
         super().__init__(relaxation, proximity_flag)
         self.projections = projections
         self.all_x = None
@@ -161,16 +159,16 @@ class ProjectionMethod(Projection, ABC):
         self.proximities = xp.array(self.proximities)
         return x
 
-    def _stopping_criterion(self, prox_tol: float, del_prox_tol: float, del_prox_n: float):
-        """"""
-        if self.proximities[-1][0] < prox_tol:  # proximity below goal/tolerance
+    def _stopping_criterion(self, prox_tol: float, del_prox_tol: float, del_prox_n: int) -> bool:
+        """Returns True when convergence is detected, False otherwise."""
+        if self.proximities[-1][0] < prox_tol:
             return True
         else:  # check that last n proximity changes are below a threshold
             if self.proximities[-2][0] - self.proximities[-1][0] < del_prox_tol:
                 self._n_tol += 1
             else:
                 self._n_tol = 0
-            if self._n_tol >= del_prox_n:  # n proximity changes below threshold
+            if self._n_tol >= del_prox_n:
                 return True
         return False
 
@@ -228,10 +226,8 @@ class SequentialProjection(ProjectionMethod):
         projections: List[Projection],
         relaxation: float = 1,
         control_seq: None | npt.NDArray | List[int] = None,
-        proximity_flag=True,
+        proximity_flag: bool = True,
     ):
-
-        # TODO: optional: assign order in which projections are applied
         super().__init__(projections, relaxation, proximity_flag)
         if control_seq is None:
             self.control_seq = np.arange(len(projections))
@@ -299,15 +295,14 @@ class SimultaneousProjection(ProjectionMethod):
         projections: List[Projection],
         weights: npt.NDArray | None = None,
         relaxation: float = 1,
-        proximity_flag=True,
+        proximity_flag: bool = True,
     ):
-
         super().__init__(projections, relaxation, proximity_flag)
         if weights is None:
             weights = np.ones(len(projections)) / len(projections)
         self.weights = weights / weights.sum()
 
-    def _project(self, x: float) -> float:
+    def _project(self, x: npt.NDArray) -> np.ndarray:
         """
         Simultaneously projects the input array `x`.
 
@@ -390,12 +385,11 @@ class StringAveragedProjection(ProjectionMethod):
         strings: List[List],
         weights: npt.NDArray | None = None,
         relaxation: float = 1,
-        proximity_flag=True,
+        proximity_flag: bool = True,
     ):
-
         super().__init__(projections, relaxation, proximity_flag)
         if weights is None:
-            weights = np.ones(len(strings)) / len(strings)  # assign uniform weights
+            self.weights = np.ones(len(strings)) / len(strings)
         else:
             self.weights = weights / weights.sum()
         self.strings = strings
@@ -464,9 +458,8 @@ class BlockIterativeProjection(ProjectionMethod):
         projections: List[Projection],
         weights: List[List[float]] | List[npt.NDArray],
         relaxation: float = 1,
-        proximity_flag=True,
+        proximity_flag: bool = True,
     ):
-
         super().__init__(projections, relaxation, proximity_flag)
         xp = cp if self._use_gpu else np
         # check if weights has the correct format
@@ -492,12 +485,9 @@ class BlockIterativeProjection(ProjectionMethod):
     def _project(self, x: npt.NDArray) -> np.ndarray:
         # TODO: Can this be parallelized?
         for weight, block_idx in zip(self.weights, self.block_idxs):
-            x_new = 0  # for simultaneous projection, later replaces x
-
-            i = 0
-            for el in block_idx:
+            x_new = 0
+            for i, el in enumerate(block_idx):
                 x_new += weight[i] * self.projections[el].project(x.copy())
-                i += 1
             x = x_new
         return x
 
@@ -549,21 +539,13 @@ class MultiBallProjection(BasicProjection, ABC):
 class SequentialMultiBallProjection(MultiBallProjection):
     """Sequential projection onto multiple balls."""
 
-    # def __init__(self,
-    #             centers: npt.NDArray,
-    #             radii: npt.NDArray,
-    #             relaxation:float = 1,
-    #             idx: npt.NDArray | None = None):
-
-    #     super().__init__(centers, radii, relaxation,idx)
-
     def _project(self, x: npt.NDArray) -> np.ndarray:
-
+        xp = cp if self._use_gpu else np
         for i in range(len(self.centers)):
-            if np.linalg.norm(x[self.idx] - self.centers[i]) > self.radii[i]:
-                x[self.idx] = self.centers[i] + self.radii[i] * (
-                    x[self.idx] - self.centers[i]
-                ) / np.linalg.norm(x[self.idx] - self.centers[i])
+            diff = x[self.idx] - self.centers[i]
+            dist = xp.linalg.norm(diff)
+            if dist > self.radii[i]:
+                x[self.idx] = self.centers[i] + self.radii[i] * diff / dist
         return x
 
 
@@ -584,10 +566,9 @@ class SimultaneousMultiBallProjection(MultiBallProjection):
         self.weights = weights
 
     def _project(self, x: npt.NDArray) -> np.ndarray:
-        # get all indices
-        dists = np.linalg.norm(x[self.idx] - self.centers, axis=1)
+        xp = cp if self._use_gpu else np
+        dists = xp.linalg.norm(x[self.idx] - self.centers, axis=1)
         idx = (dists - self.radii) > 0
-        # project onto halfspaces
         x[self.idx] = x[self.idx] - (self.weights[idx] * (1 - self.radii[idx] / dists[idx])) @ (
             x[self.idx] - self.centers[idx]
         )

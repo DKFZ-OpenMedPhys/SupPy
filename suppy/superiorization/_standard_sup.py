@@ -3,7 +3,6 @@ from typing import List, Callable
 import numpy as np
 import time
 import numpy.typing as npt
-from suppy.perturbations._base import PowerSeriesGradientPerturbation
 from suppy.utils import ensure_float_array
 from suppy.perturbations import Perturbation
 from ._sup import FeasibilityPerturbation
@@ -93,7 +92,7 @@ class Superiorization(FeasibilityPerturbation):
         del_objective_tol: float = 1e-6,
         del_objective_n: int = 5,
         proximity_measures: List | None = None,
-        storage=False,
+        storage: bool = False,
         alternative_stopping_criterion: Callable | None = None,
         alternative_stopping_criterion_initial_call: Callable | None = None,
     ) -> np.ndarray:
@@ -139,12 +138,8 @@ class Superiorization(FeasibilityPerturbation):
 
         self.perturbation_scheme.reset()  # reset the perturbation scheme
 
-        self._n_tol_objective = (
-            0  # number of iterations with objective function changes below threshold
-        )
-        self._n_tol_prox = 0  # number of iterations with proximity changes below threshold
-
-        self.l = []
+        self._n_tol_objective = 0
+        self._n_tol_prox = 0
 
         x = x_0
 
@@ -182,10 +177,10 @@ class Superiorization(FeasibilityPerturbation):
             x = self.perturbation_scheme.perturbation_step(x)
             self.storage(
                 x,
-                "function_reduction",
-                storage,
-                self.perturbation_scheme.func(x),
-                self.basic.proximity(x, proximity_measures),
+                kind="function_reduction",
+                storage=storage,
+                f=self.perturbation_scheme.func(x),
+                p=self.basic.proximity(x, proximity_measures),
             )
 
             self.perturbation_scheme.post_step(
@@ -204,15 +199,13 @@ class Superiorization(FeasibilityPerturbation):
 
             self.storage(
                 x,
-                "basic",
-                storage,
-                self.perturbation_scheme.func(x),
-                self.basic.proximity(x, proximity_measures),
+                kind="basic",
+                storage=storage,
+                f=self.perturbation_scheme.func(x),
+                p=self.basic.proximity(x, proximity_measures),
             )
 
             self._k += 1
-
-            # self.l.append(self.perturbation_scheme._l)
 
             # enable different stopping criteria for different superiorization algorithms
             if alternative_stopping_criterion is not None:
@@ -356,7 +349,12 @@ class Superiorization(FeasibilityPerturbation):
             self.all_x_function_reduction.append(x.get())
 
     def storage(
-        self, x: npt.NDArray, type: str, storage: bool = True, f: float = None, p: float = None
+        self,
+        x: npt.NDArray,
+        kind: str,
+        storage: bool = True,
+        f: float | None = None,
+        p: list | None = None,
     ):
         """
         Stores the given values of x and f into the corresponding lists.
@@ -365,7 +363,7 @@ class Superiorization(FeasibilityPerturbation):
         ----------
         x : npt.NDArray
             The current value of the variable x to be stored.
-        type : str
+        kind : str
             The type of storage to be used, either "function_reduction" or "basic".
         storage : bool, optional
             If True, store the values of x
@@ -379,7 +377,7 @@ class Superiorization(FeasibilityPerturbation):
         elif storage:
             self.all_x.append((x.get()))
 
-        if type == "function_reduction":
+        if kind == "function_reduction":
             self.all_function_values_function_reduction.append(f)
             self.proximities_function_reduction.append(p)
 
@@ -388,7 +386,7 @@ class Superiorization(FeasibilityPerturbation):
             elif storage:
                 self.all_x_function_reduction.append((x.get()))
 
-        elif type == "basic":
+        elif kind == "basic":
             self.all_function_values_basic.append(f)
             self.proximities_basic.append(p)
 
@@ -399,54 +397,6 @@ class Superiorization(FeasibilityPerturbation):
 
         else:
             raise ValueError("Invalid storage type. Use 'function_reduction' or 'basic'.")
-
-    # def _storage_function_reduction(self, x: npt.NDArray, f: float, p: float):
-    #     """
-    #     Stores the given values of x and f into the corresponding lists.
-
-    #     Parameters
-    #     ----------
-    #     x : npt.NDArray
-    #         The current value of the variable x to be stored.
-    #     f : float
-    #         The current value of the function f to be stored.
-    #     p : float
-    #         The current value of the proximity function p to be stored.
-
-    #     Notes
-    #     -----
-    #     This method appends the given values of x and f to the lists
-    #     `all_x`, `all_function_values`, `all_x_function_reduction`,
-    #     and `all_function_values_function_reduction`.
-    #     """
-    #     self.all_x_function_reduction.append(x.copy())
-    #     self.all_function_values_function_reduction.append(f)
-    #     self.proximities_function_reduction.append(p)
-
-    # def _storage_basic_step(self, x: npt.NDArray, f: float, p: float):
-    #     """
-    #     Stores the current values of x and f in the respective lists.
-
-    #     Parameters
-    #     ----------
-    #     x : array-like
-    #         The current value of the variable x.
-    #     f : float
-    #         The current value of the function f.
-    #     p : float
-    #         The current value of the proximity function p.
-
-    #     Notes
-    #     -----
-    #     This method appends the current values of x and f to both the basic and
-    #     general lists of x values and function values.
-    #     """
-    #     self.all_x_basic.append(x.copy())
-    #     self.all_function_values_basic.append(f)
-    #     self.all_x.append(x.copy())
-    #     self.all_function_values.append(f)
-    #     self.proximities_basic.append(p)
-    #     self.proximities.append(p)
 
     def _post_step(self, x: npt.NDArray):
         """
@@ -476,8 +426,7 @@ class Superiorization(FeasibilityPerturbation):
             self.proximities_function_reduction = np.array(self.proximities_function_reduction)
             self.proximities_basic = np.array(self.proximities_basic)
         else:
-            # If using cupy, convert all arrays to cupy arrays
-            # convert all to numpy arrays
+            self.all_function_values = np.array([el.get() for el in self.all_function_values])
             self.all_function_values_function_reduction = np.array(
                 [el.get() for el in self.all_function_values_function_reduction]
             )
@@ -489,17 +438,3 @@ class Superiorization(FeasibilityPerturbation):
                 [el.get() for el in self.proximities_function_reduction]
             )
             self.proximities_basic = np.array([el.get() for el in self.proximities_basic])
-
-        # xp = cp if isinstance(x, cp.ndarray) else np
-        # self.all_function_values = xp.array(self.all_function_values)
-        # self.all_x_function_reduction = xp.array(self.all_x_function_reduction)
-        # self.all_function_values_function_reduction = xp.array(
-        #     self.all_function_values_function_reduction
-        # )
-        # self.all_x_basic = xp.array(self.all_x_basic)
-        # self.all_function_values_basic = xp.array(self.all_function_values_basic)
-        # self.proximities = xp.array(self.proximities)
-        # self.proximities_function_reduction = xp.array(
-        #     self.proximities_function_reduction
-        # )
-        # self.proximities_basic = xp.array(self.proximities_basic)

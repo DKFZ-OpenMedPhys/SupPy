@@ -1,4 +1,5 @@
 """Algorithms for split feasibility problem."""
+import warnings
 from abc import ABC, abstractmethod
 from typing import List, Callable
 import numpy as np
@@ -17,7 +18,6 @@ from suppy.utils import LinearMapping
 from suppy.utils import ensure_float_array
 from suppy.projections._projections import Projection
 
-# from ._algorithms import Feasibility
 from suppy.feasibility._linear_algorithms import Feasibility
 
 
@@ -53,9 +53,7 @@ class SplitFeasibility(Feasibility, ABC):
         A: npt.NDArray | sparse.sparray,
         algorithmic_relaxation: npt.NDArray | float = 1.0,
         proximity_flag: bool = True,
-        _use_gpu: bool = False,
     ):
-
         _, _use_gpu = LinearMapping.get_flags(A)
         super().__init__(algorithmic_relaxation, 1, proximity_flag, _use_gpu=_use_gpu)
         self.A = LinearMapping(A)
@@ -96,6 +94,10 @@ class SplitFeasibility(Feasibility, ABC):
         proximity_measures : List, optional
             The proximity measures to calculate, by default None.
             Right now only the first in the list is used to check the feasibility.
+        alternative_stopping_criterion : callable, optional
+            Alternative stopping criterion.
+        alternative_stopping_criterion_initial_call : callable, optional
+            Initial call for an alternative stopping criterion.
 
         Returns
         -------
@@ -124,7 +126,7 @@ class SplitFeasibility(Feasibility, ABC):
         if alternative_stopping_criterion_initial_call is not None:
             stop = alternative_stopping_criterion_initial_call(x, self)
         else:
-            stop = False  # criterion for stopping the algorithm
+            stop = False
 
         while i < max_iter and not stop:
             x, _ = self.step(x)
@@ -135,7 +137,6 @@ class SplitFeasibility(Feasibility, ABC):
                     self.all_x.append((x.get()))
             self.proximities.append(self.proximity(x, proximity_measures))
 
-            # TODO: If proximity changes x some potential issues!
             if alternative_stopping_criterion is not None:
                 stop = alternative_stopping_criterion(x, self)
             else:
@@ -150,20 +151,20 @@ class SplitFeasibility(Feasibility, ABC):
 
         return x
 
-    def _stopping_criterion(self, prox_tol: float, del_prox_tol: float, del_prox_n: float):
-        """"""
-        if self.proximities[-1][0] < prox_tol:  # proximity below goal/tolerance
+    def _stopping_criterion(self, prox_tol: float, del_prox_tol: float, del_prox_n: int) -> bool:
+        """Returns True when convergence is detected, False otherwise."""
+        if self.proximities[-1][0] < prox_tol:
             return True
         else:  # check that last n proximity changes are below a threshold
             if self.proximities[-2][0] - self.proximities[-1][0] < del_prox_tol:
                 self._n_tol += 1
             else:
                 self._n_tol = 0
-            if self._n_tol >= del_prox_n:  # n proximity changes below threshold
+            if self._n_tol >= del_prox_n:
                 return True
         return False
 
-    def project(self, x: npt.NDArray, y: npt.NDArray | None = None) -> np.ndarray:
+    def project(self, x: npt.NDArray, y: npt.NDArray | None = None) -> tuple:
         """
         Projects the input array onto the feasible set.
 
@@ -176,17 +177,16 @@ class SplitFeasibility(Feasibility, ABC):
 
         Returns
         -------
-        npt.NDArray
-            The projected array.
+        tuple
+            A (x, y) pair of projected arrays; y may be None.
         """
-
         return self._project(x, y)
 
-    def step(self, x: npt.NDArray, y: npt.NDArray | None = None) -> np.ndarray:
+    def step(self, x: npt.NDArray, y: npt.NDArray | None = None) -> tuple:
         return self.project(x, y)
 
     @abstractmethod
-    def _project(self, x: npt.NDArray, y: npt.NDArray | None = None) -> np.ndarray:
+    def _project(self, x: npt.NDArray, y: npt.NDArray | None = None) -> tuple:
         pass
 
     def map(self, x: npt.NDArray) -> np.ndarray:
@@ -197,14 +197,13 @@ class SplitFeasibility(Feasibility, ABC):
         Parameters
         ----------
         x : npt.NDArray
-            The input space array to be map.
+            The input space array to be mapped.
 
         Returns
         -------
         npt.NDArray
             The corresponding target space array.
         """
-
         return self.A @ x
 
     def map_back(self, y: npt.NDArray) -> np.ndarray:
@@ -221,7 +220,6 @@ class SplitFeasibility(Feasibility, ABC):
         npt.NDArray
             The corresponding array in input space.
         """
-
         return self.A.T @ y
 
 
@@ -241,8 +239,6 @@ class CQAlgorithm(SplitFeasibility):
         The relaxation parameter used by the algorithm, by default 1.0.
     proximity_flag : bool, optional
         A flag indicating whether to use this object for proximity calculations, by default True.
-    use_gpu : bool, optional
-        A flag indicating whether to use GPU for computations, by default False.
 
     Attributes
     ----------
@@ -265,16 +261,14 @@ class CQAlgorithm(SplitFeasibility):
         A: npt.NDArray | sparse.sparray,
         C_projection: Projection,
         Q_projection: Projection,
-        algorithmic_relaxation: float = 1,
-        proximity_flag=True,
-        use_gpu=False,
+        algorithmic_relaxation: float = 1.0,
+        proximity_flag: bool = True,
     ):
-
-        super().__init__(A, algorithmic_relaxation, proximity_flag, use_gpu)
+        super().__init__(A, algorithmic_relaxation, proximity_flag)
         self.c_projection = C_projection
         self.q_projection = Q_projection
 
-    def _project(self, x: npt.NDArray, y: npt.NDArray | None = None) -> np.ndarray:
+    def _project(self, x: npt.NDArray, y: npt.NDArray | None = None) -> tuple:
         """
         Perform one step of the CQ algorithm.
 
@@ -289,7 +283,8 @@ class CQAlgorithm(SplitFeasibility):
 
         Returns
         -------
-        npt.NDArray
+        tuple
+            A (x, None) pair with the updated input-space point.
         """
         if y is None:
             y = self.map(x)
@@ -299,97 +294,27 @@ class CQAlgorithm(SplitFeasibility):
 
         return self.c_projection.project(x), None
 
-    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> float:
-        # p = self.map(x)
+    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> list[float]:
         return [
             self.c_projection.proximity(x, proximity_measures),
             self.q_projection.proximity(self.map(x), proximity_measures),
         ]
-        # return self.q_projection.proximity(p, proximity_measures)
-        # TODO: correct?
 
-    def _stopping_criterion(self, prox_tol: float, del_prox_tol: float, del_prox_n: float):
-
-        if self.proximities[-1][1][0] < prox_tol:  # proximity below goal/tolerance
+    def _stopping_criterion(self, prox_tol: float, del_prox_tol: float, del_prox_n: int) -> bool:
+        """Returns True when convergence is detected, False otherwise."""
+        if self.proximities[-1][1][0] < prox_tol:
             return True
         else:  # check that last n proximity changes of are below a threshold
             if self.proximities[-2][1][0] - self.proximities[-1][1][0] < del_prox_tol:
                 self._n_tol += 1
             else:
                 self._n_tol = 0
-            if self._n_tol >= del_prox_n:  # n proximity changes below threshold
+            if self._n_tol >= del_prox_n:
                 return True
         return False
 
 
-# class LinearExtrapolatedLandweber(SplitFeasibility):
-#     """
-#     Implementation for a linear extrapolated Landweber algorithm to solve split feasibility problems.
-
-#     Parameters
-#     ----------
-#     A : npt.NDArray
-#         Matrix connecting input and target space.
-#     lb: npt.NDArray
-#         Lower bounds for the target space.
-#     ub: npt.NDArray
-#         Upper bounds for the target space.
-#     algorithmic_relaxation : npt.NDArray or float, optional
-#         Relaxation applied to the entire solution of the projection step, by default 1.
-#     proximity_flag : bool, optional
-#         A flag indicating whether to use this object for proximity calculations, by default True.
-#     """
-
-#     def __init__(
-#         self,
-#         A: npt.NDArray | sparse.sparray,
-#         lb: npt.NDArray,
-#         ub: npt.NDArray,
-#         algorithmic_relaxation: npt.NDArray | float = 1,
-#         proximity_flag=True,
-#     ):
-
-#         super().__init__(A, algorithmic_relaxation, proximity_flag)
-#         self.bounds = Bounds(lb, ub)
-
-#     def _project(self, x: npt.NDArray, y: npt.NDArray | None = None) -> np.ndarray:
-#         """
-#         Perform one step of the linear extrapolated Landweber algorithm.
-
-#         Parameters
-#         ----------
-#         x : npt.NDArray
-#             The point in the input space to be projected.
-#         Returns
-#         -------
-#         npt.NDArray
-#         """
-#         p = self.map(x)
-#         (res_u, res_l) = self.bounds.residual(p)
-
-#         x -= self.algorithmic_relaxation *
-
-
-#     def _proximity(self, x: npt.NDArray) -> float:
-#         """
-#         Calculate the proximity of a point to the set Q.
-
-#         Parameters
-#         ----------
-#         x : npt.NDArray
-#             The point in the input space.
-
-#         Returns
-#         -------
-#         float
-#             The proximity measure.
-#         """
-#         p = self.map(x)
-#         return self.q_projection.proximity(p)
-
-
 class ProductSpaceAlgorithm(SplitFeasibility):
-
     """
     Implementation for a product space algorithm to solve split feasibility
     problems.
@@ -398,14 +323,23 @@ class ProductSpaceAlgorithm(SplitFeasibility):
     ----------
     A : npt.NDArray
         Matrix connecting input and target space.
-    C_projection : Projection
-        The projection operator onto the set C.
-    Q_projection : Projection
-        The projection operator onto the set Q.
+    C_projections : List[Projection]
+        The projection operators onto the sets C.
+    Q_projections : List[Projection]
+        The projection operators onto the sets Q.
     algorithmic_relaxation : npt.NDArray or float, optional
         The relaxation parameter used by the algorithm, by default 1.0.
     proximity_flag : bool, optional
         A flag indicating whether to use this object for proximity calculations, by default True.
+
+    Attributes
+    ----------
+    Pv : npt.NDArray
+        Projection matrix onto the constraint manifold.
+    xs : list
+        Input-space iterates accumulated during solve.
+    ys : list
+        Target-space iterates accumulated during solve.
     """
 
     def __init__(
@@ -413,10 +347,9 @@ class ProductSpaceAlgorithm(SplitFeasibility):
         A: npt.NDArray | sparse.sparray,
         C_projections: List[Projection],
         Q_projections: List[Projection],
-        algorithmic_relaxation: npt.NDArray | float = 1,
-        proximity_flag=True,
+        algorithmic_relaxation: npt.NDArray | float = 1.0,
+        proximity_flag: bool = True,
     ):
-
         super().__init__(A, algorithmic_relaxation, proximity_flag)
         self.c_projections = C_projections
         self.q_projections = Q_projections
@@ -425,13 +358,15 @@ class ProductSpaceAlgorithm(SplitFeasibility):
         Z = np.concatenate([A, -1 * np.eye(A.shape[0])], axis=1)
         self.Pv = np.eye(Z.shape[1]) - LinearMapping(Z.T @ (np.linalg.inv(Z @ Z.T)) @ Z)
 
-        print(
-            "Warning! This algorithm is only suitable for small scale problems. Use the CQAlgorithm for larger problems."
+        warnings.warn(
+            "ProductSpaceAlgorithm is only suitable for small scale problems. "
+            "Use CQAlgorithm for larger problems.",
+            stacklevel=2,
         )
         self.xs = []
         self.ys = []
 
-    def _project(self, x: npt.NDArray, y: npt.NDArray | None = None) -> np.ndarray:
+    def _project(self, x: npt.NDArray, y: npt.NDArray | None = None) -> tuple:
         """
         Perform one step of the product space algorithm.
 
@@ -445,7 +380,8 @@ class ProductSpaceAlgorithm(SplitFeasibility):
 
         Returns
         -------
-        npt.NDArray
+        tuple
+            A (x, None) pair with the updated input-space point.
         """
         if y is None:
             y = self.map(x)
@@ -456,7 +392,7 @@ class ProductSpaceAlgorithm(SplitFeasibility):
         xy = self.Pv @ np.concatenate([x, y])
         self.xs.append(xy[: len(x)].copy())
         self.ys.append(xy[len(x) :].copy())
-        return xy[: len(x)]  # ,xy[len(x):]
+        return xy[: len(x)], None
 
-    def _proximity(self, x):
+    def _proximity(self, x: npt.NDArray, _proximity_measures: List) -> list[float]:
         raise NotImplementedError("Proximity not implemented for ProductSpaceAlgorithm.")

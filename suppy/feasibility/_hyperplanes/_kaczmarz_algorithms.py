@@ -1,3 +1,4 @@
+import warnings
 from abc import ABC
 from typing import List
 import numpy as np
@@ -13,14 +14,12 @@ except ImportError:
     cp = np
 
 from suppy.feasibility._linear_algorithms import HyperplaneFeasibility
-from suppy.utils import LinearMapping
 
 
 class HyperplaneAlgorithm(HyperplaneFeasibility, ABC):
     """
     The HyperplaneAlgorithm class is used to find a feasible solution to
-    a
-    set of linear inequalities.
+    a set of linear equalities.
 
     Parameters
     ----------
@@ -40,8 +39,8 @@ class HyperplaneAlgorithm(HyperplaneFeasibility, ABC):
         self,
         A: npt.NDArray,
         b: npt.NDArray,
-        algorithmic_relaxation: npt.NDArray | float = 1,
-        relaxation: float = 1,
+        algorithmic_relaxation: npt.NDArray | float = 1.0,
+        relaxation: float = 1.0,
         proximity_flag: bool = True,
     ):
         super().__init__(A, b, algorithmic_relaxation, relaxation, proximity_flag)
@@ -49,7 +48,7 @@ class HyperplaneAlgorithm(HyperplaneFeasibility, ABC):
 
 class KaczmarzMethod(HyperplaneAlgorithm):
     """
-    SequentialAMS class for sequentially applying the AMS algorithm.
+    Kaczmarz method for sequentially solving linear equality constraints.
 
     Parameters
     ----------
@@ -65,21 +64,17 @@ class KaczmarzMethod(HyperplaneAlgorithm):
         The list of indices for the constraints, by default None.
     proximity_flag : bool, optional
         Flag to indicate if proximity should be considered, by default True.
-
-    Attributes
-    ----------
     """
 
     def __init__(
         self,
         A: npt.NDArray,
         b: npt.NDArray,
-        algorithmic_relaxation: npt.NDArray | float = 1,
-        relaxation: float = 1,
+        algorithmic_relaxation: npt.NDArray | float = 1.0,
+        relaxation: float = 1.0,
         cs: None | List[int] = None,
         proximity_flag: bool = True,
     ):
-
         super().__init__(A, b, algorithmic_relaxation, relaxation, proximity_flag)
         xp = cp if self._use_gpu else np
         if cs is None:
@@ -102,7 +97,6 @@ class KaczmarzMethod(HyperplaneAlgorithm):
         npt.NDArray
             The projected array.
         """
-
         for i in self.cs:
             p_i = self.single_map(x, i)
             res = self.b[i] - p_i
@@ -128,7 +122,7 @@ class SequentialWeightedKaczmarz(KaczmarzMethod):
     iterate by default 1.0.
     weight_decay : float, optional
         Parameter that determines the rate at which the weights are reduced
-    after each phase (weights * weight_decay). Default is 1.
+        after each phase (weights * weight_decay). Default is 1.0.
     cs : None or list of int, optional
         The indices of the constraints to be considered. Default is None.
     proximity_flag : bool, optional
@@ -149,22 +143,23 @@ class SequentialWeightedKaczmarz(KaczmarzMethod):
         A: npt.NDArray,
         b: npt.NDArray,
         weights: None | List[float] | npt.NDArray = None,
-        algorithmic_relaxation: npt.NDArray | float = 1,
-        relaxation: float = 1,
-        weight_decay: float = 1,
+        algorithmic_relaxation: npt.NDArray | float = 1.0,
+        relaxation: float = 1.0,
+        weight_decay: float = 1.0,
         cs: None | List[int] = None,
         proximity_flag: bool = True,
     ):
-
         super().__init__(A, b, algorithmic_relaxation, relaxation, cs, proximity_flag)
         xp = cp if self._use_gpu else np
-        self.weight_decay = weight_decay  # decay rate
-        self.temp_weight_decay = 1  # initial value for weight decay
+        self.weight_decay = weight_decay
+        self.temp_weight_decay = 1.0
 
         if weights is None:
             self.weights = xp.ones(self.A.shape[0])
         elif xp.abs((weights.sum() - 1)) > 1e-10:
-            print("Weights do not add up to 1! Renormalizing to 1...")
+            warnings.warn("Weights do not add up to 1! Renormalizing to 1...", stacklevel=2)
+            self.weights = weights / weights.sum()
+        else:
             self.weights = weights
 
     def _project(self, x: npt.NDArray) -> np.ndarray:
@@ -190,7 +185,6 @@ class SequentialWeightedKaczmarz(KaczmarzMethod):
         the array `x` using a weighted relaxation factor. The weight decay is applied
         to the temporary weight decay after each iteration.
         """
-
         weighted_relaxation = self.algorithmic_relaxation * self.temp_weight_decay
 
         for i in self.cs:
@@ -230,12 +224,11 @@ class SimultaneousKaczmarzMethod(HyperplaneAlgorithm):
         self,
         A: npt.NDArray,
         b: npt.NDArray,
-        algorithmic_relaxation: npt.NDArray | float = 1,
-        relaxation: float = 1,
+        algorithmic_relaxation: npt.NDArray | float = 1.0,
+        relaxation: float = 1.0,
         weights: None | List[float] = None,
         proximity_flag: bool = True,
     ):
-
         super().__init__(A, b, algorithmic_relaxation, relaxation, proximity_flag)
 
         xp = cp if self._use_gpu else np
@@ -243,21 +236,20 @@ class SimultaneousKaczmarzMethod(HyperplaneAlgorithm):
         if weights is None:
             self.weights = xp.ones(self.A.shape[0]) / self.A.shape[0]
         elif xp.abs((weights.sum() - 1)) > 1e-10:
-            print("Weights do not add up to 1! Renormalizing to 1...")
+            warnings.warn("Weights do not add up to 1! Renormalizing to 1...", stacklevel=2)
             self.weights = weights / weights.sum()
         else:
             self.weights = weights
 
-    def _project(self, x):
+    def _project(self, x: npt.NDArray) -> np.ndarray:
         # simultaneous projection
         p = self.map(x)
         res = self.b - p
         x += self.algorithmic_relaxation * (self.weights * self.inverse_row_norm * res @ self.A)
         return x
 
-    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> float:
+    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> list[float]:
         p = self.map(x)
-        # residuals are positive  if constraints are met
         res = abs(self.b - p)
         measures = []
         for measure in proximity_measures:
@@ -275,10 +267,9 @@ class SimultaneousKaczmarzMethod(HyperplaneAlgorithm):
 
 class BlockIterativeKaczmarz(HyperplaneAlgorithm):
     """
-    Block Iterative AMS Algorithm.
-    This class implements a block iterative version of the AMS (Alternating
-    Minimization Scheme) algorithm.
-    It is designed to handle constraints and weights in a block-wise manner.
+    Block iterative Kaczmarz algorithm for solving linear equality
+    constraints
+    in a block-wise manner.
 
     Parameters
     ----------
@@ -306,11 +297,10 @@ class BlockIterativeKaczmarz(HyperplaneAlgorithm):
         A: npt.NDArray,
         b: npt.NDArray,
         weights: List[List[float]] | List[npt.NDArray],
-        algorithmic_relaxation: npt.NDArray | float = 1,
-        relaxation: float = 1,
+        algorithmic_relaxation: npt.NDArray | float = 1.0,
+        relaxation: float = 1.0,
         proximity_flag: bool = True,
     ):
-
         super().__init__(A, b, algorithmic_relaxation, relaxation, proximity_flag)
 
         xp = cp if self._use_gpu else np
@@ -332,10 +322,9 @@ class BlockIterativeKaczmarz(HyperplaneAlgorithm):
             self.weights.append(el[xp.array(el) > 0])  # remove non zero weights
             self.total_weights += el / len(weights)
 
-    def _project(self, x):
+    def _project(self, x: npt.NDArray) -> np.ndarray:
         # simultaneous projection
-
-        for el, block_idx in zip(self.weights, self.block_idxs):  # get mask and associated weights
+        for el, block_idx in zip(self.weights, self.block_idxs):
             p = self.indexed_map(x, block_idx)
             res = self.b[block_idx] - p
 
@@ -344,9 +333,8 @@ class BlockIterativeKaczmarz(HyperplaneAlgorithm):
             )
         return x
 
-    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> float:
+    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> list[float]:
         p = self.map(x)
-        # residuals are positive  if constraints are met
         res = abs(self.b - p)
         measures = []
         for measure in proximity_measures:
@@ -363,12 +351,9 @@ class BlockIterativeKaczmarz(HyperplaneAlgorithm):
 
 
 class StringAveragedKaczmarz(HyperplaneAlgorithm):
-
     """
-    StringAveragedAMS is an implementation of the HyperplaneAlgorithm
-    that
-    performs
-    string averaged projections.
+    StringAveragedKaczmarz is an implementation of the HyperplaneAlgorithm
+    that performs string averaged projections.
 
     Parameters
     ----------
@@ -393,29 +378,22 @@ class StringAveragedKaczmarz(HyperplaneAlgorithm):
         A: npt.NDArray,
         b: npt.NDArray,
         strings: List[List[int]],
-        algorithmic_relaxation: npt.NDArray | float = 1,
-        relaxation: float = 1,
+        algorithmic_relaxation: npt.NDArray | float = 1.0,
+        relaxation: float = 1.0,
         weights: None | List[float] = None,
         proximity_flag: bool = True,
     ):
-
         super().__init__(A, b, algorithmic_relaxation, relaxation, proximity_flag)
         xp = cp if self._use_gpu else np
         self.strings = strings
         if weights is None:
             self.weights = xp.ones(len(strings)) / len(strings)
-
-        # if check_weight_validity(weights):
-        #    self.weights = weights
         else:
             if len(weights) != len(self.strings):
                 raise ValueError("The number of weights must be equal to the number of strings.")
-
             self.weights = weights
-            # print('Choosing default weight vector...')
-            # self.weights = np.ones(self.A.shape[0])/self.A.shape[0]
 
-    def _project(self, x):
+    def _project(self, x: npt.NDArray) -> np.ndarray:
         # string averaged projection
         x_c = x.copy()  # create a general copy of x
         x -= x  # reset x is this viable?

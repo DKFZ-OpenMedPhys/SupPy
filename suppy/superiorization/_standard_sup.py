@@ -93,6 +93,7 @@ class Superiorization(FeasibilityPerturbation):
         del_objective_n: int = 5,
         proximity_measures: List | None = None,
         storage: bool = False,
+        storage_iters: List[int] | int | None = None,
         alternative_stopping_criterion: Callable | None = None,
         alternative_stopping_criterion_initial_call: Callable | None = None,
     ) -> np.ndarray:
@@ -119,6 +120,10 @@ class Superiorization(FeasibilityPerturbation):
             Number of iterations with objective function changes below the threshold to determine stopping criteria, by default 5.
         storage : bool, optional
             If True, store intermediate results (default is False).
+        storage_iters : List[int] or int, optional
+            Controls which iterations are stored (when storage=True). If None, all iterations are stored.
+            If a list of ints, only those iteration indices are stored (0 = initial point).
+            If an int, storage occurs every that many iterations.
         alternative_stopping_criterion : callable, optional
             Alternative stopping criterion
         alternative_stopping_criterion_initial_call : callable, optional
@@ -129,6 +134,14 @@ class Superiorization(FeasibilityPerturbation):
         npt.NDArray
             The optimized solution.
         """
+
+        def _should_store(idx):
+            if storage_iters is None:
+                return True
+            if isinstance(storage_iters, int):
+                return idx % storage_iters == 0
+            return idx in storage_iters
+
         if proximity_measures is None:
             proximity_measures = [("p_norm", 2)]
         else:
@@ -147,7 +160,7 @@ class Superiorization(FeasibilityPerturbation):
 
         self._initial_storage(
             x,
-            storage,
+            storage and _should_store(0),
             self.perturbation_scheme.func(x_0),
             self.basic.proximity(x_0, proximity_measures),
         )
@@ -178,7 +191,7 @@ class Superiorization(FeasibilityPerturbation):
             self.storage(
                 x,
                 kind="function_reduction",
-                storage=storage,
+                storage=storage and _should_store(self._k + 1),
                 f=self.perturbation_scheme.func(x),
                 p=self.basic.proximity(x, proximity_measures),
             )
@@ -200,7 +213,7 @@ class Superiorization(FeasibilityPerturbation):
             self.storage(
                 x,
                 kind="basic",
-                storage=storage,
+                storage=storage and _should_store(self._k + 1),
                 f=self.perturbation_scheme.func(x),
                 p=self.basic.proximity(x, proximity_measures),
             )

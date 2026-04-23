@@ -69,6 +69,7 @@ class SplitFeasibility(Feasibility, ABC):
         del_prox_tol: float = 1e-8,
         del_prox_n: int = 5,
         storage: bool = False,
+        storage_iters: List[int] | int | None = None,
         proximity_measures: List | None = None,
         alternative_stopping_criterion: Callable | None = None,
         alternative_stopping_criterion_initial_call: Callable | None = None,
@@ -91,6 +92,10 @@ class SplitFeasibility(Feasibility, ABC):
             The number of iterations to check for the change in proximity, by default 5.
         storage : bool, optional
             A flag indicating whether to store all intermediate solutions (default is False).
+        storage_iters : List[int] or int, optional
+            Controls which iterations are stored (when storage=True). If None, all iterations are stored.
+            If a list of ints, only those iteration indices are stored (0 = initial point).
+            If an int, storage occurs every that many iterations.
         proximity_measures : List, optional
             The proximity measures to calculate, by default None.
             Right now only the first in the list is used to check the feasibility.
@@ -116,12 +121,20 @@ class SplitFeasibility(Feasibility, ABC):
         self.proximities = [self.proximity(x, proximity_measures)]
         i = 0
 
+        def _should_store(idx):
+            if storage_iters is None:
+                return True
+            if isinstance(storage_iters, int):
+                return idx % storage_iters == 0
+            return idx in storage_iters
+
         if storage is True:
             self.all_x = []
-            if isinstance(x, cp.ndarray) and not NO_GPU:
-                self.all_x.append((x.get()))
-            else:
-                self.all_x.append(np.array(x.copy()))
+            if _should_store(0):
+                if isinstance(x, cp.ndarray) and not NO_GPU:
+                    self.all_x.append((x.get()))
+                else:
+                    self.all_x.append(np.array(x.copy()))
 
         if alternative_stopping_criterion_initial_call is not None:
             stop = alternative_stopping_criterion_initial_call(x, self)
@@ -130,7 +143,7 @@ class SplitFeasibility(Feasibility, ABC):
 
         while i < max_iter and not stop:
             x, _ = self.step(x)
-            if storage is True:
+            if storage is True and _should_store(i + 1):
                 if isinstance(x, np.ndarray):  # convert to np array if cp
                     self.all_x.append(np.array(x.copy()))
                 else:

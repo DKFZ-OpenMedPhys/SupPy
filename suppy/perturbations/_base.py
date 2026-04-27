@@ -353,6 +353,7 @@ class PowerSeriesGradientPerturbation(GradientPerturbation):
         self.disable_gradient_scaling = disable_gradient_scaling
         self.iterative_scaling = iterative_scaling
         self.bypass_objective_decrease = bypass_objective_decrease
+        self._last_grad_norm = 1
 
     def _function_reduction_step(self, x: npt.NDArray) -> np.ndarray:
         """
@@ -368,6 +369,10 @@ class PowerSeriesGradientPerturbation(GradientPerturbation):
         npt.NDArray
             The updated point after performing the reduction step.
         """
+        # quick check if the step size is already zero, if so skip the rest of the calculations
+        if self.step_size_modifier * self.step_size**self._l * self._last_grad_norm <= 1e-14:
+            return x
+
         xp = cp if isinstance(x, cp.ndarray) else np
         grad_eval = self.grad(x)
         func_eval = self.func(x)
@@ -376,6 +381,7 @@ class PowerSeriesGradientPerturbation(GradientPerturbation):
             return x
 
         grad_norm = 1 if self.disable_gradient_scaling else xp.linalg.norm(grad_eval)
+        self._last_grad_norm = grad_norm
 
         if not self.iterative_scaling:
             while True:

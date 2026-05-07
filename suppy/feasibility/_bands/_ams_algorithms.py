@@ -178,9 +178,6 @@ class SequentialWeightedAMSHyperslab(SequentialAMSHyperslab):
 
         if weights is None:
             self.weights = xp.ones(self.A.shape[0])
-        elif xp.abs((weights.sum() - 1)) > 1e-10:
-            warnings.warn("Weights do not add up to 1! Renormalizing to 1...", stacklevel=2)
-            self.weights = weights / weights.sum()
         else:
             self.weights = weights
 

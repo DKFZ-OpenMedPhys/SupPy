@@ -1,4 +1,5 @@
 """Simple projection objects."""
+from abc import ABC, abstractmethod
 import math
 from typing import List
 import numpy as np
@@ -1214,3 +1215,329 @@ class CustomProjection(BasicProjection):
             return super()._proximity(x, proximity_measures)
         else:
             return self.proximity_function(x, proximity_measures)
+
+
+class MMUProjection(BasicProjection, ABC):
+    """
+    Class for enforcing minimum monitoring units. They can only be 0 or
+    above a certain threshold (mmu).
+    """
+
+    # Default idea:
+    def __init__(
+        self,
+        mmu: float | npt.NDArray,
+        relaxation: float = 1.0,
+        idx: npt.NDArray | None = None,
+        proximity_flag=True,
+        _use_gpu=False,
+    ):
+        super().__init__(
+            relaxation=relaxation, idx=idx, proximity_flag=proximity_flag, _use_gpu=_use_gpu
+        )
+        if isinstance(self.idx, slice):
+            self._idx_indices = None
+        elif self.idx.dtype == bool:
+            raise ValueError("Boolean indexing is not supported for this projection.")
+        else:
+            if self._use_gpu:
+                self._idx_indices = cp.asarray(self.idx, dtype=cp.int32)
+            else:
+                self._idx_indices = self.idx
+
+        self.mmu = mmu
+
+    @abstractmethod
+    def _project(self, x: npt.NDArray) -> npt.NDArray:
+        pass
+
+
+class MMUProjection1(MMUProjection):
+    def _project(self, x: npt.NDArray) -> npt.NDArray:
+        """
+        First idea:
+        If x[i] < mmu set x[i] to 0, else leave it unchanged.
+        """
+        xp = cp if isinstance(x, cp.ndarray) else np
+        x[self.idx] = xp.where((x[self.idx] < self.mmu), 0, x[self.idx])
+        return x
+
+
+class MMUProjection2(MMUProjection):
+    def _project(self, x: npt.NDArray) -> npt.NDArray:
+        """
+        Second idea:
+        Project to closest point, e.g. if x[i] < mmu/2 set x[i] to 0, else set
+        x[i] to mmu.
+        """
+        xp = cp if isinstance(x, cp.ndarray) else np
+        x[self.idx] = xp.where(
+            x[self.idx] <= self.mmu / 2,
+            0,
+            xp.where(x[self.idx] <= self.mmu, self.mmu, x[self.idx]),
+        )
+        return x
+
+
+class MMUProjectionMinMMUPercentage(MMUProjection):
+    """
+    A minimum percentage of the elements have to be at level of the mmu or
+    the rest has to be above.
+    If too many elements are below mmu, the ones closest below mmu are set to
+    mmu until the percentage is reached.
+    """
+
+    def __init__(
+        self,
+        mmu: float | npt.NDArray,
+        min_percentage: float,
+        idx: npt.NDArray | None = None,
+        relaxation: float = 1.0,
+        proximity_flag=True,
+        use_gpu=False,
+    ):
+        super().__init__(
+            mmu, relaxation=relaxation, idx=idx, proximity_flag=proximity_flag, _use_gpu=use_gpu
+        )
+        self.min_percentage = min_percentage
+
+    def _project(self, x: npt.NDArray) -> np.ndarray:
+        """
+        Projects the input array `x` onto the DVH constraint.
+
+        Parameters
+        ----------
+        x : npt.NDArray
+            The input array to be projected.
+
+        Returns
+        -------
+        npt.NDArray
+            The projected array.
+        """
+        if isinstance(self.idx, slice):
+            return self._project_all(x)
+
+        return self._project_subset(x)
+
+    def _project_all(self, x: npt.NDArray) -> np.ndarray:
+        xp = cp if isinstance(x, cp.ndarray) else np
+        n = len(x)
+        am = math.ceil(
+            self.min_percentage * n
+        )  # find number of elements that need to be at least mmu
+
+        l = (x < self.mmu).sum()  # number of elements not fullfilling the mmu requirement
+
+        z = l - n + am
+
+        if z > 0:
+            x[x.argsort()[n - am : l]] = self.mmu
+
+        x[self.idx] = xp.where(
+            x[self.idx] <= self.mmu / 2,
+            0,
+            xp.where(x[self.idx] <= self.mmu, self.mmu, x[self.idx]),
+        )
+
+        return x
+
+    def _project_subset(self, x: npt.NDArray) -> np.ndarray:
+        xp = cp if isinstance(x, cp.ndarray) else np
+        n = self.idx.sum() if self.idx.dtype == bool else len(self.idx)
+
+        am = math.ceil(self.min_percentage * n)
+
+        l = (x[self.idx] < self.mmu).sum()
+
+        z = l - n + am  # number of elements that need to be reduced
+
+        if z > 0:
+            x[self._idx_indices[x[self.idx].argsort()[n - am : l]]] = self.mmu
+
+        x[self.idx] = xp.where(
+            x[self.idx] <= self.mmu / 2,
+            0,
+            xp.where(x[self.idx] <= self.mmu, self.mmu, x[self.idx]),
+        )
+
+        return x
+
+
+class MMUProjectionMinZeroPercentage(MMUProjection):
+    """
+    A minimum percentage of the elements must have a value of 0.
+    If too many elements are above, the ones closest are set to 0 until the
+    percentage is reached.
+    """
+
+    def __init__(
+        self,
+        mmu: float | npt.NDArray,
+        min_percentage: float,
+        idx: npt.NDArray | None = None,
+        relaxation: float = 1.0,
+        proximity_flag=True,
+        use_gpu=False,
+    ):
+        super().__init__(
+            mmu, relaxation=relaxation, idx=idx, proximity_flag=proximity_flag, _use_gpu=use_gpu
+        )
+        self.min_percentage = min_percentage
+        self.idxs = []
+
+    def _project(self, x: npt.NDArray) -> np.ndarray:
+        """
+        Projects the input array `x` onto the DVH constraint.
+
+        Parameters
+        ----------
+        x : npt.NDArray
+            The input array to be projected.
+
+        Returns
+        -------
+        npt.NDArray
+            The projected array.
+        """
+        if isinstance(self.idx, slice):
+            return self._project_all(x)
+
+        return self._project_subset(x)
+
+    def _project_all(self, x: npt.NDArray) -> np.ndarray:
+        xp = cp if isinstance(x, cp.ndarray) else np
+        n = len(x)
+        am = math.ceil(self.min_percentage * n)  # find number of elements that need to be 0
+
+        l = (x > 0).sum()  # number of elements that are above the requirement
+
+        z = l - n + am
+
+        if z > 0:
+            x[x.argsort()[:am]] = 0
+
+        x[self.idx] = xp.where(
+            x[self.idx] <= self.mmu / 2,
+            0,
+            xp.where(x[self.idx] <= self.mmu, self.mmu, x[self.idx]),
+        )
+
+        return x
+
+    def _project_subset(self, x: npt.NDArray) -> np.ndarray:
+        xp = cp if isinstance(x, cp.ndarray) else np
+        n = self.idx.sum() if self.idx.dtype == bool else len(self.idx)
+
+        am = math.ceil(self.min_percentage * n)
+
+        l = (x[self.idx] > 0).sum()  # number of elements that are above the requirement
+
+        z = l - n + am  # number of elements that need to be reduced
+
+        if z > 0:
+            x[self._idx_indices[x[self.idx].argsort()[:am]]] = 0
+
+        x[self.idx] = xp.where(
+            x[self.idx] <= self.mmu / 2,
+            0,
+            xp.where(x[self.idx] <= self.mmu, self.mmu, x[self.idx]),
+        )
+
+        return x
+
+
+class VariableMMUProjectionMinMaxZeroPercentage(MMUProjection):
+    """
+    A minimum percentage of the elements must have a value of 0, a minimum
+    percentage of the elements must be at least mmu and the rest can be above.
+    Each constraint can have a different MMU!
+    """
+
+    def __init__(
+        self,
+        mmu: npt.NDArray,
+        min_percentage: float,
+        max_percentage: float,
+        idx: npt.NDArray | None = None,
+        relaxation: float = 1.0,
+        proximity_flag=True,
+        use_gpu=False,
+    ):
+        super().__init__(
+            mmu, relaxation=relaxation, idx=idx, proximity_flag=proximity_flag, _use_gpu=use_gpu
+        )
+        self.min_percentage = min_percentage
+        self.max_percentage = (
+            max_percentage  # equal to the number of elements that need to be at MMU or above
+        )
+
+    def _project(self, x: npt.NDArray) -> np.ndarray:
+        """
+        Projects the input array `x` onto the DVH constraint.
+
+        Parameters
+        ----------
+        x : npt.NDArray
+            The input array to be projected.
+
+        Returns
+        -------
+        npt.NDArray
+            The projected array.
+        """
+        if isinstance(self.idx, slice):
+            return self._project_all(x)
+
+        return self._project_subset(x)
+
+    def _project_all(self, x: npt.NDArray) -> np.ndarray:
+        xp = cp if isinstance(x, cp.ndarray) else np
+        n = len(x)
+        num_min = math.ceil(self.min_percentage * n)  # find number of elements that need to be 0
+        num_max = math.ceil(
+            self.max_percentage * n
+        )  # find number of elements that need to be at MMU or above
+
+        num_above = (x > 0).sum()  # number of elements that are above the requirement
+
+        # find cost of moving elements to MMU and to 0
+        cost = x - xp.max(self.mmu, x)
+        sort_idxs = cost.argsort()
+
+        x[sort_idxs[:num_min]] = 0
+        x[sort_idxs[num_max:]] = xp.where(
+            x[sort_idxs[num_max:]] < self.mmu[sort_idxs[num_max:]],
+            self.mmu[sort_idxs[num_max:]],
+            x[sort_idxs[num_max:]],
+        )
+
+        mask = sort_idxs[num_min:num_max]
+        x[mask] = xp.where(x[mask] <= self.mmu[mask] / 2, 0, xp.maximum(self.mmu[mask], x[mask]))
+
+        return x
+
+    # def _project_subset(self, x: npt.NDArray) -> np.ndarray:
+    #     xp = cp if isinstance(x, cp.ndarray) else np
+    #     n = self.idx.sum() if self.idx.dtype == bool else len(self.idx)
+
+    #     am = math.ceil(self.min_percentage * n)
+
+    #     l = (x[self.idx] > 0).sum() #number of elements that are above the requirement
+
+    #     z = l - n + am  # number of elements that need to be reduced
+
+    #     if z > 0:
+    #         x[self._idx_indices[x[self.idx].argsort()[:am]]] = 0
+
+    #     x[self.idx] = xp.where(
+    #         x[self.idx] <= self.mmu / 2,
+    #         0,
+    #         xp.where(
+    #         x[self.idx] <= self.mmu,
+    #         self.mmu,
+    #         x[self.idx]
+    #         )
+    #     )
+
+    #     return x

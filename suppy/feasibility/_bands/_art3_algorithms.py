@@ -146,6 +146,7 @@ class SequentialART3plus(ART3plusAlgorithm):
         del_prox_tol: float = 1e-8,
         del_prox_n: int = 5,
         storage: bool = False,
+        storage_iters: List[int] | int | None = None,
         proximity_measures: List | None = None,
     ) -> np.ndarray:
         """
@@ -167,10 +168,10 @@ class SequentialART3plus(ART3plusAlgorithm):
             The proximity measures to calculate, by default a l2 norm measure is used. Right now only the first in the list is used to check the feasibility.
         storage : bool, optional
             Flag indicating whether to store intermediate solutions, by default False.
-        alternative_stopping_criterion : callable, optional
-            Alternative stopping criterion
-        alternative_stopping_criterion_initial_call : callable, optional
-            Initial call for an alternative stopping criterion
+        storage_iters : List[int] or int, optional
+            Controls which iterations are stored (when storage=True). If None, all iterations are stored.
+            If a list of ints, only those iteration indices are stored (0 = initial point).
+            If an int, storage occurs every that many iterations.
 
         Returns
         -------
@@ -189,12 +190,20 @@ class SequentialART3plus(ART3plusAlgorithm):
         self.proximities = [self.proximity(x, proximity_measures)]
         i = 0
 
+        def _should_store(idx):
+            if storage_iters is None:
+                return True
+            if isinstance(storage_iters, int):
+                return idx % storage_iters == 0
+            return idx in storage_iters
+
         if storage is True:
             self.all_x = []
-            if isinstance(x, np.ndarray):
-                self.all_x.append(np.array(x.copy()))
-            else:
-                self.all_x.append((x.get()))
+            if _should_store(0):
+                if isinstance(x, np.ndarray):
+                    self.all_x.append(np.array(x.copy()))
+                else:
+                    self.all_x.append((x.get()))
 
         stop = False  # criterion for stopping the algorithm
         self._n_tol = 0
@@ -205,7 +214,7 @@ class SequentialART3plus(ART3plusAlgorithm):
                 self.cs = self.initial_cs.copy()
 
             x = self.project(x)
-            if storage is True:
+            if storage is True and _should_store(i + 1):
                 if isinstance(x, np.ndarray):  # convert to np array if cp
                     self.all_x.append(np.array(x.copy()))
                 else:

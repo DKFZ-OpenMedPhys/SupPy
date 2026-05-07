@@ -124,6 +124,7 @@ class SplitSuperiorization(FeasibilityPerturbation):
         del_target_objective_tol: float = 1e-6,
         del_target_objective_n: int = 5,
         storage=False,
+        storage_iters: List[int] | int | None = None,
         alternative_stopping_criterion: Callable | None = None,
         alternative_stopping_criterion_initial_call: Callable | None = None,
     ) -> np.ndarray:
@@ -154,6 +155,10 @@ class SplitSuperiorization(FeasibilityPerturbation):
             The number of iterations that del_target_objective_tol needs to be met in a row, by default 5.
         storage : bool, optional
             Flag indicating whether to store intermediate solutions, by default False.
+        storage_iters : List[int] or int, optional
+            Controls which iterations are stored (when storage=True). If None, all iterations are stored.
+            If a list of ints, only those iteration indices are stored (0 = initial point).
+            If an int, storage occurs every that many iterations.
         alternative_stopping_criterion : callable, optional
             Alternative stopping criterion
         alternative_stopping_criterion_initial_call : callable, optional
@@ -164,6 +169,14 @@ class SplitSuperiorization(FeasibilityPerturbation):
         npt.NDArray
             The optimized solution after performing the superiorization method.
         """
+
+        def _should_store(idx):
+            if storage_iters is None:
+                return True
+            if isinstance(storage_iters, int):
+                return idx % storage_iters == 0
+            return idx in storage_iters
+
         # initialization of variables
         if proximity_measures is None:
             proximity_measures = [("p_norm", 2)]
@@ -190,7 +203,7 @@ class SplitSuperiorization(FeasibilityPerturbation):
 
         self._initial_storage(
             x,
-            storage,
+            storage and _should_store(0),
             [
                 self.input_perturbation_scheme.func(x_0),
                 self.target_perturbation_scheme.func(self.basic.map(x_0)),
@@ -264,7 +277,7 @@ class SplitSuperiorization(FeasibilityPerturbation):
             self.storage(
                 x,
                 "function_reduction",
-                storage,
+                storage and _should_store(self._k + 1),
                 [self.input_perturbation_scheme.func(x), self.target_perturbation_scheme.func(y)],
                 self.basic.proximity(x, proximity_measures),
             )
@@ -275,7 +288,7 @@ class SplitSuperiorization(FeasibilityPerturbation):
             self.storage(
                 x,
                 "basic",
-                storage,
+                storage and _should_store(self._k + 1),
                 [self.input_perturbation_scheme.func(x), self.target_perturbation_scheme.func(y)],
                 self.basic.proximity(x, proximity_measures),
             )

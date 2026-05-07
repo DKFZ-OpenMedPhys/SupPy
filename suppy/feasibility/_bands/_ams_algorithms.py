@@ -1,3 +1,4 @@
+import warnings
 from abc import ABC
 from typing import List
 import numpy as np
@@ -19,8 +20,7 @@ from suppy.utils import LinearMapping
 class HyperslabAlgorithm(HyperslabFeasibility, ABC):
     """
     The HyperslabAlgorithm class is used to find a feasible solution to a
-    set of
-    linear inequalities.
+    set of linear inequalities.
 
     Parameters
     ----------
@@ -78,8 +78,8 @@ class SequentialAMSHyperslab(HyperslabAlgorithm):
         A: npt.NDArray,
         lb: npt.NDArray,
         ub: npt.NDArray,
-        algorithmic_relaxation: npt.NDArray | float = 1,
-        relaxation: float = 1,
+        algorithmic_relaxation: npt.NDArray | float = 1.0,
+        relaxation: float = 1.0,
         cs: None | List[int] = None,
         proximity_flag: bool = True,
     ):
@@ -110,9 +110,7 @@ class SequentialAMSHyperslab(HyperslabAlgorithm):
         for i in self.cs:
             p_i = self.single_map(x, i)
             (res_li, res_ui) = self.bounds.single_residual(p_i, i)  # returns floats
-            # check if constraints are violated
 
-            # weights should be 1s!
             if res_ui < 0:
                 self.A.update_step(
                     x, self.algorithmic_relaxation * self.inverse_row_norm[i] * res_ui, i
@@ -144,7 +142,7 @@ class SequentialWeightedAMSHyperslab(SequentialAMSHyperslab):
     iterate by default 1.0.
     weight_decay : float, optional
         Parameter that determines the rate at which the weights are reduced
-    after each phase (weights * weight_decay). Default is 1.
+        after each phase (weights * weight_decay). Default is 1.0.
     cs : None or list of int, optional
         The indices of the constraints to be considered. Default is None.
     proximity_flag : bool, optional
@@ -166,23 +164,20 @@ class SequentialWeightedAMSHyperslab(SequentialAMSHyperslab):
         lb: npt.NDArray,
         ub: npt.NDArray,
         weights: None | List[float] | npt.NDArray = None,
-        algorithmic_relaxation: npt.NDArray | float = 1,
-        relaxation: float = 1,
-        weight_decay: float = 1,
+        algorithmic_relaxation: npt.NDArray | float = 1.0,
+        relaxation: float = 1.0,
+        weight_decay: float = 1.0,
         cs: None | List[int] = None,
         proximity_flag: bool = True,
     ):
 
         super().__init__(A, lb, ub, algorithmic_relaxation, relaxation, cs, proximity_flag)
         xp = cp if self._use_gpu else np
-        self.weight_decay = weight_decay  # decay rate
-        self.temp_weight_decay = 1  # initial value for weight decay
+        self.weight_decay = weight_decay
+        self.temp_weight_decay = 1.0
 
         if weights is None:
             self.weights = xp.ones(self.A.shape[0])
-        elif xp.abs((weights.sum() - 1)) > 1e-10:
-            print("Weights do not add up to 1! Renormalizing to 1...")
-            self.weights = weights / weights.max()
         else:
             self.weights = weights
 
@@ -217,7 +212,6 @@ class SequentialWeightedAMSHyperslab(SequentialAMSHyperslab):
             p_i = self.single_map(x, i)
 
             (res_li, res_ui) = self.bounds.single_residual(p_i, i)  # returns floats
-            # check if constraints are violated
 
             if res_ui < 0:
                 self.A.update_step(
@@ -233,7 +227,7 @@ class SequentialWeightedAMSHyperslab(SequentialAMSHyperslab):
         self.temp_weight_decay *= self.weight_decay
         return x
 
-    def _proximity(self, x: npt.NDArray, proximity_measures: List[str]) -> float:
+    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> list[float]:
         p = self.map(x)
         # residuals are positive if constraints are met
         (res_l, res_u) = self.bounds.residual(p)
@@ -245,13 +239,12 @@ class SequentialWeightedAMSHyperslab(SequentialAMSHyperslab):
             if isinstance(measure, tuple):
                 if measure[0] == "p_norm":
                     measures.append((self.weights @ (res ** measure[1])) / (self.weights.sum()))
-
                 else:
                     raise ValueError("Invalid proximity measure")
             elif isinstance(measure, str) and measure == "max_norm":
                 measures.append(res.max())
             else:
-                raise ValueError("Invalid proximity measure)")
+                raise ValueError("Invalid proximity measure")
         return measures
 
 
@@ -283,8 +276,8 @@ class SimultaneousAMSHyperslab(HyperslabAlgorithm):
         A: npt.NDArray,
         lb: npt.NDArray,
         ub: npt.NDArray,
-        algorithmic_relaxation: npt.NDArray | float = 1,
-        relaxation: float = 1,
+        algorithmic_relaxation: npt.NDArray | float = 1.0,
+        relaxation: float = 1.0,
         weights: None | List[float] = None,
         proximity_flag: bool = True,
     ):
@@ -296,12 +289,12 @@ class SimultaneousAMSHyperslab(HyperslabAlgorithm):
         if weights is None:
             self.weights = xp.ones(self.A.shape[0]) / self.A.shape[0]
         elif xp.abs((weights.sum() - 1)) > 1e-10:
-            print("Weights do not add up to 1! Renormalizing to 1...")
+            warnings.warn("Weights do not add up to 1! Renormalizing to 1...", stacklevel=2)
             self.weights = weights / weights.sum()
         else:
             self.weights = weights
 
-    def _project(self, x):
+    def _project(self, x: npt.NDArray) -> np.ndarray:
         # simultaneous projection
         p = self.map(x)
         (res_l, res_u) = self.bounds.residual(p)
@@ -314,7 +307,7 @@ class SimultaneousAMSHyperslab(HyperslabAlgorithm):
 
         return x
 
-    def _proximity(self, x: npt.NDArray, proximity_measures: List[str]) -> float:
+    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> list[float]:
         p = self.map(x)
         # residuals are positive if constraints are met
         (res_l, res_u) = self.bounds.residual(p)
@@ -331,7 +324,7 @@ class SimultaneousAMSHyperslab(HyperslabAlgorithm):
             elif isinstance(measure, str) and measure == "max_norm":
                 measures.append(res.max())
             else:
-                raise ValueError("Invalid proximity measure)")
+                raise ValueError("Invalid proximity measure")
         return measures
 
 
@@ -363,8 +356,8 @@ class SARTHyperslab(SimultaneousAMSHyperslab):
         A: npt.NDArray,
         lb: npt.NDArray,
         ub: npt.NDArray,
-        algorithmic_relaxation: npt.NDArray | float = 1,
-        relaxation: float = 1,
+        algorithmic_relaxation: npt.NDArray | float = 1.0,
+        relaxation: float = 1.0,
         weights: None | List[float] = None,
         proximity_flag: bool = True,
     ):
@@ -373,7 +366,7 @@ class SARTHyperslab(SimultaneousAMSHyperslab):
         self.inverse_linear_row_norm = 1 / self.A.row_norm(1, 1)
         self.inverse_linear_column_norm = 1 / self.A.column_norm(1, 1)
 
-    def _project(self, x):
+    def _project(self, x: npt.NDArray) -> np.ndarray:
         # SART projection
         p = self.map(x)
         (res_l, res_u) = self.bounds.residual(p)
@@ -428,8 +421,8 @@ class BlockIterativeAMSHyperslab(HyperslabAlgorithm):
         lb: npt.NDArray,
         ub: npt.NDArray,
         weights: List[List[float]] | List[npt.NDArray],
-        algorithmic_relaxation: npt.NDArray | float = 1,
-        relaxation: float = 1,
+        algorithmic_relaxation: npt.NDArray | float = 1.0,
+        relaxation: float = 1.0,
         proximity_flag: bool = True,
     ):
 
@@ -454,10 +447,8 @@ class BlockIterativeAMSHyperslab(HyperslabAlgorithm):
             self.weights.append(el[xp.array(el) > 0])  # remove non zero weights
             self.total_weights += el / len(weights)
 
-    def _project(self, x):
+    def _project(self, x: npt.NDArray) -> np.ndarray:
         # simultaneous projection
-        xp = cp if self._use_gpu else np
-
         for el, block_idx in zip(self.weights, self.block_idxs):  # get mask and associated weights
             p = self.indexed_map(x, block_idx)
             (res_l, res_u) = self.bounds.indexed_residual(p, block_idx)
@@ -479,7 +470,7 @@ class BlockIterativeAMSHyperslab(HyperslabAlgorithm):
 
         return x
 
-    def _proximity(self, x: npt.NDArray, proximity_measures: List[str]) -> float:
+    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> list[float]:
         p = self.map(x)
         # residuals are positive if constraints are met
         (res_l, res_u) = self.bounds.residual(p)
@@ -496,7 +487,7 @@ class BlockIterativeAMSHyperslab(HyperslabAlgorithm):
             elif isinstance(measure, str) and measure == "max_norm":
                 measures.append(res.max())
             else:
-                raise ValueError("Invalid proximity measure)")
+                raise ValueError("Invalid proximity measure")
         return measures
 
 
@@ -531,8 +522,8 @@ class StringAveragedAMSHyperslab(HyperslabAlgorithm):
         lb: npt.NDArray,
         ub: npt.NDArray,
         strings: List[List[int]],
-        algorithmic_relaxation: npt.NDArray | float = 1,
-        relaxation: float = 1,
+        algorithmic_relaxation: npt.NDArray | float = 1.0,
+        relaxation: float = 1.0,
         weights: None | List[float] = None,
         proximity_flag: bool = True,
     ):
@@ -542,16 +533,10 @@ class StringAveragedAMSHyperslab(HyperslabAlgorithm):
         self.strings = strings
         if weights is None:
             self.weights = xp.ones(len(strings)) / len(strings)
-
-        # if check_weight_validity(weights):
-        #    self.weights = weights
         else:
             if len(weights) != len(self.strings):
                 raise ValueError("The number of weights must be equal to the number of strings.")
-
             self.weights = weights
-            # print('Choosing default weight vector...')
-            # self.weights = np.ones(self.A.shape[0])/self.A.shape[0]
 
     def _project(self, x):
         # string averaged projection

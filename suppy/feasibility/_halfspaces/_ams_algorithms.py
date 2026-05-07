@@ -1,3 +1,4 @@
+import warnings
 from abc import ABC
 from typing import List
 import numpy as np
@@ -13,7 +14,6 @@ except ImportError:
     cp = np
 
 from suppy.feasibility._linear_algorithms import HalfspaceFeasibility
-from suppy.utils import LinearMapping
 
 
 class HalfspaceAlgorithm(HalfspaceFeasibility, ABC):
@@ -39,8 +39,8 @@ class HalfspaceAlgorithm(HalfspaceFeasibility, ABC):
         self,
         A: npt.NDArray,
         b: npt.NDArray,
-        algorithmic_relaxation: npt.NDArray | float = 1,
-        relaxation: float = 1,
+        algorithmic_relaxation: npt.NDArray | float = 1.0,
+        relaxation: float = 1.0,
         proximity_flag: bool = True,
     ):
         super().__init__(A, b, algorithmic_relaxation, relaxation, proximity_flag)
@@ -64,21 +64,17 @@ class SequentialAMSHalfspace(HalfspaceAlgorithm):
         The list of indices for the constraints, by default None.
     proximity_flag : bool, optional
         Flag to indicate if proximity should be considered, by default True.
-
-    Attributes
-    ----------
     """
 
     def __init__(
         self,
         A: npt.NDArray,
         b: npt.NDArray,
-        algorithmic_relaxation: npt.NDArray | float = 1,
-        relaxation: float = 1,
+        algorithmic_relaxation: npt.NDArray | float = 1.0,
+        relaxation: float = 1.0,
         cs: None | List[int] = None,
         proximity_flag: bool = True,
     ):
-
         super().__init__(A, b, algorithmic_relaxation, relaxation, proximity_flag)
         xp = cp if self._use_gpu else np
         if cs is None:
@@ -101,7 +97,6 @@ class SequentialAMSHalfspace(HalfspaceAlgorithm):
         npt.NDArray
             The projected array.
         """
-
         for i in self.cs:
             p_i = self.single_map(x, i)
             res = self.b[i] - p_i
@@ -130,7 +125,7 @@ class SequentialWeightedAMSHalfspace(SequentialAMSHalfspace):
     iterate by default 1.0.
     weight_decay : float, optional
         Parameter that determines the rate at which the weights are reduced
-    after each phase (weights * weight_decay). Default is 1.
+        after each phase (weights * weight_decay). Default is 1.0.
     cs : None or list of int, optional
         The indices of the constraints to be considered. Default is None.
     proximity_flag : bool, optional
@@ -151,22 +146,20 @@ class SequentialWeightedAMSHalfspace(SequentialAMSHalfspace):
         A: npt.NDArray,
         b: npt.NDArray,
         weights: None | List[float] | npt.NDArray = None,
-        algorithmic_relaxation: npt.NDArray | float = 1,
-        relaxation: float = 1,
-        weight_decay: float = 1,
+        algorithmic_relaxation: npt.NDArray | float = 1.0,
+        relaxation: float = 1.0,
+        weight_decay: float = 1.0,
         cs: None | List[int] = None,
         proximity_flag: bool = True,
     ):
-
         super().__init__(A, b, algorithmic_relaxation, relaxation, cs, proximity_flag)
         xp = cp if self._use_gpu else np
-        self.weight_decay = weight_decay  # decay rate
-        self.temp_weight_decay = 1  # initial value for weight decay
+        self.weight_decay = weight_decay
+        self.temp_weight_decay = 1.0
 
         if weights is None:
             self.weights = xp.ones(self.A.shape[0])
-        elif xp.abs((weights.sum() - 1)) > 1e-10:
-            print("Weights do not add up to 1! Renormalizing to 1...")
+        else:
             self.weights = weights
 
     def _project(self, x: npt.NDArray) -> np.ndarray:
@@ -192,7 +185,6 @@ class SequentialWeightedAMSHalfspace(SequentialAMSHalfspace):
         the array `x` using a weighted relaxation factor. The weight decay is applied
         to the temporary weight decay after each iteration.
         """
-
         weighted_relaxation = self.algorithmic_relaxation * self.temp_weight_decay
 
         for i in self.cs:
@@ -210,8 +202,9 @@ class SequentialWeightedAMSHalfspace(SequentialAMSHalfspace):
 class SimultaneousAMSHalfspace(HalfspaceAlgorithm):
     """
     SimultaneousAMS is an implementation of the AMS (Alternating
-    Minimization Scheme) algorithm
-    that performs simultaneous projections and proximity calculations.
+    Minimization
+    Scheme) algorithm that performs simultaneous projections and proximity
+    calculations.
 
     Parameters
     ----------
@@ -233,12 +226,11 @@ class SimultaneousAMSHalfspace(HalfspaceAlgorithm):
         self,
         A: npt.NDArray,
         b: npt.NDArray,
-        algorithmic_relaxation: npt.NDArray | float = 1,
-        relaxation: float = 1,
+        algorithmic_relaxation: npt.NDArray | float = 1.0,
+        relaxation: float = 1.0,
         weights: None | List[float] = None,
         proximity_flag: bool = True,
     ):
-
         super().__init__(A, b, algorithmic_relaxation, relaxation, proximity_flag)
 
         xp = cp if self._use_gpu else np
@@ -246,12 +238,12 @@ class SimultaneousAMSHalfspace(HalfspaceAlgorithm):
         if weights is None:
             self.weights = xp.ones(self.A.shape[0]) / self.A.shape[0]
         elif xp.abs((weights.sum() - 1)) > 1e-10:
-            print("Weights do not add up to 1! Renormalizing to 1...")
+            warnings.warn("Weights do not add up to 1! Renormalizing to 1...", stacklevel=2)
             self.weights = weights / weights.sum()
         else:
             self.weights = weights
 
-    def _project(self, x):
+    def _project(self, x: npt.NDArray) -> np.ndarray:
         # simultaneous projection
         p = self.map(x)
         res = self.b - p
@@ -264,9 +256,8 @@ class SimultaneousAMSHalfspace(HalfspaceAlgorithm):
         )
         return x
 
-    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> float:
+    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> list[float]:
         p = self.map(x)
-        # residuals are positive  if constraints are met
         res = self.b - p
         res[res > 0] = 0
         res = -res
@@ -281,7 +272,7 @@ class SimultaneousAMSHalfspace(HalfspaceAlgorithm):
             elif isinstance(measure, str) and measure == "max_norm":
                 measures.append(res.max())
             else:
-                raise ValueError("Invalid proximity measure)")
+                raise ValueError("Invalid proximity measure")
         return measures
 
 
@@ -289,8 +280,8 @@ class BlockIterativeAMSHalfspace(HalfspaceAlgorithm):
     """
     Block Iterative AMS Algorithm.
     This class implements a block iterative version of the AMS (Alternating
-    Minimization Scheme) algorithm.
-    It is designed to handle constraints and weights in a block-wise manner.
+    Minimization Scheme) algorithm. It is designed to handle constraints and
+    weights in a block-wise manner.
 
     Parameters
     ----------
@@ -318,11 +309,10 @@ class BlockIterativeAMSHalfspace(HalfspaceAlgorithm):
         A: npt.NDArray,
         b: npt.NDArray,
         weights: List[List[float]] | List[npt.NDArray],
-        algorithmic_relaxation: npt.NDArray | float = 1,
-        relaxation: float = 1,
+        algorithmic_relaxation: npt.NDArray | float = 1.0,
+        relaxation: float = 1.0,
         proximity_flag: bool = True,
     ):
-
         super().__init__(A, b, algorithmic_relaxation, relaxation, proximity_flag)
 
         xp = cp if self._use_gpu else np
@@ -344,10 +334,9 @@ class BlockIterativeAMSHalfspace(HalfspaceAlgorithm):
             self.weights.append(el[xp.array(el) > 0])  # remove non zero weights
             self.total_weights += el / len(weights)
 
-    def _project(self, x):
+    def _project(self, x: npt.NDArray) -> np.ndarray:
         # simultaneous projection
-
-        for el, block_idx in zip(self.weights, self.block_idxs):  # get mask and associated weights
+        for el, block_idx in zip(self.weights, self.block_idxs):
             p = self.indexed_map(x, block_idx)
             res = self.b[block_idx] - p
 
@@ -360,9 +349,8 @@ class BlockIterativeAMSHalfspace(HalfspaceAlgorithm):
 
         return x
 
-    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> float:
+    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> list[float]:
         p = self.map(x)
-        # residuals are positive  if constraints are met
         res = self.b - p
         res[res > 0] = 0
         res = -res
@@ -377,15 +365,14 @@ class BlockIterativeAMSHalfspace(HalfspaceAlgorithm):
             elif isinstance(measure, str) and measure == "max_norm":
                 measures.append(res.max())
             else:
-                raise ValueError("Invalid proximity measure)")
+                raise ValueError("Invalid proximity measure")
         return measures
 
 
 class StringAveragedAMSHalfspace(HalfspaceAlgorithm):
     """
     StringAveragedAMS is an implementation of the HalfspaceAlgorithm that
-    performs
-    string averaged projections.
+    performs string averaged projections.
 
     Parameters
     ----------
@@ -410,34 +397,27 @@ class StringAveragedAMSHalfspace(HalfspaceAlgorithm):
         A: npt.NDArray,
         b: npt.NDArray,
         strings: List[List[int]],
-        algorithmic_relaxation: npt.NDArray | float = 1,
-        relaxation: float = 1,
+        algorithmic_relaxation: npt.NDArray | float = 1.0,
+        relaxation: float = 1.0,
         weights: None | List[float] = None,
         proximity_flag: bool = True,
     ):
-
         super().__init__(A, b, algorithmic_relaxation, relaxation, proximity_flag)
         xp = cp if self._use_gpu else np
         self.strings = strings
         if weights is None:
             self.weights = xp.ones(len(strings)) / len(strings)
-
-        # if check_weight_validity(weights):
-        #    self.weights = weights
         else:
             if len(weights) != len(self.strings):
                 raise ValueError("The number of weights must be equal to the number of strings.")
-
             self.weights = weights
-            # print('Choosing default weight vector...')
-            # self.weights = np.ones(self.A.shape[0])/self.A.shape[0]
 
     def _project(self, x):
         # string averaged projection
         x_c = x.copy()  # create a general copy of x
         x -= x  # reset x is this viable?
         for string, weight in zip(self.strings, self.weights):
-            x_s = x_c.copy()  # generate a copy for individual strings
+            x_s = x_c.copy()
             for i in string:
                 p_i = self.single_map(x_s, i)
                 res_i = self.b[i] - p_i

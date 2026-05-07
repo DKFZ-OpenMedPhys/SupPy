@@ -1,6 +1,5 @@
 """Base classes for all projection objects."""
 from abc import ABC, abstractmethod
-from typing import List
 import numpy as np
 import numpy.typing as npt
 
@@ -81,7 +80,7 @@ class Projection(ABC):
     def _project(self, x: npt.NDArray) -> np.ndarray:
         """Internal method to project the point x onto the set."""
 
-    def proximity(self, x: npt.NDArray, proximity_measures: List) -> float:
+    def proximity(self, x: npt.NDArray, proximity_measures: list) -> float:
         """
         Calculate proximity measures of point `x` to the set.
 
@@ -92,7 +91,7 @@ class Projection(ABC):
 
         Returns
         -------
-        List[float]
+        list[float]
             The proximity measures of the input array `x`.
         """
         xp = cp if isinstance(x, cp.ndarray) else np
@@ -102,7 +101,7 @@ class Projection(ABC):
         return xp.zeros(len(proximity_measures))
 
     @abstractmethod
-    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> float:
+    def _proximity(self, x: npt.NDArray, proximity_measures: list) -> list[float]:
         """
         Calculate proximity measures of point `x` to set.
 
@@ -110,12 +109,12 @@ class Projection(ABC):
         ----------
         x : npt.NDArray
             Input array for which the proximity measures are to be calculated.
-        proximity_measures : List
-            List of proximity measures to calculate.
+        proximity_measures : list
+            list of proximity measures to calculate.
 
         Returns
         -------
-        List[float]
+        list[float]
             The proximity measures of the input array `x`.
         """
 
@@ -129,10 +128,10 @@ class BasicProjection(Projection, ABC):
 
     Parameters
     ----------
-    idx : npt.NDArray or None, optional
-        Indices to apply the projection, by default None.
     relaxation : float, optional
         Relaxation parameter for the projection, by default 1.
+    idx : npt.NDArray or None, optional
+        Indices to apply the projection, by default None.
     proximity_flag : bool
         Flag to indicate whether to take this object into account when calculating proximity, by default True.
 
@@ -176,7 +175,7 @@ class BasicProjection(Projection, ABC):
     #         )
     #         return x
 
-    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> List[float]:
+    def _proximity(self, x: npt.NDArray, proximity_measures: list) -> list[float]:
         # probably should have some option to choose the distance
         res = x[self.idx] - self._project(x.copy())[self.idx]
         dist = (res**2).sum() ** (1 / 2)

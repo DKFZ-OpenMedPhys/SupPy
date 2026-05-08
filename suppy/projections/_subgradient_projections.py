@@ -24,10 +24,10 @@ class SubgradientProjection(BasicProjection):
         level: float = 0,
         func_args: List | None = None,
         grad_args: List | None = None,
-        relaxation: float = 1,
+        relaxation: float = 1.0,
         idx: npt.NDArray | None = None,
-        proximity_flag=True,
-        use_gpu=False,
+        proximity_flag: bool = True,
+        use_gpu: bool = False,
     ):
         """
         Initialize the SubgradientProjection object.
@@ -108,7 +108,7 @@ class SubgradientProjection(BasicProjection):
         """
         return self.func_call(x) - self.level
 
-    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> float:
+    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> list[float]:
         dist = self.level_diff(x)
         dist = dist if dist > 0 else 0
         measures = []
@@ -148,10 +148,10 @@ class EUDProjection(SubgradientProjection):
         self,
         a: float,
         EUD_max: float = 10,
-        relaxation: float = 1,
+        relaxation: float = 1.0,
         idx: npt.NDArray | None = None,
-        proximity_flag=True,
-        use_gpu=False,
+        proximity_flag: bool = True,
+        use_gpu: bool = False,
     ):
         """Initializes the EUDProjection object."""
         super().__init__(
@@ -175,7 +175,7 @@ class EUDProjection(SubgradientProjection):
         Returns:
         - npt.NDArray: The result of the EUD projection function.
         """
-        return (1 / x.shape[0] * ((x**self.a).sum(axis=0))) ** (1 / self.a)
+        return (((x**self.a).sum(axis=0)) / len(x)) ** (1 / self.a)
 
     def _grad(self, x):
         """
@@ -195,18 +195,47 @@ class EUDProjection(SubgradientProjection):
 
 
 class WeightEUDProjection(EUDProjection):
+    """EUD projection with a linear dose-influence matrix A.
+
+    Applies the EUD constraint to the weighted dose ``A @ x[idx]`` rather
+    than directly to ``x[idx]``.
+
+    Parameters
+    ----------
+    A : npt.NDArray
+        Dose-influence matrix applied before computing the EUD.
+    a : float
+        Exponent used in the EUD calculation.
+    EUD_max : float, optional
+        Upper bound on the EUD, by default 10.
+    relaxation : float, optional
+        Relaxation parameter, by default 1.0.
+    idx : npt.NDArray or None, optional
+        Index subset of x to use, by default None.
+    proximity_flag : bool, optional
+        Flag to use proximity function, by default True.
+    use_gpu : bool, optional
+        Flag for GPU computation, by default False.
+    """
+
     def __init__(
         self,
         A: npt.NDArray,
         a: float,
         EUD_max: float = 10,
-        relaxation: float = 1,
+        relaxation: float = 1.0,
         idx: npt.NDArray | None = None,
-        proximity_flag=True,
-        use_gpu=False,
+        proximity_flag: bool = True,
+        use_gpu: bool = False,
     ):
-        """Initializes the EUDProjection object."""
-        super().__init__(a, EUD_max, idx, proximity_flag=proximity_flag, use_gpu=use_gpu)
+        super().__init__(
+            a,
+            EUD_max,
+            relaxation=relaxation,
+            idx=idx,
+            proximity_flag=proximity_flag,
+            use_gpu=use_gpu,
+        )
         self.A = A
 
     def func_call(self, x):

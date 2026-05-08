@@ -49,10 +49,18 @@ class DROPHyperplane(SimultaneousKaczmarzMethod):
     ):
         # not NO_GPU guard ensures cp.sparse is never accessed when CuPy is unavailable
         A_cpu = A.get() if (not NO_GPU and isinstance(A, cp.sparse.csr_matrix)) else A
-        xp = np if isinstance(A_cpu, np.ndarray) else cp
+        xp = (
+            np
+            if (
+                isinstance(A_cpu, np.ndarray)
+                or isinstance(A_cpu, sparse.sparray)
+                or isinstance(A_cpu, sparse.spmatrix)
+            )
+            else cp
+        )
         nnz_counts = xp.array(
             A_cpu.getnnz(axis=0), dtype=xp.float32
-        )  # number of non-zeros per row
+        )  # number of non-zeros per column
         del A_cpu
 
         super().__init__(A, b, algorithmic_relaxation, relaxation, proximity_flag=proximity_flag)

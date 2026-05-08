@@ -20,43 +20,39 @@ class LinearMapping:
     """This class is used to allow interoperatibility between numpy, scipy etc."""
 
     def __init__(self, A):
-        self.gpu = False  # flag for gpu
+        self.gpu = False
 
-        if NO_GPU is False:  # is only checked when cupy is available
-
+        if not NO_GPU:
             if isinstance(A, cp.ndarray):
                 self.flag = "cupy_full"
-                self.gpu = True  # set a flag for gpu
+                self.gpu = True
                 if A.ndim == 1:
-                    self.A = cp.array([A])  # wrap 1d arrays
+                    self.A = cp.array([A])
                 elif A.ndim > 2:
                     raise ValueError("A must be a 2D array or a sparse matrix.")
                 else:
                     self.A = A
+                return
 
             elif csparse.issparse(A):
                 self.flag = "cupy_sparse"
-                self.gpu = True  # set a flag for gpu
-
+                self.gpu = True
                 if isinstance(A, csparse.csr_matrix):
                     self.A = A
-
                 else:
                     warnings.warn(
-                        "Converting to csr matrix format. This creates a copy of your matrix!"
+                        "Converting to csr matrix format. This creates a copy of your matrix!",
+                        stacklevel=2,
                     )
-                    self.A = csparse.csr_matrix(A)  # transform to csr format
-
-        # set a flag based on class
+                    self.A = csparse.csr_matrix(A)
+                return
 
         if isinstance(A, np.ndarray):
             self.flag = "numpy"
             if A.ndim == 1:
-                self.A = np.array([A])  # wrap 1d arrays
-
+                self.A = np.array([A])
             elif A.ndim > 2:
                 raise ValueError("A must be a 2D array or a sparse matrix.")
-
             else:
                 self.A = A
 
@@ -64,28 +60,31 @@ class LinearMapping:
             self.flag = "scipy_sparse"
             if isinstance(A, sparse.csr_array):
                 self.A = A
-
             else:
-                warnings.warn("Converting to csr array format. This creates a copy of your array!")
-                self.A = sparse.csr_array(A)  # transform to csr format
+                warnings.warn(
+                    "Converting to csr array format. This creates a copy of your array!",
+                    stacklevel=2,
+                )
+                self.A = sparse.csr_array(A)
+
+        else:
+            raise ValueError(
+                f"Unsupported matrix type: {type(A)}. Expected np.ndarray, scipy sparse, "
+                "or (if CuPy is available) cp.ndarray or cupy sparse."
+            )
 
     @staticmethod
     def get_flags(A):
         _gpu = False
         _flag = None
-        if NO_GPU is False:  # is only checked when cupy is available
-
+        if not NO_GPU:
             if isinstance(A, cp.ndarray):
-                _flag = "cupy_full"
-                _gpu = True  # set a flag for gpu
-
+                return "cupy_full", True
             elif csparse.issparse(A):
-                _flag = "cupy_sparse"
-                _gpu = True  # set a flag for gpu
+                return "cupy_sparse", True
 
         if isinstance(A, np.ndarray):
             _flag = "numpy"
-
         elif sparse.issparse(A):
             _flag = "scipy_sparse"
         return _flag, _gpu
@@ -101,9 +100,6 @@ class LinearMapping:
 
     def __getattr__(self, attr):
         return getattr(self.A, attr)
-
-    def __hasattr__(self, attr):
-        return hasattr(self.A, attr)
 
     # Get and set elements
     def __getitem__(self, key):
@@ -171,28 +167,6 @@ class LinearMapping:
             return clinalg.norm(self.A, ord=order) ** power
         raise ValueError("Unknown flag.")
 
-    # def normalize_rows(self, order=None, power=1):
-    #     """Normalize the rows of the matrix with the "norm" norm of power."""
-    #     if self.flag == "numpy":
-    #         return self.A / (np.linalg.norm(self.A, axis=1, ord=order) ** power)[:, None]
-
-    #     elif self.flag == "scipy_sparse":
-    #         return (
-    #             sparse.diags_array(1 / (sparse.linalg.norm(self.A, axis=1, ord=order) ** power))
-    #             @ self.A
-    #         )
-
-    #     elif self.flag == "cupy_full":
-    #         return self.A / (cp.linalg.norm(self.A, axis=1, order=order) ** power)[:, None]
-
-    #     elif self.flag == "cupy_sparse":
-    #         return (
-    #             csparse.diags(
-    #                 (1 / (csparse.linalg.norm(self.A, axis=1, ord=order) ** power)).ravel()
-    #             )
-    #             @ self.A
-    #         )
-
     def row_norm(self, order=None, power=1):
         """Get the row norms of the matrix."""
         if self.flag == "numpy":
@@ -221,16 +195,10 @@ class LinearMapping:
 
     def index_map(self, x, idx):
         """Apply a linear map to a subset of the matrix."""
-        if self.flag in ["numpy", "cupy_full"]:
-            return self.A[idx] @ x
-
-        if self.flag in ["scipy_sparse", "cupy_sparse"]:
-            return self.A[idx] @ x
-
-        raise ValueError("Unknown flag.")
+        return self.A[idx] @ x
 
     def update_step(self, x, c, i):
-
+        """Add a scaled row of the matrix to x in-place: x += A[i] * c."""
         if self.flag in ["numpy", "cupy_full"]:
             x += self.A[i] * c
 

@@ -10,12 +10,12 @@ class FeasibilityPerturbation(ABC):
 
     Parameters
     ----------
-    basic : Callable
+    basic : Projection
         The underlying feasibility seeking algorithm.
 
     Attributes
     ----------
-    basic : Callable
+    basic : Projection
         The underlying feasibility seeking algorithm.
     """
 
@@ -23,8 +23,7 @@ class FeasibilityPerturbation(ABC):
         self.basic = basic
 
     @abstractmethod
-    # @ensure_float_array
-    def solve(self, x_0: npt.NDArray):
+    def solve(self, x_0: npt.NDArray) -> npt.NDArray:
         """
         Solve the perturbed feasibility seeking problem.
 
@@ -35,6 +34,6 @@ class FeasibilityPerturbation(ABC):
 
         Returns
         -------
-        None
-            This method should be overridden by subclasses to provide the actual implementation.
+        npt.NDArray
+            The superiorized solution.
         """

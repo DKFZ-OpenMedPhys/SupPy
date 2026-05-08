@@ -1,4 +1,7 @@
 # SupPy - Python superiorization library
+[![PyPI version](https://img.shields.io/pypi/v/suppy)](https://pypi.org/project/suppy/)
+![pyversion](https://img.shields.io/pypi/pyversions/suppy)
+![License](https://img.shields.io/github/license/DKFZ-OpenMedPhys/SupPy)
 
 `SupPy` is a native python library for user-friendly setup and evaluation of superiorzation algorithms.
 

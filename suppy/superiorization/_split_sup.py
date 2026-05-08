@@ -96,11 +96,8 @@ class SplitSuperiorization(FeasibilityPerturbation):
         self._k = 0
 
         self.all_x = []
-        self.all_function_values = []  # array storing all objective function values
-        self.proximities = []  # array storing all proximity function values
-
-        # array storing all points achieved via the function reduction step
-        self.all_x_values_function_reduction = []
+        self.all_function_values = []
+        self.proximities = []
 
         self.all_x_function_reduction = []
         self.all_function_values_function_reduction = []
@@ -123,7 +120,7 @@ class SplitSuperiorization(FeasibilityPerturbation):
         del_input_objective_n: int = 5,
         del_target_objective_tol: float = 1e-6,
         del_target_objective_n: int = 5,
-        storage=False,
+        storage: bool = False,
         storage_iters: List[int] | int | None = None,
         alternative_stopping_criterion: Callable | None = None,
         alternative_stopping_criterion_initial_call: Callable | None = None,
@@ -167,7 +164,7 @@ class SplitSuperiorization(FeasibilityPerturbation):
         Returns
         -------
         npt.NDArray
-            The optimized solution after performing the superiorization method.
+            The superiorized solution after performing the superiorization method.
         """
 
         def _should_store(idx):
@@ -276,10 +273,13 @@ class SplitSuperiorization(FeasibilityPerturbation):
 
             self.storage(
                 x,
-                "function_reduction",
-                storage and _should_store(self._k + 1),
-                [self.input_perturbation_scheme.func(x), self.target_perturbation_scheme.func(y)],
-                self.basic.proximity(x, proximity_measures),
+                kind="function_reduction",
+                storage=storage and _should_store(self._k + 1),
+                f=[
+                    self.input_perturbation_scheme.func(x),
+                    self.target_perturbation_scheme.func(y),
+                ],
+                p=self.basic.proximity(x, proximity_measures),
             )
 
             # perform basic step
@@ -287,10 +287,13 @@ class SplitSuperiorization(FeasibilityPerturbation):
 
             self.storage(
                 x,
-                "basic",
-                storage and _should_store(self._k + 1),
-                [self.input_perturbation_scheme.func(x), self.target_perturbation_scheme.func(y)],
-                self.basic.proximity(x, proximity_measures),
+                kind="basic",
+                storage=storage and _should_store(self._k + 1),
+                f=[
+                    self.input_perturbation_scheme.func(x),
+                    self.target_perturbation_scheme.func(y),
+                ],
+                p=self.basic.proximity(x, proximity_measures),
             )
 
             self._k += 1
@@ -374,15 +377,15 @@ class SplitSuperiorization(FeasibilityPerturbation):
         # check if both criteria are met
         return stop_objective and stop_prox
 
-    def _additional_action(self, x, y):
+    def _additional_action(self, x: npt.NDArray, y: npt.NDArray):
         """
         Perform an additional action on the given inputs.
 
         Parameters
         ----------
-        x : type
+        x : np.ndarray
             Description of parameter `x`.
-        y : type
+        y : np.ndarray
             Description of parameter `y`.
 
         Returns
@@ -390,17 +393,17 @@ class SplitSuperiorization(FeasibilityPerturbation):
         None
         """
 
-    def _initial_storage(self, x, storage, f, p):
+    def _initial_storage(self, x: npt.NDArray, storage: bool, f: list, p: list):
         """
         Initializes storage for objective values and appends initial values.
 
         Parameters
         ----------
-        x : array-like
+        x : np.ndarray
             Initial values of the variables.
-        f : array-like
+        f : np.ndarray
             Initial values of the objective function.
-        p : array-like
+        p : np.ndarray
             Proximity function value
         """
         # reset objective values
@@ -452,7 +455,12 @@ class SplitSuperiorization(FeasibilityPerturbation):
                 self.all_x_function_reduction.append((x.get()))
 
     def storage(
-        self, x: npt.NDArray, type: str, storage: bool = True, f: float = None, p: float = None
+        self,
+        x: npt.NDArray,
+        kind: str,
+        storage: bool = True,
+        f: list | None = None,
+        p: list | None = None,
     ):
         """
         Stores the given values of x and f into the corresponding lists.
@@ -461,7 +469,7 @@ class SplitSuperiorization(FeasibilityPerturbation):
         ----------
         x : npt.NDArray
             The current value of the variable x to be stored.
-        type : str
+        kind : str
             The type of storage to be used, either "function_reduction" or "basic".
         storage : bool, optional
             If True, store the values of x
@@ -490,7 +498,7 @@ class SplitSuperiorization(FeasibilityPerturbation):
         elif storage:
             self.all_x.append((x.get()))
 
-        if type == "function_reduction":
+        if kind == "function_reduction":
             self.all_function_values_function_reduction.append(f_temp)
             self.proximities_function_reduction.append(p_temp)
 
@@ -499,7 +507,7 @@ class SplitSuperiorization(FeasibilityPerturbation):
             elif storage:
                 self.all_x_function_reduction.append((x.get()))
 
-        elif type == "basic":
+        elif kind == "basic":
             self.all_function_values_basic.append(f_temp)
             self.proximities_basic.append(p_temp)
 
@@ -529,7 +537,6 @@ class SplitSuperiorization(FeasibilityPerturbation):
         self.all_x_function_reduction = np.array(self.all_x_function_reduction)
         self.all_x_basic = np.array(self.all_x_basic)
 
-        # if isinstance(x, np.ndarray):
         self.all_function_values = np.array(self.all_function_values)
         self.all_function_values_function_reduction = np.array(
             self.all_function_values_function_reduction
@@ -538,78 +545,3 @@ class SplitSuperiorization(FeasibilityPerturbation):
         self.proximities = np.array(self.proximities)
         self.proximities_function_reduction = np.array(self.proximities_function_reduction)
         self.proximities_basic = np.array(self.proximities_basic)
-        # else:
-        #     # If using cupy, convert all arrays to cupy arrays
-        #     # convert all to numpy arrays
-        #     self.all_function_values = np.array(
-        #         [np.array([el[0].get(),el[1]]) for el in self.all_function_values]
-        #     )
-        #     self.all_function_values_function_reduction = np.array(
-        #         [np.array([el[0].get(),el[1]]) for el in self.all_function_values_function_reduction]
-        #     )
-        #     self.all_function_values_basic = np.array(
-        #         [np.array([el[0].get(),el[1]]) for el in self.all_function_values_basic]
-        #     )
-        #     self.proximities = np.array([el.get() for el in self.proximities])
-        #     self.proximities_function_reduction = np.array(
-        #         [el.get() for el in self.proximities_function_reduction]
-        #     )
-        #     self.proximities_basic = np.array(
-        #         [el.get() for el in self.proximities_basic]
-        #     )
-
-    # def _initial_storage(self,x,f_input,f_target):
-    #     """
-    #     Initialize the storage arrays for storing intermediate results.
-
-    #     Parameters:
-    #     - x: The initial point for the optimization problem.
-
-    #     Returns:
-    #     None
-    #     """
-    #     #reset objective values
-    #     self.all_x_values = []
-    #     self.all_function_values = []  # array storing all objective function values
-
-    #     self.all_x_values_function_reduction = []
-    #     self.all_function_values_function_reduction = []
-
-    #     self.all_x_values_basic = []
-    #     self.all_function_values_basic = []
-
-    #     #append initial values
-    #     self.all_x_values.append(x)
-    #     self.all_function_values.append(f)
-
-    # def _storage_function_reduction(self,x,f):
-    #     """
-    #     Store intermediate results achieved via the function reduction step.
-
-    #     Parameters:
-    #     - x: The current point achieved via the function reduction step.
-    #     - f: The current objective function value achieved via the function reduction step.
-
-    #     Returns:
-    #     None
-    #     """
-    #     self.all_x_values.append(x.copy())
-    #     self.all_function_values.append(f)
-    #     self.all_x_values_function_reduction.append(x.copy())
-    #     self.all_function_values_function_reduction.append(f)
-
-    # def _storage_basic_step(self,x,f):
-    #     """
-    #     Store intermediate results achieved via the basic algorithm step.
-
-    #     Parameters:
-    #     - x: The current point achieved via the basic algorithm step.
-    #     - f: The current objective function value achieved via the basic algorithm step.
-
-    #     Returns:
-    #     None
-    #     """
-    #     self.all_x_values_basic.append(x.copy())
-    #     self.all_function_values_basic.append(f)
-    #     self.all_x_values.append(x.copy())
-    #     self.all_function_values.append(f)

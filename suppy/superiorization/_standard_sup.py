@@ -132,7 +132,7 @@ class Superiorization(FeasibilityPerturbation):
         Returns
         -------
         npt.NDArray
-            The optimized solution.
+            The superiorized solution.
         """
 
         def _should_store(idx):

@@ -1,8 +1,8 @@
+import warnings
 from abc import ABC
 from typing import List
 import numpy as np
 import numpy.typing as npt
-from suppy.utils import LinearMapping
 from suppy.feasibility._linear_algorithms import HyperslabFeasibility
 
 try:
@@ -41,11 +41,10 @@ class ARMAlgorithm(HyperslabFeasibility, ABC):
         A: npt.NDArray,
         lb: npt.NDArray,
         ub: npt.NDArray,
-        algorithmic_relaxation: npt.NDArray | float = 1,
-        relaxation: float = 1,
-        proximity_flag=True,
+        algorithmic_relaxation: npt.NDArray | float = 1.0,
+        relaxation: float = 1.0,
+        proximity_flag: bool = True,
     ):
-
         super().__init__(A, lb, ub, algorithmic_relaxation, relaxation, proximity_flag)
 
 
@@ -77,15 +76,13 @@ class SequentialARM(ARMAlgorithm):
         A: npt.NDArray,
         lb: npt.NDArray,
         ub: npt.NDArray,
-        algorithmic_relaxation: npt.NDArray | float = 1,
-        relaxation: float = 1,
+        algorithmic_relaxation: npt.NDArray | float = 1.0,
+        relaxation: float = 1.0,
         cs: None | List[int] = None,
-        proximity_flag=True,
+        proximity_flag: bool = True,
     ):
-
         super().__init__(A, lb, ub, algorithmic_relaxation, relaxation, proximity_flag)
         xp = cp if self._use_gpu else np
-        self._k = 0  # relaxation power
         if cs is None:
             self.cs = xp.arange(self.A.shape[0])
         else:
@@ -147,19 +144,18 @@ class SimultaneousARM(ARMAlgorithm):
         A: npt.NDArray,
         lb: npt.NDArray,
         ub: npt.NDArray,
-        algorithmic_relaxation: npt.NDArray | float = 1,
-        relaxation: float = 1,
+        algorithmic_relaxation: npt.NDArray | float = 1.0,
+        relaxation: float = 1.0,
         weights: None | List[float] | npt.NDArray = None,
-        proximity_flag=True,
+        proximity_flag: bool = True,
     ):
-
         super().__init__(A, lb, ub, algorithmic_relaxation, relaxation, proximity_flag)
         xp = cp if self._use_gpu else np
 
         if weights is None:
             self.weights = xp.ones(self.A.shape[0]) / self.A.shape[0]
         elif xp.abs((weights.sum() - 1)) > 1e-10:
-            print("Weights do not add up to 1! Renormalizing to 1...")
+            warnings.warn("Weights do not add up to 1! Renormalizing to 1...", stacklevel=2)
             self.weights = weights / weights.sum()
         else:
             self.weights = weights
@@ -184,9 +180,8 @@ class SimultaneousARM(ARMAlgorithm):
 
         return x
 
-    def _proximity(self, x: npt.NDArray, proximity_measures: List[str]) -> float:
+    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> list[float]:
         p = self.map(x)
-        # residuals are positive if constraints are met
         (res_l, res_u) = self.bounds.residual(p)
         res_u[res_u > 0] = 0
         res_l[res_l > 0] = 0
@@ -201,7 +196,7 @@ class SimultaneousARM(ARMAlgorithm):
             elif isinstance(measure, str) and measure == "max_norm":
                 measures.append(res.max())
             else:
-                raise ValueError("Invalid proximity measure)")
+                raise ValueError("Invalid proximity measure")
         return measures
 
 
@@ -239,31 +234,27 @@ class BIPARM(ARMAlgorithm):
         A: npt.NDArray,
         lb: npt.NDArray,
         ub: npt.NDArray,
-        algorithmic_relaxation: npt.NDArray | float = 1,
-        relaxation: float = 1,
+        algorithmic_relaxation: npt.NDArray | float = 1.0,
+        relaxation: float = 1.0,
         weights: None | List[float] | npt.NDArray = None,
-        proximity_flag=True,
+        proximity_flag: bool = True,
     ):
-
         super().__init__(A, lb, ub, algorithmic_relaxation, relaxation, proximity_flag)
         xp = cp if self._use_gpu else np
         if weights is None:
             self.weights = xp.ones(self.A.shape[0]) / self.A.shape[0]
-
-        # if check_weight_validity(weights):
-        #    self.weights = weights
         elif xp.abs((weights.sum() - 1)) > 1e-10:
-            print("Weights do not add up to 1! Choosing default weight vector...")
-            self.weights = xp.ones(self.A.shape[0]) / self.A.shape[0]
+            warnings.warn("Weights do not add up to 1! Renormalizing to 1...", stacklevel=2)
+            self.weights = weights / weights.sum()
         else:
             self.weights = weights
 
     def _project(self, x):
-        # simultaneous projection
+        xp = cp if self._use_gpu else np
         p = self.map(x)
         d = p - self.bounds.center
         psi = self.bounds.half_distance
-        d_idx = abs(d) > psi
+        d_idx = xp.abs(d) > psi
         x -= (
             self.algorithmic_relaxation
             / 2
@@ -277,9 +268,8 @@ class BIPARM(ARMAlgorithm):
 
         return x
 
-    def _proximity(self, x: npt.NDArray, proximity_measures: List[str]) -> float:
+    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> list[float]:
         p = self.map(x)
-        # residuals are positive if constraints are met
         (res_l, res_u) = self.bounds.residual(p)
         res_u[res_u > 0] = 0
         res_l[res_l > 0] = 0
@@ -288,13 +278,13 @@ class BIPARM(ARMAlgorithm):
         for measure in proximity_measures:
             if isinstance(measure, tuple):
                 if measure[0] == "p_norm":
-                    measures.append(1 / len(res) * self.total_weights @ (res ** measure[1]))
+                    measures.append(self.weights @ (res ** measure[1]))
                 else:
                     raise ValueError("Invalid proximity measure")
             elif isinstance(measure, str) and measure == "max_norm":
                 measures.append(res.max())
             else:
-                raise ValueError("Invalid proximity measure)")
+                raise ValueError("Invalid proximity measure")
         return measures
 
 
@@ -341,25 +331,20 @@ class StringAveragedARM(ARMAlgorithm):
         lb: npt.NDArray,
         ub: npt.NDArray,
         strings: List[List[int]],
-        algorithmic_relaxation: npt.NDArray | float = 1,
-        relaxation: float = 1,
+        algorithmic_relaxation: npt.NDArray | float = 1.0,
+        relaxation: float = 1.0,
         weights: None | List[float] = None,
-        proximity_flag=True,
+        proximity_flag: bool = True,
     ):
-
         super().__init__(A, lb, ub, algorithmic_relaxation, relaxation, proximity_flag)
         xp = cp if self._use_gpu else np
         self.strings = strings
 
         if weights is None:
             self.weights = xp.ones(len(strings)) / len(strings)
-
-        # if check_weight_validity(weights):
-        #    self.weights = weights
         else:
             if len(weights) != len(self.strings):
                 raise ValueError("The number of weights must be equal to the number of strings.")
-
             self.weights = weights
 
     def _project(self, x):

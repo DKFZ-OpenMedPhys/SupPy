@@ -111,9 +111,6 @@ class Feasibility(Projection, ABC):
 
         if proximity_measures is None:
             proximity_measures = [("p_norm", 2)]
-        else:
-            # TODO: Check if the proximity measures are valid
-            _ = None
 
         self.proximities = [self.proximity(x, proximity_measures)]
         i = 0
@@ -125,13 +122,14 @@ class Feasibility(Projection, ABC):
                 return idx % storage_iters == 0
             return idx in storage_iters
 
+        to_host = (
+            (lambda v: np.array(v.copy())) if isinstance(x, np.ndarray) else (lambda v: v.get())
+        )
+
         if storage is True:
             self.all_x = []
             if _should_store(0):
-                if isinstance(x, np.ndarray):
-                    self.all_x.append(np.array(x.copy()))
-                else:
-                    self.all_x.append((x.get()))
+                self.all_x.append(to_host(x))
 
         if alternative_stopping_criterion_initial_call is not None:
             stop = alternative_stopping_criterion_initial_call(x, self)
@@ -141,10 +139,7 @@ class Feasibility(Projection, ABC):
         while i < max_iter and not stop:
             x = self.project(x)
             if storage is True and _should_store(i + 1):
-                if isinstance(x, np.ndarray):  # convert to np array if cp
-                    self.all_x.append(np.array(x.copy()))
-                else:
-                    self.all_x.append((x.get()))
+                self.all_x.append(to_host(x))
             self.proximities.append(self.proximity(x, proximity_measures))
 
             if alternative_stopping_criterion is not None:
@@ -270,10 +265,6 @@ class LinearFeasibility(Feasibility, ABC):
         """
         return self.A.index_map(x, idx)
 
-    # @abstractmethodpass
-    # def project(self, x: npt.NDArray) -> np.ndarray:
-    #
-
 
 class HyperplaneFeasibility(LinearFeasibility, ABC):
     """
@@ -329,9 +320,8 @@ class HyperplaneFeasibility(LinearFeasibility, ABC):
                 b = cp.ones(A.shape[0]) * b
         self.b = b
 
-    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> float:
+    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> list[float]:
         p = self.map(x)
-        # residuals are positive  if constraints are met
         res = abs(self.b - p)
         measures = []
         for measure in proximity_measures:
@@ -401,10 +391,8 @@ class HalfspaceFeasibility(LinearFeasibility, ABC):
                 b = cp.ones(A.shape[0]) * b
         self.b = b
 
-    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> float:
-
+    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> list[float]:
         p = self.map(x)
-        # residuals are positive  if constraints are met
         res = self.b - p
         res[res > 0] = 0
         res = -res
@@ -419,13 +407,13 @@ class HalfspaceFeasibility(LinearFeasibility, ABC):
             elif isinstance(measure, str) and measure == "max_norm":
                 measures.append(res.max())
             else:
-                raise ValueError("Invalid proximity measure)")
+                raise ValueError("Invalid proximity measure")
         return measures
 
 
 class HyperslabFeasibility(LinearFeasibility, ABC):
     """
-    A class used to for solving feasibility problems for hyperslabs.
+    A class used for solving feasibility problems for hyperslabs.
 
     Parameters
     ----------
@@ -444,7 +432,7 @@ class HyperslabFeasibility(LinearFeasibility, ABC):
 
     Attributes
     ----------
-    bounds : bounds
+    bounds : Bounds
         Objective for handling the upper and lower bounds of the hyperslab.
     A : LinearMapping
         Matrix for linear system (stored in internal LinearMapping object).
@@ -464,19 +452,16 @@ class HyperslabFeasibility(LinearFeasibility, ABC):
         lb: npt.NDArray,
         ub: npt.NDArray,
         algorithmic_relaxation: npt.NDArray | float = 1.0,
-        relaxation=1,
-        proximity_flag=True,
+        relaxation: float = 1.0,
+        proximity_flag: bool = True,
     ):
         super().__init__(A, algorithmic_relaxation, relaxation, proximity_flag)
         self.bounds = Bounds(lb, ub)
         if self.A.shape[0] != len(self.bounds.l):
             raise ValueError("Matrix A and bound vector must have the same number of rows.")
 
-    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> float:
-
+    def _proximity(self, x: npt.NDArray, proximity_measures: List) -> list[float]:
         p = self.map(x)
-
-        # residuals are positive if constraints are met
         (res_l, res_u) = self.bounds.residual(p)
         res_l[res_l > 0] = 0
         res_u[res_u > 0] = 0
@@ -492,5 +477,5 @@ class HyperslabFeasibility(LinearFeasibility, ABC):
             elif isinstance(measure, str) and measure == "max_norm":
                 measures.append(res.max())
             else:
-                raise ValueError("Invalid proximity measure)")
+                raise ValueError("Invalid proximity measure")
         return measures

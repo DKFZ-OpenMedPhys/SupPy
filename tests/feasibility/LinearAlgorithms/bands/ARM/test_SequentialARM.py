@@ -33,7 +33,6 @@ def test_SequentialARM_constructor_full(get_ARM_variables_full):
     assert np.array_equal(alg.cs, np.arange(len(A)))
     assert alg.relaxation == 1.0
     assert alg.algorithmic_relaxation == 1.0
-    assert alg._k == 0
 
 
 def test_SequentialARM_constructor_sparse(get_ARM_variables_sparse):
@@ -48,7 +47,6 @@ def test_SequentialARM_constructor_sparse(get_ARM_variables_sparse):
     assert np.array_equal(alg.cs, np.arange(A.shape[0]))
     assert alg.relaxation == 1.0
     assert alg.algorithmic_relaxation == 1.0
-    assert alg._k == 0
 
 
 def test_SequentialARM_step_full(get_ARM_variables_full):

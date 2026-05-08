@@ -48,7 +48,6 @@ class Bounds:
             lb = -np.inf
         elif ub is None and lb is not None:
             ub = np.inf
-
         elif lb is None and ub is None:
             raise ValueError("At least one of the bounds must be provided")
 
@@ -57,7 +56,7 @@ class Bounds:
         self.half_distance = self._half_distance()
         self.center = self._center()
 
-    def residual(self, x: npt.NDArray):
+    def residual(self, x: npt.NDArray) -> tuple[npt.NDArray, npt.NDArray]:
         """
         Calculate the residuals between the input vector `x` and the bounds
         `l` and `u`.
@@ -76,7 +75,7 @@ class Bounds:
         """
         return x - self.l, self.u - x
 
-    def single_residual(self, x: float, i: int):
+    def single_residual(self, x: float, i: int) -> tuple[float, float]:
         """
         Calculate the residuals for a given value for a specific constraint
         with respect to the lower and upper bounds.
@@ -95,7 +94,9 @@ class Bounds:
         """
         return x - self.l[i], self.u[i] - x
 
-    def indexed_residual(self, x: npt.NDArray, i: List[int] | npt.NDArray):
+    def indexed_residual(
+        self, x: npt.NDArray, i: List[int] | npt.NDArray
+    ) -> tuple[npt.NDArray, npt.NDArray]:
         """
         Compute the residuals for the given indices.
 
@@ -115,30 +116,30 @@ class Bounds:
         """
         return x - self.l[i], self.u[i] - x
 
-    def _center(self):
+    def _center(self) -> npt.NDArray:
         """
         Calculate the center point between the lower bound (self.l) and the
         upper bound (self.u).
 
         Returns
         -------
-        float
+        npt.NDArray
             The midpoint value between self.l and self.u.
         """
         return (self.l + self.u) / 2
 
-    def _half_distance(self):
+    def _half_distance(self) -> npt.NDArray:
         """
         Calculate half the distance between the upper and lower bounds.
 
         Returns
         -------
-        float
+        npt.NDArray
             Half the distance between the upper bound (self.u) and the lower bound (self.l).
         """
         return (self.u - self.l) / 2
 
-    def project(self, x: npt.NDArray):
+    def project(self, x: npt.NDArray) -> npt.NDArray:
         """
         Project the input array `x` onto the bounds defined by `self.l` and
         `self.u`.

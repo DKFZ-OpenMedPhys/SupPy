@@ -13,12 +13,24 @@ except ImportError:
     cp = np
 
 from suppy.feasibility._linear_algorithms import HyperplaneFeasibility
-from suppy.utils import LinearMapping
 
 
 class ConjugatedGradients(HyperplaneFeasibility):
-    """Conjugated Gradients algorithm for solving linear systems. Update step
-    is chosen to be perturbation resilient.
+    """Conjugated Gradients algorithm for solving linear equalities Ax = b.
+
+    The update step is chosen to be perturbation-resilient. CG state
+    (``last_g``, ``last_p``) is NOT reset between successive ``solve()``
+    calls — this enables warm-starting but means a second call continues
+    from the final direction of the first.
+
+    Parameters
+    ----------
+    A : npt.NDArray
+        Matrix for the linear system.
+    b : npt.NDArray
+        Right-hand side vector.
+    proximity_flag : bool, optional
+        Flag to indicate whether to use proximity, by default True.
     """
 
     def __init__(
@@ -28,7 +40,7 @@ class ConjugatedGradients(HyperplaneFeasibility):
         proximity_flag: bool = True,
     ):
         super().__init__(
-            A, b, algorithmic_relaxation=1, relaxation=1, proximity_flag=proximity_flag
+            A, b, algorithmic_relaxation=1.0, relaxation=1.0, proximity_flag=proximity_flag
         )
         self.last_g = None
         self.last_p = None
@@ -50,6 +62,9 @@ class ConjugatedGradients(HyperplaneFeasibility):
         return x
 
     def precondition(self, x: npt.NDArray) -> np.ndarray:
+        """Perform a single steepest-descent step to initialise CG from a good
+        direction.
+        """
         g = self.A.T @ (self.A @ x - self.b)
         self.last_g = g
         self.last_p = -g

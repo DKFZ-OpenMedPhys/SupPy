@@ -4,7 +4,6 @@ import numpy as np
 import numpy.typing as npt
 import scipy
 
-from Testing._ignore.aaaaa import grad
 
 try:
     import cupy as cp
@@ -304,24 +303,43 @@ class objectives:
         if self.store_csc_copy:
             self.dij_csc = cp.sparse.csc_matrix(dij).copy()
 
+        # potentially skip matrix multiplication if calculation with same x
+        self.x = None
+        self.d = None
+
     def objective_value(self, x: npt.ArrayLike) -> float:
         """Return the weighted sum of objective values at fluence vector
         *x*.
         """
-        d = self.dij @ x
-        return sum([f.objective_value(d) * p for f, p in zip(self.objectives, self.penalties)])
+        xp = cp if isinstance(x, cp.ndarray) else np
+        if self.x is None or not xp.all(self.x == x):
+            self.d = self.dij @ x
+            self.x = x.copy()
+        return sum(
+            [f.objective_value(self.d) * p for f, p in zip(self.objectives, self.penalties)]
+        )
 
     def objective_gradient(self, x: npt.ArrayLike) -> npt.ArrayLike:
         """Return the gradient of the weighted sum with respect to *x*."""
-        d = self.dij @ x
+        xp = cp if isinstance(x, cp.ndarray) else np
+        if self.x is None or not xp.all(self.x == x):
+            self.d = self.dij @ x
+            self.x = x.copy()
 
         if self.store_csc_copy:
             return (
-                sum([f.objective_gradient(d) * p for f, p in zip(self.objectives, self.penalties)])
+                sum(
+                    [
+                        f.objective_gradient(self.d) * p
+                        for f, p in zip(self.objectives, self.penalties)
+                    ]
+                )
                 @ self.dij_csc
             )
 
         return (
-            sum([f.objective_gradient(d) * p for f, p in zip(self.objectives, self.penalties)])
+            sum(
+                [f.objective_gradient(self.d) * p for f, p in zip(self.objectives, self.penalties)]
+            )
             @ self.dij
         )

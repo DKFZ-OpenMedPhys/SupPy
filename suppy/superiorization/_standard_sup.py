@@ -94,6 +94,7 @@ class Superiorization(FeasibilityPerturbation):
         proximity_measures: List | None = None,
         storage: bool = False,
         storage_iters: List[int] | int | None = None,
+        store_function_reduction: bool = False,
         alternative_stopping_criterion: Callable | None = None,
         alternative_stopping_criterion_initial_call: Callable | None = None,
     ) -> np.ndarray:
@@ -124,6 +125,12 @@ class Superiorization(FeasibilityPerturbation):
             Controls which iterations are stored (when storage=True). If None, all iterations are stored.
             If a list of ints, only those iteration indices are stored (0 = initial point).
             If an int, storage occurs every that many iterations.
+        store_function_reduction : bool, optional
+            If True, store the intermediate iterate, function and proximity values
+            obtained right after the perturbation (function reduction) step. If False, this
+            intermediate snapshot is skipped; only the basic (post feasibility-step) values are
+            recorded each iteration. The stopping criterion is unaffected as it is based on the
+            basic iterates.
         alternative_stopping_criterion : callable, optional
             Alternative stopping criterion
         alternative_stopping_criterion_initial_call : callable, optional
@@ -188,13 +195,14 @@ class Superiorization(FeasibilityPerturbation):
 
             # perform the perturbation schemes update step
             x = self.perturbation_scheme.perturbation_step(x)
-            self.storage(
-                x,
-                kind="function_reduction",
-                storage=storage and _should_store(self._k + 1),
-                f=self.perturbation_scheme.func(x),
-                p=self.basic.proximity(x, proximity_measures),
-            )
+            if store_function_reduction:
+                self.storage(
+                    x,
+                    kind="function_reduction",
+                    storage=storage and _should_store(self._k + 1),
+                    f=self.perturbation_scheme.func(x),
+                    p=self.basic.proximity(x, proximity_measures),
+                )
 
             self.perturbation_scheme.post_step(
                 x,
@@ -269,9 +277,11 @@ class Superiorization(FeasibilityPerturbation):
 
         stop_objective = False  # variable to check if the objective function criteria is met
         # check objective function criteria f_(k+1)-f_k<= (delta f)* is met in last n_tol_objective iterations
+        # the stopping criterion is based on the basic (post feasibility-step) iterates so that it
+        # is independent of whether the intermediate function_reduction values are stored
         if (
-            abs(self.all_function_values[-3] - self.all_function_values[-1])
-            / max(1, self.all_function_values[-3])
+            abs(self.all_function_values_basic[-2] - self.all_function_values_basic[-1])
+            / max(1, self.all_function_values_basic[-2])
             < del_objective_tol
         ):
             self._n_tol_objective += 1
@@ -284,13 +294,13 @@ class Superiorization(FeasibilityPerturbation):
 
         stop_prox = False  # variable to check if the proximity criteria is met
         # check if proximity values are below the threshold
-        if self.proximities[-1][0] < prox_tol:  # proximity below goal/tolerance
+        if self.proximities_basic[-1][0] < prox_tol:  # proximity below goal/tolerance
             stop_prox = True
 
         # check if the proximity changes are below tolerance level
         if (
-            abs(self.proximities[-3][0] - self.proximities[-1][0])
-            / max(1, self.proximities[-3][0])
+            abs(self.proximities_basic[-2][0] - self.proximities_basic[-1][0])
+            / max(1, self.proximities_basic[-2][0])
             < del_prox_tol
         ):
             self._n_tol_prox += 1

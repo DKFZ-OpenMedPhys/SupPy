@@ -52,9 +52,9 @@ class DROPHyperplane(SimultaneousKaczmarzMethod):
         xp = (
             np
             if (
-                isinstance(A_cpu, np.ndarray)
-                or isinstance(A_cpu, sparse.sparray)
-                or isinstance(A_cpu, sparse.spmatrix)
+                isinstance(A, np.ndarray)
+                or isinstance(A, sparse.sparray)
+                or isinstance(A, sparse.spmatrix)
             )
             else cp
         )

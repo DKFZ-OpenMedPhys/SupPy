@@ -85,8 +85,8 @@ def test_Superiorization_stopping_criteria(get_superiorization_input):
 
     # fail because of objective despite proximity below threshold
     alg = get_superiorization_input
-    alg.all_function_values = [1, 2, 2]
-    alg.proximities = [[0, 2], [10, 3], [0, 3]]
+    alg.all_function_values_basic = [1, 2]
+    alg.proximities_basic = [[0, 2], [0, 3]]
     alg._n_tol_objective = (
         0  # number of iterations with objective function changes below threshold
     )
@@ -101,8 +101,8 @@ def test_Superiorization_stopping_criteria(get_superiorization_input):
 
     # fail because of objective but with correct proximity change
     alg = get_superiorization_input
-    alg.all_function_values = [1, 2, 2]
-    alg.proximities = [[1, 2], [10, 3], [1, 3]]
+    alg.all_function_values_basic = [1, 2]
+    alg.proximities_basic = [[1, 2], [1, 3]]
     alg._n_tol_objective = (
         0  # number of iterations with objective function changes below threshold
     )
@@ -116,8 +116,8 @@ def test_Superiorization_stopping_criteria(get_superiorization_input):
 
     # fail because of proximity but with correct objective change
     alg = get_superiorization_input
-    alg.all_function_values = [1, 10, 1]
-    alg.proximities = [[1, 2], [10, 3], [0.8, 3]]
+    alg.all_function_values_basic = [1, 1]
+    alg.proximities_basic = [[1, 2], [0.8, 3]]
     alg._n_tol_objective = (
         0  # number of iterations with objective function changes below threshold
     )
@@ -131,8 +131,8 @@ def test_Superiorization_stopping_criteria(get_superiorization_input):
 
     # success because of proximity values below threshold
     alg = get_superiorization_input
-    alg.all_function_values = [1, 10, 1]
-    alg.proximities = [[1, 2], [10, 3], [0, 3]]
+    alg.all_function_values_basic = [1, 1]
+    alg.proximities_basic = [[1, 2], [0, 3]]
     alg._n_tol_objective = (
         0  # number of iterations with objective function changes below threshold
     )
@@ -146,8 +146,8 @@ def test_Superiorization_stopping_criteria(get_superiorization_input):
 
     # success because of proximity value change below threshold
     alg = get_superiorization_input
-    alg.all_function_values = [1, 10, 1]
-    alg.proximities = [[1, 2], [10, 3], [1, 3]]
+    alg.all_function_values_basic = [1, 1]
+    alg.proximities_basic = [[1, 2], [0, 3]]
     alg._n_tol_objective = (
         0  # number of iterations with objective function changes below threshold
     )
@@ -251,7 +251,7 @@ def test_PowerSeriesGradient_superiorization(get_superiorization_input):
     alg = get_superiorization_input
     x = np.array([2, 2])
     # perform a single iteration
-    x_1 = alg.solve(x, max_iter=1, storage=True)
+    x_1 = alg.solve(x, max_iter=1, storage=True, store_function_reduction=True)
     # this should be one gradient and one basic step
     assert np.array_equal(x_1, np.array([1.0, 1.0]))
     assert np.array_equal(

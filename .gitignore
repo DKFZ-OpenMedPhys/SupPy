@@ -169,3 +169,7 @@ cython_debug/
 
 # VsCode
 .vscode/
+
+
+# Claude
+.claude/

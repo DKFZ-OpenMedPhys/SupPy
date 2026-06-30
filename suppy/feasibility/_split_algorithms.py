@@ -73,6 +73,7 @@ class SplitFeasibility(Feasibility, ABC):
         proximity_measures: List | None = None,
         alternative_stopping_criterion: Callable | None = None,
         alternative_stopping_criterion_initial_call: Callable | None = None,
+        callback: Callable | None = None,
     ) -> np.ndarray:
         """
         Solves the split feasibility problem for a given input array.
@@ -103,6 +104,9 @@ class SplitFeasibility(Feasibility, ABC):
             Alternative stopping criterion.
         alternative_stopping_criterion_initial_call : callable, optional
             Initial call for an alternative stopping criterion.
+        callback : callable, optional
+            User-defined function called after each iteration as
+            ``callback(x, k)``, where ``x`` is the current iterate and ``k`` the completed iteration index. If it returns a truthy value, the iteration stops. By default None.
 
         Returns
         -------
@@ -154,6 +158,9 @@ class SplitFeasibility(Feasibility, ABC):
                 stop = alternative_stopping_criterion(x, self)
             else:
                 stop = self._stopping_criterion(prox_tol, del_prox_tol, del_prox_n)
+
+            if callback is not None and callback(x, i + 1):
+                stop = True
 
             i += 1
 

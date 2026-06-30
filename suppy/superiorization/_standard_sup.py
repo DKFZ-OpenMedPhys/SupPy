@@ -97,6 +97,7 @@ class Superiorization(FeasibilityPerturbation):
         store_function_reduction: bool = False,
         alternative_stopping_criterion: Callable | None = None,
         alternative_stopping_criterion_initial_call: Callable | None = None,
+        callback: Callable | None = None,
     ) -> np.ndarray:
         """
         Solve the optimization problem using the superiorization method.
@@ -135,6 +136,11 @@ class Superiorization(FeasibilityPerturbation):
             Alternative stopping criterion
         alternative_stopping_criterion_initial_call : callable, optional
             Initial call for an alternative stopping criterion
+        callback : callable, optional
+            User-defined function called after each iteration as
+            ``callback(x, k)``, where ``x`` is the current iterate and ``k`` the
+            completed iteration index. If it returns a truthy value, the
+            iteration stops. By default None.
 
         Returns
         -------
@@ -235,6 +241,8 @@ class Superiorization(FeasibilityPerturbation):
                 stop = self._stopping_criterion(
                     del_objective_tol, del_objective_n, prox_tol, del_prox_tol, del_prox_n
                 )
+            if callback is not None and callback(x, self._k):
+                stop = True
 
             self._additional_action(x)
             self.t.append(time.time() - t_init)

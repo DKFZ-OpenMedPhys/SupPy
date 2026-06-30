@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import List
+from typing import Callable, List
 import numpy as np
 import numpy.typing as npt
 
@@ -148,6 +148,7 @@ class SequentialART3plus(ART3plusAlgorithm):
         storage: bool = False,
         storage_iters: List[int] | int | None = None,
         proximity_measures: List | None = None,
+        callback: Callable | None = None,
     ) -> np.ndarray:
         """
         Solves the optimization problem using an iterative approach.
@@ -172,6 +173,11 @@ class SequentialART3plus(ART3plusAlgorithm):
             Controls which iterations are stored (when storage=True). If None, all iterations are stored.
             If a list of ints, only those iteration indices are stored (0 = initial point).
             If an int, storage occurs every that many iterations.
+        callback : callable, optional
+            User-defined function called after each iteration as
+            ``callback(x, k)``, where ``x`` is the current iterate and ``k`` the
+            completed iteration index. If it returns a truthy value, the
+            iteration stops. By default None.
 
         Returns
         -------
@@ -223,6 +229,9 @@ class SequentialART3plus(ART3plusAlgorithm):
 
             # TODO: If proximity changes x some potential issues!
             stop = self._stopping_criterion(prox_tol, del_prox_tol, del_prox_n)
+
+            if callback is not None and callback(x, i + 1):
+                stop = True
 
             i += 1
 

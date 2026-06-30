@@ -124,6 +124,7 @@ class SplitSuperiorization(FeasibilityPerturbation):
         storage_iters: List[int] | int | None = None,
         alternative_stopping_criterion: Callable | None = None,
         alternative_stopping_criterion_initial_call: Callable | None = None,
+        callback: Callable | None = None,
     ) -> np.ndarray:
         """
         Solves the optimization problem using the superiorization method.
@@ -160,6 +161,9 @@ class SplitSuperiorization(FeasibilityPerturbation):
             Alternative stopping criterion
         alternative_stopping_criterion_initial_call : callable, optional
             Initial call for an alternative stopping criterion
+        callback : callable, optional
+            User-defined function called after each iteration as
+            ``callback(x, k)``, where ``x`` is the current iterate and ``k`` the completed iteration index. If it returns a truthy value, the iteration stops. By default None.
 
         Returns
         -------
@@ -311,6 +315,9 @@ class SplitSuperiorization(FeasibilityPerturbation):
                     del_prox_tol,
                     del_prox_n,
                 )
+
+            if callback is not None and callback(x, self._k):
+                stop = True
 
             self._additional_action(x, y)
 

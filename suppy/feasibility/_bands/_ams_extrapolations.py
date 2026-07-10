@@ -211,6 +211,86 @@ class AdaptiveStepLandweberHyperslab(SimultaneousAMSHyperslab):
         return x
 
 
+class BlockIterativeAdaptiveStepLandweberHyperslab(AdaptiveStepLandweberHyperslab):
+    """
+    Sequential block-iterative variant of the adaptive step-size Landweber
+    algorithm for solving linear inequalities of the form lb <= Ax <= ub
+    block by block.
+
+    Parameters
+    ----------
+    A : npt.NDArray or sparse.sparray
+        Matrix for linear systems.
+    lb : npt.NDArray
+        The lower bounds for the hyperslab.
+    ub : npt.NDArray
+        The upper bounds for the hyperslab.
+    length_blocks : List[int]
+        Number of rows in each block. Must sum to the total number of rows in A.
+    weights : None or List[float], optional
+        The weights for the constraints, by default None.
+    relaxation : float, optional
+        The outer relaxation parameter, by default 1.0.
+    proximity_flag : bool, optional
+        A flag indicating whether to use proximity measures, by default True.
+
+    References
+    ----------
+    - [1] https://doi.org/10.1515/jiip-2015-0082
+    """
+
+    def __init__(
+        self,
+        A: npt.NDArray | sparse.sparray,
+        lb: npt.NDArray,
+        ub: npt.NDArray,
+        length_blocks: List[int],
+        weights: None | List[float] | npt.NDArray = None,
+        relaxation: float = 1.0,
+        proximity_flag: bool = True,
+    ):
+        super().__init__(A, lb, ub, weights, relaxation, proximity_flag)
+        self.length_blocks = length_blocks
+
+        self.As = []
+        self.ls = []
+        self.us = []
+        self.block_weights = []
+        _lower_bound = 0
+        for i in range(len(self.length_blocks)):
+            self.As.append(A[_lower_bound : _lower_bound + self.length_blocks[i]])
+            self.ls.append(lb[_lower_bound : _lower_bound + self.length_blocks[i]])
+            self.us.append(ub[_lower_bound : _lower_bound + self.length_blocks[i]])
+            self.block_weights.append(
+                self.weights[_lower_bound : _lower_bound + self.length_blocks[i]]
+            )
+            _lower_bound += self.length_blocks[i]
+
+    def _project(self, x: npt.NDArray) -> np.ndarray:
+        xp = cp if self._use_gpu else np
+        for i, A_block in enumerate(self.As):
+            p = A_block @ x
+            res_l, res_u = p - self.ls[i], self.us[i] - p
+            d_idx = res_u < 0
+            c_idx = res_l < 0
+            if not (xp.any(d_idx)) and not (xp.any(c_idx)):
+                continue
+
+            weights = self.block_weights[i]
+            u_t_u = (weights[d_idx] * res_u[d_idx]) @ A_block[d_idx, :]
+            u_t_l = (weights[c_idx] * res_l[c_idx]) @ A_block[c_idx, :]
+
+            u_diff = u_t_u - u_t_l
+            Au_t = A_block @ u_diff
+            denom = Au_t @ (weights * Au_t)
+            if denom == 0:
+                continue
+            sig = (u_diff @ u_diff) / denom
+            x += sig * u_diff
+
+        return x
+
+
 class AdaptiveStepLandweberHyperslab2(SimultaneousAMSHyperslab):
     """
     Adaptive step-size Landweber algorithm (variant 2) for solving linear

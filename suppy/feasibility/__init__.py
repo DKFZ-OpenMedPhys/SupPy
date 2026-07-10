@@ -14,6 +14,7 @@ from ._bands._ams_extrapolations import (
     ExtrapolatedLandweberHyperslab,
     AdaptiveStepLandweberHyperslab,
     BlockIterativeExtrapolatedLandweberHyperslab,
+    BlockIterativeAdaptiveStepLandweberHyperslab,
 )
 from ._bands._arm_algorithms import SequentialARM, SimultaneousARM, StringAveragedARM
 from ._bands._art3_algorithms import SequentialART3plus
@@ -58,6 +59,7 @@ __all__ = [
     "ExtrapolatedLandweberHyperslab",
     "AdaptiveStepLandweberHyperslab",
     "BlockIterativeExtrapolatedLandweberHyperslab",
+    "BlockIterativeAdaptiveStepLandweberHyperslab",
     "SequentialAMSHalfspace",
     "SequentialWeightedAMSHalfspace",
     "SimultaneousAMSHalfspace",

@@ -1,7 +1,11 @@
 import numpy as np
 import pytest
 import scipy.sparse as sparse
-from suppy.feasibility import ExtrapolatedLandweberHyperslab, AdaptiveStepLandweberHyperslab
+from suppy.feasibility import (
+    ExtrapolatedLandweberHyperslab,
+    AdaptiveStepLandweberHyperslab,
+    BlockIterativeAdaptiveStepLandweberHyperslab,
+)
 
 
 @pytest.fixture
@@ -86,6 +90,45 @@ def test_AdaptiveStepLandweberHyperslab_project_sparse(
     x = np.array([2.0, 2.0])
     proj = alg.project(x)
     assert np.array_equal(proj, np.array([7 / 6, 7 / 6]))
+
+    x = np.array([0.0, 0.0])
+    proj = alg.project(x)
+    assert np.array_equal(proj, np.array([0.0, 0.0]))
+
+
+def test_BlockIterativeAdaptiveStepLandweberHyperslab_single_block(get_full_variables):
+    # with a single block the algorithm is identical to the simultaneous version
+    A, lb, ub = get_full_variables
+    alg = BlockIterativeAdaptiveStepLandweberHyperslab(A, lb, ub, length_blocks=[4])
+    x = np.array([2.0, 2.0])
+    proj = alg.project(x)
+    assert np.allclose(proj, np.array([7 / 6, 7 / 6]))
+
+    x = np.array([0.0, 0.0])
+    proj = alg.project(x)
+    assert np.array_equal(proj, np.array([0.0, 0.0]))
+
+
+def test_BlockIterativeAdaptiveStepLandweberHyperslab_project(get_full_variables):
+    A, lb, ub = get_full_variables
+    alg = BlockIterativeAdaptiveStepLandweberHyperslab(A, lb, ub, length_blocks=[2, 2])
+    # block 1 (rows 0, 1): only row 0 is violated, u = (-0.5, -0.5), sig = 2 -> x = (1, 1)
+    # block 2 (rows 2, 3): feasible, no step
+    x = np.array([2.0, 2.0])
+    proj = alg.project(x)
+    assert np.allclose(proj, np.array([1.0, 1.0]))
+
+    x = np.array([0.0, 0.0])
+    proj = alg.project(x)
+    assert np.array_equal(proj, np.array([0.0, 0.0]))
+
+
+def test_BlockIterativeAdaptiveStepLandweberHyperslab_project_sparse(get_sparse_variables):
+    A, lb, ub = get_sparse_variables
+    alg = BlockIterativeAdaptiveStepLandweberHyperslab(A, lb, ub, length_blocks=[2, 2])
+    x = np.array([2.0, 2.0])
+    proj = alg.project(x)
+    assert np.allclose(proj, np.array([1.0, 1.0]))
 
     x = np.array([0.0, 0.0])
     proj = alg.project(x)

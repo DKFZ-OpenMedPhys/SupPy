@@ -141,19 +141,19 @@ def test_SequentialWeightedKaczmarz_weight_decay_step_full(get_full_variables):
     assert np.array_equal(x_proj, x_n)
 
     x_n = alg.step(x_2)
-    assert np.all(abs(x_n - np.array([2, 1]) < 1e-10))
+    assert np.all(abs(x_n - np.array([2, 1])) < 1e-10)
     assert np.array_equal(x_n, x_2)
 
     x_n = alg.step(x_3)
-    assert np.all(abs(x_n - np.array([2, 1]) < 1e-10))
+    assert np.all(abs(x_n - np.array([2, 1])) < 1e-10)
     assert np.array_equal(x_n, x_3)
 
     x_n = alg.step(x_4)
-    assert np.all(abs(x_n - np.array([1.5, 1]) < 1e-10))
+    assert np.all(abs(x_n - np.array([1.5, 1])) < 1e-10)
     assert np.array_equal(x_n, x_4)
 
     x_n = alg.step(x_5)
-    assert np.all(abs(x_n - np.array([0.5, 1]) < 1e-10))
+    assert np.all(abs(x_n - np.array([0.5, 1])) < 1e-10)
     assert np.array_equal(x_n, x_5)
 
 
@@ -182,17 +182,95 @@ def test_SequentialWeightedKaczmarz_weight_decay_step_sparse(get_sparse_variable
     assert np.array_equal(x_proj, x_n)
 
     x_n = alg.step(x_2)
-    assert np.all(abs(x_n - np.array([2, 1]) < 1e-10))
+    assert np.all(abs(x_n - np.array([2, 1])) < 1e-10)
     assert np.array_equal(x_n, x_2)
 
     x_n = alg.step(x_3)
-    assert np.all(abs(x_n - np.array([2, 1]) < 1e-10))
+    assert np.all(abs(x_n - np.array([2, 1])) < 1e-10)
     assert np.array_equal(x_n, x_3)
 
     x_n = alg.step(x_4)
-    assert np.all(abs(x_n - np.array([1.5, 1]) < 1e-10))
+    assert np.all(abs(x_n - np.array([1.5, 1])) < 1e-10)
     assert np.array_equal(x_n, x_4)
 
     x_n = alg.step(x_5)
-    assert np.all(abs(x_n - np.array([0.5, 1]) < 1e-10))
+    assert np.all(abs(x_n - np.array([0.5, 1])) < 1e-10)
     assert np.array_equal(x_n, x_5)
+
+
+# ---------------------------------------------------------------------------
+# SequentialWeightedKaczmarz: options and branches
+# ---------------------------------------------------------------------------
+
+
+def test_SequentialWeightedKaczmarz_weight_decay_accumulates(get_full_variables):
+    A, b = get_full_variables
+    alg = SequentialWeightedKaczmarz(A, b, weight_decay=0.5)
+    assert alg.temp_weight_decay == 1.0
+    # the decay is applied multiplicatively after every projection sweep
+    alg.step(np.array([2.0, 2.0]))
+    assert alg.temp_weight_decay == 0.5
+    alg.step(np.array([2.0, 2.0]))
+    assert alg.temp_weight_decay == 0.25
+
+
+def test_SequentialWeightedKaczmarz_proximity_flag_false(get_full_variables):
+    A, b = get_full_variables
+    alg = SequentialWeightedKaczmarz(A, b, proximity_flag=False)
+    prox = alg.proximity(np.array([100.0, 100.0]), [("p_norm", 2), "max_norm"])
+    assert np.array_equal(prox, np.zeros(2))
+
+
+# ---------------------------------------------------------------------------
+# Property / invariant tests
+# ---------------------------------------------------------------------------
+
+
+def test_SequentialWeightedKaczmarz_defaults_match_sequential(get_full_variables):
+    # with unit weights and no decay every update reduces to the plain
+    # Kaczmarz sweep
+    from suppy.feasibility import KaczmarzMethod
+
+    A, b = get_full_variables
+    alg_w = SequentialWeightedKaczmarz(A, b)
+    alg_s = KaczmarzMethod(A, b)
+    rng = np.random.default_rng(42)
+    for _ in range(5):
+        x = 4 * rng.standard_normal(2)
+        assert np.allclose(alg_w.project(x.copy()), alg_s.project(x.copy()))
+
+
+def test_SequentialWeightedKaczmarz_project_idempotent_on_solution(get_full_variables):
+    A, b = get_full_variables
+    alg = SequentialWeightedKaczmarz(A, b)
+    x = np.array([1.0, 1.0])  # the solution point
+    assert np.allclose(alg.project(x.copy()), x)
+
+
+# ---------------------------------------------------------------------------
+# Backend / dtype
+# ---------------------------------------------------------------------------
+
+
+def test_SequentialWeightedKaczmarz_solve_int_input(get_full_variables):
+    A, b = get_full_variables
+    alg = SequentialWeightedKaczmarz(A, b)
+    # @ensure_float_array coerces the integer starting point to float64
+    x_n = alg.solve(np.array([2, 2]), max_iter=100)
+    assert np.issubdtype(x_n.dtype, np.floating)
+
+
+def test_SequentialWeightedKaczmarz_cupy_backend(get_full_variables):
+    cp = pytest.importorskip("cupy")
+    try:
+        cp.zeros(1)  # cupy can be installed without a usable GPU
+    except Exception:
+        pytest.skip("cupy installed but no usable GPU")
+
+    A, b = get_full_variables
+    x_np = SequentialWeightedKaczmarz(A, b).step(np.array([2.0, 2.0]))
+
+    alg_cp = SequentialWeightedKaczmarz(cp.asarray(A), cp.asarray(b))
+    x_cp = alg_cp.step(cp.asarray([2.0, 2.0]))
+    assert isinstance(x_cp, cp.ndarray)  # no silent device -> host transfer
+    assert np.allclose(cp.asnumpy(x_cp), x_np)

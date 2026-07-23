@@ -316,7 +316,6 @@ def test_SimultaneousAMSHyperslab_proximity_weighted(get_full_variables):
 
     assert np.abs(prox_1[0] - 0.08) < 1e-10
     assert np.abs(prox_1[1] - 0.4) < 1e-10
-    print(prox_2)
     assert np.abs(prox_2[0] - 33 / 16) < 1e-10
     assert np.abs(prox_2[1] - 2) < 1e-10
 
@@ -328,3 +327,106 @@ def test_SimultaneousAMSHyperslab_proximity_weighted(get_full_variables):
 
     assert np.abs(prox_5[0] - 17 / 16) < 1e-10
     assert np.abs(prox_5[1] - 2) < 1e-10
+
+
+# ---------------------------------------------------------------------------
+# SimultaneousAMSHyperslab: options and branches
+# ---------------------------------------------------------------------------
+
+
+def test_SimultaneousAMSHyperslab_weights_renormalization_warning(get_full_variables):
+    A, lb, ub = get_full_variables
+    with pytest.warns(UserWarning, match="Renormalizing"):
+        alg = SimultaneousAMSHyperslab(A, lb, ub, weights=np.ones(4))
+    # ones do not sum to 1 -> renormalized to 1/4 each
+    assert np.allclose(alg.weights, np.ones(4) / 4)
+    assert np.isclose(alg.weights.sum(), 1.0)
+
+
+def test_SimultaneousAMSHyperslab_weights_list_input(get_full_variables):
+    # plain Python lists are allowed per the type hint and converted to arrays
+    A, lb, ub = get_full_variables
+    alg = SimultaneousAMSHyperslab(A, lb, ub, weights=[1 / 4, 1 / 4, 1 / 4, 1 / 4])
+    assert np.allclose(alg.weights, np.ones(4) / 4)
+
+
+def test_SimultaneousAMSHyperslab_custom_weights_step(get_full_variables):
+    A, lb, ub = get_full_variables
+    alg = SimultaneousAMSHyperslab(A, lb, ub, weights=np.array([0.4, 0.2, 0.2, 0.2]))
+    # x = [2, 2]: map = [4, 0, 2, 2], violated rows 0, 2, 3 with upper
+    # residuals [-2, -0.5, -0.5]; inverse row norms [1/2, 1/2, 1, 1]:
+    # update = 0.4*0.5*(-2)*[1,1] + 0.2*1*(-0.5)*[1,0] + 0.2*1*(-0.5)*[0,1]
+    #        = [-0.4, -0.4] + [-0.1, 0] + [0, -0.1] = [-0.5, -0.5]
+    x_n = alg.step(np.array([2.0, 2.0]))
+    assert np.all(abs(x_n - np.array([1.5, 1.5])) < 1e-10)
+
+
+def test_SimultaneousAMSHyperslab_proximity_flag_false(get_full_variables):
+    A, lb, ub = get_full_variables
+    alg = SimultaneousAMSHyperslab(A, lb, ub, proximity_flag=False)
+    prox = alg.proximity(np.array([100.0, 100.0]), [("p_norm", 2), "max_norm"])
+    assert np.array_equal(prox, np.zeros(2))
+
+
+# ---------------------------------------------------------------------------
+# Property / invariant tests
+# ---------------------------------------------------------------------------
+
+
+def test_SimultaneousAMSHyperslab_fejer_monotone(get_full_variables):
+    # the simultaneous step is a convex combination of relaxed projections
+    # and therefore Fejér monotone towards the feasible set ([0, 0] interior)
+    A, lb, ub = get_full_variables
+    alg = SimultaneousAMSHyperslab(A, lb, ub)
+    z = np.zeros(2)
+    rng = np.random.default_rng(42)
+    for _ in range(5):
+        x = 4 * rng.standard_normal(2)
+        for _ in range(10):
+            d_before = np.linalg.norm(x - z)
+            x = alg.project(x)
+            assert np.linalg.norm(x - z) <= d_before + 1e-12
+
+
+def test_SimultaneousAMSHyperslab_project_idempotent_on_feasible(get_full_variables):
+    A, lb, ub = get_full_variables
+    alg = SimultaneousAMSHyperslab(A, lb, ub)
+    x = np.array([0.5, 0.5])
+    assert np.array_equal(alg.project(x.copy()), x)
+
+
+def test_SimultaneousAMSHyperslab_solve_reduces_proximity(get_full_variables):
+    A, lb, ub = get_full_variables
+    alg = SimultaneousAMSHyperslab(A, lb, ub)
+    alg.solve(np.array([2.0, 2.0]), max_iter=200)
+    assert alg.proximities[-1][0] < alg.proximities[0][0]
+    assert alg.proximities[-1][0] < 1e-6
+
+
+# ---------------------------------------------------------------------------
+# Backend / dtype
+# ---------------------------------------------------------------------------
+
+
+def test_SimultaneousAMSHyperslab_solve_int_input(get_full_variables):
+    A, lb, ub = get_full_variables
+    alg = SimultaneousAMSHyperslab(A, lb, ub)
+    # @ensure_float_array coerces the integer starting point to float64
+    x_n = alg.solve(np.array([2, 2]), max_iter=200)
+    assert np.issubdtype(x_n.dtype, np.floating)
+
+
+def test_SimultaneousAMSHyperslab_cupy_backend(get_full_variables):
+    cp = pytest.importorskip("cupy")
+    try:
+        cp.zeros(1)  # cupy can be installed without a usable GPU
+    except Exception:
+        pytest.skip("cupy installed but no usable GPU")
+
+    A, lb, ub = get_full_variables
+    x_np = SimultaneousAMSHyperslab(A, lb, ub).step(np.array([2.0, 2.0]))
+
+    alg_cp = SimultaneousAMSHyperslab(cp.asarray(A), cp.asarray(lb), cp.asarray(ub))
+    x_cp = alg_cp.step(cp.asarray([2.0, 2.0]))
+    assert isinstance(x_cp, cp.ndarray)  # no silent device -> host transfer
+    assert np.allclose(cp.asnumpy(x_cp), x_np)

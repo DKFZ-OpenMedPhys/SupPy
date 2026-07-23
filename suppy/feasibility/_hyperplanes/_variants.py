@@ -65,7 +65,10 @@ class DROPHyperplane(SimultaneousKaczmarzMethod):
 
         super().__init__(A, b, algorithmic_relaxation, relaxation, proximity_flag=proximity_flag)
 
-        self.inv_nnz_counts = 1 / nnz_counts
+        # store on the same backend as the iterates (nnz_counts is computed on
+        # the host even for cupy-sparse inputs)
+        xp = cp if self._use_gpu else np
+        self.inv_nnz_counts = xp.asarray(1 / nnz_counts)
 
     def _project(self, x: npt.NDArray) -> np.ndarray:
         # simultaneous projection

@@ -221,19 +221,19 @@ def test_BlockIterativeAMSHyperslab_sequential_step_full(
     assert np.array_equal(x_proj, x_n)
 
     x_n = alg.step(x_2)
-    assert np.all(abs(x_n - np.array([0, 1.5]) < 1e-10))
+    assert np.all(abs(x_n - np.array([0, 1.5])) < 1e-10)
     assert np.array_equal(x_n, x_2)
 
     x_n = alg.step(x_3)
-    assert np.all(abs(x_n - np.array([0, 1.5]) < 1e-10))
+    assert np.all(abs(x_n - np.array([0, 1.5])) < 1e-10)
     assert np.array_equal(x_n, x_3)
 
     x_n = alg.step(x_4)
-    assert np.all(abs(x_n - np.array([-1, 1]) < 1e-10))
+    assert np.all(abs(x_n - np.array([-1, 1])) < 1e-10)
     assert np.array_equal(x_n, x_4)
 
     x_n = alg.step(x_5)
-    assert np.all(abs(x_n - np.array([-1.5, 0]) < 1e-10))
+    assert np.all(abs(x_n - np.array([-1.5, 0])) < 1e-10)
     assert np.array_equal(x_n, x_5)
 
 
@@ -431,3 +431,108 @@ def test_BlockIterativeAMSHyperslab_proximity_simultaneous(
 
     assert np.abs(prox_5[0] - 9 / 8) < 1e-10
     assert np.abs(prox_5[1] - 2) < 1e-10
+
+
+# ---------------------------------------------------------------------------
+# BlockIterativeAMSHyperslab: options and branches
+# ---------------------------------------------------------------------------
+
+
+def test_BlockIterativeAMSHyperslab_weights_row_sum_error(get_full_variables):
+    A, lb, ub = get_full_variables
+    # every block's weights must sum to 1
+    with pytest.raises(ValueError):
+        BlockIterativeAMSHyperslab(
+            A, lb, ub, weights=[np.array([0.5, 0.5, 0.0, 0.0]), np.array([0.0, 0.0, 0.5, 0.6])]
+        )
+
+
+def test_BlockIterativeAMSHyperslab_two_block_state(get_full_variables):
+    A, lb, ub = get_full_variables
+    weights = [np.array([0.5, 0.5, 0.0, 0.0]), np.array([0.0, 0.0, 0.5, 0.5])]
+    alg = BlockIterativeAMSHyperslab(A, lb, ub, weights=weights)
+    # nonzero entries define the blocks; the stored weights are filtered
+    assert [list(b) for b in alg.block_idxs] == [[0, 1], [2, 3]]
+    assert all(np.array_equal(w, np.array([0.5, 0.5])) for w in alg.weights)
+    # total_weights averages the blocks: ([.5,.5,0,0] + [0,0,.5,.5]) / 2
+    assert np.allclose(alg.total_weights, np.array([0.25, 0.25, 0.25, 0.25]))
+
+
+def test_BlockIterativeAMSHyperslab_proximity_flag_false(get_full_variables):
+    A, lb, ub = get_full_variables
+    alg = BlockIterativeAMSHyperslab(A, lb, ub, weights=np.eye(4), proximity_flag=False)
+    prox = alg.proximity(np.array([100.0, 100.0]), [("p_norm", 2), "max_norm"])
+    assert np.array_equal(prox, np.zeros(2))
+
+
+# ---------------------------------------------------------------------------
+# Property / invariant tests
+# ---------------------------------------------------------------------------
+
+
+def test_BlockIterativeAMSHyperslab_eye_matches_sequential(get_full_variables):
+    # one block per constraint (identity weights) is exactly the sequential
+    # sweep
+    from suppy.feasibility import SequentialAMSHyperslab
+
+    A, lb, ub = get_full_variables
+    alg_b = BlockIterativeAMSHyperslab(A, lb, ub, weights=np.eye(4))
+    alg_s = SequentialAMSHyperslab(A, lb, ub)
+    rng = np.random.default_rng(42)
+    for _ in range(5):
+        x = 4 * rng.standard_normal(2)
+        assert np.allclose(alg_b.project(x.copy()), alg_s.project(x.copy()))
+
+
+def test_BlockIterativeAMSHyperslab_single_block_matches_simultaneous(get_full_variables):
+    # a single uniform block is exactly the simultaneous step
+    from suppy.feasibility import SimultaneousAMSHyperslab
+
+    A, lb, ub = get_full_variables
+    alg_b = BlockIterativeAMSHyperslab(A, lb, ub, weights=np.array([[1 / 4] * 4]))
+    alg_s = SimultaneousAMSHyperslab(A, lb, ub)
+    rng = np.random.default_rng(42)
+    for _ in range(5):
+        x = 4 * rng.standard_normal(2)
+        assert np.allclose(alg_b.project(x.copy()), alg_s.project(x.copy()))
+
+
+def test_BlockIterativeAMSHyperslab_solve_reduces_proximity(get_full_variables):
+    A, lb, ub = get_full_variables
+    weights = [np.array([0.5, 0.5, 0.0, 0.0]), np.array([0.0, 0.0, 0.5, 0.5])]
+    alg = BlockIterativeAMSHyperslab(A, lb, ub, weights=weights)
+    alg.solve(np.array([2.0, 2.0]), max_iter=200)
+    assert alg.proximities[-1][0] < alg.proximities[0][0]
+    assert alg.proximities[-1][0] < 1e-6
+
+
+# ---------------------------------------------------------------------------
+# Backend / dtype
+# ---------------------------------------------------------------------------
+
+
+def test_BlockIterativeAMSHyperslab_solve_int_input(get_full_variables):
+    A, lb, ub = get_full_variables
+    alg = BlockIterativeAMSHyperslab(A, lb, ub, weights=np.eye(4))
+    # @ensure_float_array coerces the integer starting point to float64
+    x_n = alg.solve(np.array([2, 2]), max_iter=100)
+    assert np.issubdtype(x_n.dtype, np.floating)
+
+
+def test_BlockIterativeAMSHyperslab_cupy_backend(get_full_variables):
+    cp = pytest.importorskip("cupy")
+    try:
+        cp.zeros(1)  # cupy can be installed without a usable GPU
+    except Exception:
+        pytest.skip("cupy installed but no usable GPU")
+
+    A, lb, ub = get_full_variables
+    w_np = np.array([[1 / 4] * 4])
+    x_np = BlockIterativeAMSHyperslab(A, lb, ub, weights=w_np).step(np.array([2.0, 2.0]))
+
+    alg_cp = BlockIterativeAMSHyperslab(
+        cp.asarray(A), cp.asarray(lb), cp.asarray(ub), weights=cp.asarray(w_np)
+    )
+    x_cp = alg_cp.step(cp.asarray([2.0, 2.0]))
+    assert isinstance(x_cp, cp.ndarray)  # no silent device -> host transfer
+    assert np.allclose(cp.asnumpy(x_cp), x_np)

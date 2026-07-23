@@ -49,7 +49,10 @@ class ExtrapolatedLandweberHalfspace(SimultaneousAMSHalfspace):
     ):
         super().__init__(A, b, 1.0, relaxation, weights, proximity_flag)
         self.a_i = self.A.row_norm(2, 2)
+        # To avoid division by zero
         self.weight_norm = self.weights / self.a_i
+        self.weight_norm[self.a_i == 0] = 0
+        # TODO: Division-by-zero guard above produces NaNs once all other criteria are met
         self.sigmas = []
 
     def _project(self, x: npt.NDArray) -> np.ndarray:
@@ -65,6 +68,9 @@ class ExtrapolatedLandweberHalfspace(SimultaneousAMSHalfspace):
         sig = (res[res_idx] @ t) / (t_2 @ t_2)
         self.sigmas.append(sig)
         x += sig * t_2
+
+        if xp.isnan(x).any():
+            raise ValueError("NaN encountered in Extrapolated Landweber Halfspace projection.")
 
         return x
 

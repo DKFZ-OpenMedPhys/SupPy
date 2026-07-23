@@ -185,7 +185,9 @@ class Superiorization(FeasibilityPerturbation):
         else:
             stop = False  # criterion for stopping the algorithm
 
-        self.t.append(0)
+        # reset timing storage so repeated solve calls do not accumulate
+        self.t = [0]
+        self.t_it = []
         t_current = time.time()
         t_init = t_current
 

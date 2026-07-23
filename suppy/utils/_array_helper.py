@@ -183,6 +183,22 @@ class LinearMapping:
 
         raise ValueError("Unknown flag.")
 
+    def column_norm(self, order=None, power=1):
+        """Get the column norms of the matrix."""
+        if self.flag == "numpy":
+            return np.linalg.norm(self.A, axis=0, ord=order) ** power
+
+        if self.flag == "scipy_sparse":
+            return sparse.linalg.norm(self.A, axis=0, ord=order) ** power
+
+        if self.flag == "cupy_full":
+            return cp.linalg.norm(self.A, axis=0, ord=order) ** power
+
+        if self.flag == "cupy_sparse":
+            return clinalg.norm(self.A, axis=0, ord=order) ** power
+
+        raise ValueError("Unknown flag.")
+
     def single_map(self, x, i):
         """Apply a linear map to a single row of the matrix."""
         if self.flag in ["numpy", "cupy_full"]:

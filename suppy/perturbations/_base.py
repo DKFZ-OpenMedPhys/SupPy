@@ -244,6 +244,7 @@ class AdaptiveStepGradientPerturbation(GradientPerturbation):
             grad_args = []
         super().__init__(func, grad, func_args, grad_args, n_red=1)
         self.func_level = func_level
+        self._initial_func_level = func_level
         self.max_func_level = max_func_level
         self.epsilon = epsilon
         self.update_direction = -1 if noisy else 1
@@ -272,7 +273,9 @@ class AdaptiveStepGradientPerturbation(GradientPerturbation):
         return x - (func_eval - self.func_level) / (grad_eval @ grad_eval) * grad_eval
 
     def post_step(self, x: npt.NDArray, *args, **kwargs) -> None:
-        """Update func_level after each step."""
+        """Update func_level after each step, capped at max_func_level."""
+        if self.func_level >= self.max_func_level:
+            return
         last_proximity_function_reduction = kwargs.get("last_proximity_function_reduction")[0]
         last_proximity_basic = kwargs.get("last_proximity_basic")[0]
 
@@ -283,15 +286,18 @@ class AdaptiveStepGradientPerturbation(GradientPerturbation):
                 np.sqrt(last_proximity_function_reduction) - np.sqrt(last_proximity_basic)
             ) / np.sqrt(last_proximity_basic)
 
-        self.func_level = self.func_level + max(
-            self.epsilon, self.update_direction * self.func_level * desirability
+        self.func_level = min(
+            self.func_level
+            + max(self.epsilon, self.update_direction * self.func_level * desirability),
+            self.max_func_level,
         )
         self.func_levels.append(self.func_level)
 
     def reset(self) -> None:
         """Reset the perturbation to its initial state."""
         super().reset()
-        self._l = -1
+        self.func_level = self._initial_func_level
+        self.func_levels = [self._initial_func_level]
 
 
 class PowerSeriesGradientPerturbation(GradientPerturbation):

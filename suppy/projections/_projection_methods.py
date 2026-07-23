@@ -483,6 +483,7 @@ class BlockIterativeProjection(ProjectionMethod):
         super().__init__(projections, relaxation, proximity_flag)
         xp = cp if self._use_gpu else np
         # check if weights has the correct format
+        weights = [xp.asarray(el) for el in weights]  # allow plain lists, per the type hint
         for el in weights:
             if len(el) != len(projections):
                 raise ValueError("Weights do not match the number of projections!")

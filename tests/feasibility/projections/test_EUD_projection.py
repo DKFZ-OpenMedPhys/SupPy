@@ -40,3 +40,47 @@ def test_EUDProjection_proximity():
     x = np.array([25, 25, 25])
     assert np.abs(eud._proximity(x, proximity_measures)[0] - 25) < 1e-10
     assert np.abs(eud._proximity(x, proximity_measures)[1] - 5) < 1e-10
+
+
+# ---------------------------------------------------------------------------
+# EUDProjection: options and branches
+# ---------------------------------------------------------------------------
+
+
+def test_EUDProjection_public_proximity_and_flag():
+    proximity_measures = [("p_norm", 2), "max_norm"]
+    eud = EUDProjection(a=5, EUD_max=20)
+    # the public wrapper returns an array
+    prox = eud.proximity(np.array([25.0, 25.0, 25.0]), proximity_measures)
+    assert isinstance(prox, np.ndarray)
+    assert np.abs(prox[0] - 25) < 1e-10
+
+    eud_off = EUDProjection(a=5, EUD_max=20, proximity_flag=False)
+    prox_off = eud_off.proximity(np.array([25.0, 25.0, 25.0]), proximity_measures)
+    assert np.array_equal(prox_off, np.zeros(2))
+
+
+def test_EUDProjection_project_inside_level_is_noop():
+    eud = EUDProjection(a=5, EUD_max=20)
+    x = np.array([1.0, 2.0, 3.0])  # EUD ~ 2.46 < 20
+    assert np.allclose(eud.project(x.copy()), x)
+
+
+# ---------------------------------------------------------------------------
+# Property / invariant tests
+# ---------------------------------------------------------------------------
+
+
+def test_EUDProjection_repeated_projects_converge_to_level():
+    # a single subgradient step overshoots slightly for non-uniform points;
+    # repeated projections converge onto the EUD_max level set
+    eud = EUDProjection(a=5, EUD_max=20)
+    rng = np.random.default_rng(42)
+    for _ in range(5):
+        x = 20 + 10 * rng.random(3)  # EUD well above 20
+        f_before = eud.func_call(x)
+        x = eud.project(x)
+        assert eud.func_call(x) < f_before  # each step reduces the EUD
+        for _ in range(100):
+            x = eud.project(x)
+        assert np.abs(eud.func_call(x) - 20) < 1e-6

@@ -41,6 +41,10 @@ class BarzilaiBorweinPerturbation(GradientPerturbation):
         The number of steps after which to restart the power series, by default -1 (no restart).
     max_restarts : int, optional
         The maximum number of restarts to perform, by default -1 (no limit).
+    restart_value : int or Callable[[int], int], optional
+        Optional value to reset the power series exponen t on a restart.
+        Int -> Will be used every time
+        Callable -> Custom values
     """
 
     def __init__(
@@ -54,6 +58,7 @@ class BarzilaiBorweinPerturbation(GradientPerturbation):
         step_size_modifier: float = 1.0,
         n_restart: int = -1,
         max_restarts: int = -1,
+        restart_value: int | Callable[[int], int] | None = None,
         disable_gradient_scaling: bool = False,
         max_step_size: float = 1e6,
     ):
@@ -67,6 +72,7 @@ class BarzilaiBorweinPerturbation(GradientPerturbation):
         self._l = -1
         self.n_restart = np.inf if n_restart == -1 else n_restart
         self.max_restarts = np.inf if max_restarts == -1 else max_restarts
+        self.restart_value = restart_value
         self._n_restarts = 0
         self.disable_gradient_scaling = disable_gradient_scaling
         self._last_grad_norm = 1
@@ -143,7 +149,12 @@ class BarzilaiBorweinPerturbation(GradientPerturbation):
         if self._k <= 0:
             return
         if self._k % self.n_restart == 0 and self._n_restarts < self.max_restarts:
-            self._l = self._k // self.n_restart
+            if self.restart_value is None:
+                self._l = self._k // self.n_restart
+            elif callable(self.restart_value):
+                self._l = self.restart_value(self._k)
+            else:
+                self._l = self.restart_value
             self._n_restarts += 1
 
     def reset(self) -> None:

@@ -350,7 +350,8 @@ class SimultaneousProjection(ProjectionMethod):
         for i, measure in enumerate(proximity_measures):
             if isinstance(measure, tuple):
                 if measure[0] == "p_norm":
-                    measures.append(self.weights @ (proxs[:, i]))
+                    # weights are stored as numpy; proxs follow the backend of x
+                    measures.append(xp.asarray(self.weights) @ (proxs[:, i]))
                 else:
                     raise ValueError("Invalid proximity measure")
             elif isinstance(measure, str) and measure == "max_norm":
@@ -521,7 +522,8 @@ class BlockIterativeProjection(ProjectionMethod):
         for i, measure in enumerate(proximity_measures):
             if isinstance(measure, tuple):
                 if measure[0] == "p_norm":
-                    measures.append(self.total_weights @ (proxs[:, i]))
+                    # weights are stored as numpy; proxs follow the backend of x
+                    measures.append(xp.asarray(self.total_weights) @ (proxs[:, i]))
                 else:
                     raise ValueError("Invalid proximity measure")
             elif isinstance(measure, str) and measure == "max_norm":

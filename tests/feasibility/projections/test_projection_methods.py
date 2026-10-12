@@ -403,3 +403,32 @@ def test_ProjectionMethod_cupy_backend():
         x_cp = make_proj(make_balls(cp)).project(cp.asarray([2.0, 2.0]))
         assert isinstance(x_cp, cp.ndarray)  # no silent device -> host transfer
         assert np.allclose(cp.asnumpy(x_cp), x_np)
+
+
+@pytest.mark.parametrize("measure", [("p_norm", 2), ("p_norm", 1), "max_norm"])
+@pytest.mark.parametrize("weights", [None, np.array([0.25, 0.75])])
+def test_weighted_proximity_cupy_backend(measure, weights):
+    """The weighted p_norm proximity must not mix numpy weights with cupy
+    proxs.
+    """
+    cp = pytest.importorskip("cupy")
+    try:
+        cp.zeros(1)  # cupy can be installed without a usable GPU
+    except Exception:
+        pytest.skip("cupy installed but no usable GPU")
+
+    def make_balls(xp):
+        return [
+            BallProjection(xp.asarray([0.0, 0.0]), 1),
+            BallProjection(xp.asarray([1.0, 1.0]), 1),
+        ]
+
+    block_weights = [[0.5, 0.5]] if weights is None else [list(weights)]
+    for make_proj in (
+        lambda balls: SimultaneousProjection(balls, weights=weights),
+        lambda balls: BlockIterativeProjection(balls, weights=block_weights),
+    ):
+        p_np = make_proj(make_balls(np)).proximity(np.array([5.0, 5.0]), [measure])
+        p_cp = make_proj(make_balls(cp)).proximity(cp.asarray([5.0, 5.0]), [measure])
+        assert isinstance(p_cp, cp.ndarray)  # no silent device -> host transfer
+        assert np.allclose(cp.asnumpy(p_cp), p_np)

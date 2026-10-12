@@ -324,6 +324,52 @@ def test_PowerSeriesGradientPerturbation_max_restarts_limit(
     assert pert._n_restarts == 1
 
 
+def test_PowerSeriesGradientPerturbation_restart_value_fixed(
+    get_test_func, get_test_grad, get_test_func_args, get_test_grad_args
+):
+    pert = PowerSeriesGradientPerturbation(
+        get_test_func,
+        get_test_grad,
+        get_test_func_args,
+        get_test_grad_args,
+        n_restart=3,
+        max_restarts=1,
+        restart_value=0,
+        bypass_objective_decrease=True,
+    )
+    x = np.array([1.0, 1.0])
+    for _ in range(3):
+        pert.pre_step(x)
+        x = pert.perturbation_step(x)
+    assert pert._l == 2
+
+    pert.pre_step(x)
+    assert pert._l == 0  # reset to the fixed value instead of _k // n_restart
+    assert pert._n_restarts == 1
+
+
+def test_PowerSeriesGradientPerturbation_restart_value_callable(
+    get_test_func, get_test_grad, get_test_func_args, get_test_grad_args
+):
+    pert = PowerSeriesGradientPerturbation(
+        get_test_func,
+        get_test_grad,
+        get_test_func_args,
+        get_test_grad_args,
+        n_restart=3,
+        restart_value=lambda k: k,
+        bypass_objective_decrease=True,
+    )
+    x = np.array([1.0, 1.0])
+    for _ in range(3):
+        pert.pre_step(x)
+        x = pert.perturbation_step(x)
+
+    pert.pre_step(x)
+    assert pert._l == 3  # reset via the callable, evaluated at _k
+    assert pert._n_restarts == 1
+
+
 def test_PowerSeriesGradientPerturbation_step_size_modifier(
     get_test_func, get_test_grad, get_test_func_args, get_test_grad_args
 ):

@@ -68,7 +68,10 @@ class DROPHyperplane(SimultaneousKaczmarzMethod):
         # store on the same backend as the iterates (nnz_counts is computed on
         # the host even for cupy-sparse inputs)
         xp = cp if self._use_gpu else np
-        self.inv_nnz_counts = xp.asarray(1 / nnz_counts)
+        nnz_counts = xp.asarray(nnz_counts)
+        self.inv_nnz_counts = xp.where(
+            nnz_counts > 0, 1 / xp.where(nnz_counts > 0, nnz_counts, 1), 0
+        )
 
     def _project(self, x: npt.NDArray) -> np.ndarray:
         # simultaneous projection

@@ -167,19 +167,59 @@ class LinearMapping:
             return clinalg.norm(self.A, ord=order) ** power
         raise ValueError("Unknown flag.")
 
+    def _sparse_axis_norm(self, axis, order, power):
+        """
+        Vector norm along one axis of a sparse matrix.
+
+        Equivalent to ``scipy.sparse.linalg.norm(A, axis=axis, ord=order) **
+        power`` and its cupy counterpart, but shares the index arrays instead
+        of copying the matrix, allowing a reduction of peak memory usage.
+        Orders other than 1, 2 and ``None`` fall back to the library routine.
+
+        Parameters
+        ----------
+        axis : int
+            0 for column norms, 1 for row norms.
+        order : int or None
+            Order of the vector norm.
+        power : int or float
+            Exponent applied to the norm.
+
+        Returns
+        -------
+        npt.NDArray
+            The norms along *axis*, raised to *power*.
+        """
+        xp = cp if self.flag == "cupy_sparse" else np
+        linalg = clinalg if self.flag == "cupy_sparse" else sparse.linalg
+
+        if order in (None, 2):
+            data = self.A.data * self.A.data
+        elif order == 1:
+            data = xp.abs(self.A.data)
+        else:
+            return linalg.norm(self.A, axis=axis, ord=order) ** power
+
+        # Same indices and indptr, so no copy of the pattern is made.
+        transformed = type(self.A)((data, self.A.indices, self.A.indptr), shape=self.A.shape)
+        summed = xp.asarray(transformed.sum(axis=axis)).ravel()
+
+        if order == 1:
+            return summed**power
+        # The root is redundant for power=2 but keeps the result bit-identical
+        # to the library, which some callers are tested against exactly.
+        return xp.sqrt(summed) ** power
+
     def row_norm(self, order=None, power=1):
         """Get the row norms of the matrix."""
         if self.flag == "numpy":
             return np.linalg.norm(self.A, axis=1, ord=order) ** power
 
-        if self.flag == "scipy_sparse":
-            return sparse.linalg.norm(self.A, axis=1, ord=order) ** power
+        if self.flag in ("scipy_sparse", "cupy_sparse"):
+            return self._sparse_axis_norm(1, order, power)
 
         if self.flag == "cupy_full":
             return cp.linalg.norm(self.A, axis=1, ord=order) ** power
-
-        if self.flag == "cupy_sparse":
-            return clinalg.norm(self.A, axis=1, ord=order) ** power
 
         raise ValueError("Unknown flag.")
 
@@ -188,14 +228,11 @@ class LinearMapping:
         if self.flag == "numpy":
             return np.linalg.norm(self.A, axis=0, ord=order) ** power
 
-        if self.flag == "scipy_sparse":
-            return sparse.linalg.norm(self.A, axis=0, ord=order) ** power
+        if self.flag in ("scipy_sparse", "cupy_sparse"):
+            return self._sparse_axis_norm(0, order, power)
 
         if self.flag == "cupy_full":
             return cp.linalg.norm(self.A, axis=0, ord=order) ** power
-
-        if self.flag == "cupy_sparse":
-            return clinalg.norm(self.A, axis=0, ord=order) ** power
 
         raise ValueError("Unknown flag.")
 

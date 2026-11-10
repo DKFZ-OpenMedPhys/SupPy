@@ -23,6 +23,8 @@ Hyperslab algorithms :math:`(lb \leq Ax \leq ub)`
    ExtrapolatedLandweberHyperslab
    BlockIterativeExtrapolatedLandweberHyperslab
    AdaptiveStepLandweberHyperslab
+   BlockIterativeAdaptiveStepLandweberHyperslab
+   FISTAHyperslab
 
 
 Hyperplane algorithms :math:`( Ax \leq b)`

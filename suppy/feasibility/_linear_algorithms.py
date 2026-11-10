@@ -114,6 +114,7 @@ class Feasibility(Projection, ABC):
         """
         xp = cp if isinstance(x, cp.ndarray) else np
         self._n_tol = 0
+        self.reset()
 
         if proximity_measures is None:
             proximity_measures = [("p_norm", 2)]

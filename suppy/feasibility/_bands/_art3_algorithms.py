@@ -101,6 +101,10 @@ class SequentialART3plus(ART3plusAlgorithm):
 
         self.cs = self.initial_cs.copy()
 
+    def reset(self) -> None:
+        """Restore the full set of constraints to be checked."""
+        self.cs = self.initial_cs.copy()
+
     def _project(self, x: npt.NDArray) -> np.ndarray:
         to_remove = []
         for i in self.cs:
@@ -184,7 +188,7 @@ class SequentialART3plus(ART3plusAlgorithm):
         npt.NDArray
             The solution after the iterative process.
         """
-        self.cs = self.initial_cs.copy()
+        self.reset()
         xp = cp if isinstance(x, cp.ndarray) else np
 
         if proximity_measures is None:

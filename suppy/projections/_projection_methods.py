@@ -68,6 +68,11 @@ class ProjectionMethod(Projection, ABC):
         for proj in self.projections:
             proj.visualize(ax)
 
+    def reset(self) -> None:
+        """Reset the internal state of all projections."""
+        for proj in self.projections:
+            proj.reset()
+
     @ensure_float_array
     def solve(
         self,
@@ -120,6 +125,7 @@ class ProjectionMethod(Projection, ABC):
             The solution after the iterative process.
         """
         xp = cp if isinstance(x, cp.ndarray) else np
+        self.reset()
 
         if proximity_measures is None:
             proximity_measures = [("p_norm", 2)]

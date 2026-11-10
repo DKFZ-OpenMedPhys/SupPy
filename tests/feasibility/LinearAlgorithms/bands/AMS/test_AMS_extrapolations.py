@@ -150,17 +150,30 @@ def test_ExtrapolatedLandweberHyperslab_constructor_state(get_full_variables):
 
 def test_ExtrapolatedLandweberHyperslab_zero_row():
     # an all-zero row gets weight_norm 0 in the constructor; if that row's
-    # band is the only violated one the step degenerates to 0/0 and the NaN
-    # guard raises (current contract, cf. the TODO in _ams_extrapolations.py)
+    # band is the only violated one there is no usable step (0/0), and the
+    # zero-denominator guard returns x unchanged
     A = np.array([[1.0, 1.0], [0.0, 0.0]])
     lb = np.array([-2.0, 1.0])
     ub = np.array([2.0, 2.0])
     alg = ExtrapolatedLandweberHyperslab(A, lb, ub)
     assert alg.weight_norm[1] == 0
 
-    with np.errstate(invalid="ignore"):
-        with pytest.raises(ValueError, match="NaN"):
-            alg.project(np.array([0.0, 0.0]))
+    proj = alg.project(np.array([0.0, 0.0]))
+    assert np.array_equal(proj, np.array([0.0, 0.0]))
+
+
+def test_ExtrapolatedLandweberHyperslab_float32_underflow():
+    # nearly feasible problem in float32 (incl. the weights): the violation is
+    # 2e-25, so v @ v (~1e-50) underflows to 0; the guard returns x unchanged
+    # instead of the 0/0 step (NaN)
+    A = np.array([[1.0, 1.0]], dtype=np.float32)
+    lb = np.array([0.0], dtype=np.float32)
+    ub = np.array([1.0], dtype=np.float32)
+    alg = ExtrapolatedLandweberHyperslab(A, lb, ub, weights=np.array([1.0], dtype=np.float32))
+    x = np.array([-1e-25, -1e-25], dtype=np.float32)
+    with np.errstate(under="ignore"):
+        proj = alg.project(x.copy())
+    assert np.array_equal(proj, x)
 
 
 def test_ExtrapolatedLandweberHyperslab_relaxation(get_full_variables):

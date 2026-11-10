@@ -163,6 +163,7 @@ class Superiorization(FeasibilityPerturbation):
         # initialization of variables
 
         self.perturbation_scheme.reset()  # reset the perturbation scheme
+        self.basic.reset()  # reset state of the basic algorithm (e.g. momentum)
 
         self._n_tol_objective = 0
         self._n_tol_prox = 0

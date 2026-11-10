@@ -57,7 +57,7 @@ class ExtrapolatedLandweberHyperslab(SimultaneousAMSHyperslab):
         # To avoid division by zero
         self.weight_norm = self.weights / self.a_i
         self.weight_norm[self.a_i == 0] = 0
-        # TODO: Division-by-zero guard above produces NaNs once all other criteria are met
+        # if only all-zero rows are violated the step is 0/0: _project then returns x unchanged
 
     def _project(self, x: npt.NDArray) -> np.ndarray:
         xp = cp if self._use_gpu else np
@@ -72,8 +72,14 @@ class ExtrapolatedLandweberHyperslab(SimultaneousAMSHyperslab):
         t_u_2 = t_u @ self.A[d_idx, :]
         t_l_2 = t_l @ self.A[c_idx, :]
 
-        sig = ((res_l[c_idx] @ t_l) + (res_u[d_idx] @ t_u)) / ((t_u_2 - t_l_2) @ (t_u_2 - t_l_2))
-        x += sig * (t_u_2 - t_l_2)
+        v = t_u_2 - t_l_2
+        denom = v @ v
+        if (
+            denom == 0
+        ):  # no usable step, e.g. v @ v underflows (float32) once the violations are tiny
+            return x
+        sig = ((res_l[c_idx] @ t_l) + (res_u[d_idx] @ t_u)) / denom
+        x += sig * v
 
         if xp.isnan(x).any():
             raise ValueError("NaN encountered in Extrapolated Landweber Hyperslab projection.")
@@ -146,10 +152,12 @@ class BlockIterativeExtrapolatedLandweberHyperslab(ExtrapolatedLandweberHypersla
             t_u_2 = t_u @ A_block[d_idx, :]
             t_l_2 = t_l @ A_block[c_idx, :]
 
-            sig = ((res_l[c_idx] @ t_l) + (res_u[d_idx] @ t_u)) / (
-                (t_u_2 - t_l_2) @ (t_u_2 - t_l_2)
-            )
-            x += sig * (t_u_2 - t_l_2)
+            v = t_u_2 - t_l_2
+            denom = v @ v
+            if denom == 0:  # no usable step for this block
+                continue
+            sig = ((res_l[c_idx] @ t_l) + (res_u[d_idx] @ t_u)) / denom
+            x += sig * v
         return x
 
 
@@ -205,9 +213,72 @@ class AdaptiveStepLandweberHyperslab(SimultaneousAMSHyperslab):
 
         u_diff = u_t_u - u_t_l
         Au_t = self.A @ u_diff
-        sig = (u_diff @ u_diff) / (Au_t @ (self.weights * Au_t))
+        denom = Au_t @ (self.weights * Au_t)
+        if denom == 0:  # no usable step, e.g. underflow (float32) once the violations are tiny
+            return x
+        sig = (u_diff @ u_diff) / denom
         x += sig * u_diff
 
+        return x
+
+
+class AdaptiveStepLandweberHyperslab_new(SimultaneousAMSHyperslab):
+    """
+    Adaptive step-size Landweber algorithm for solving linear inequalities
+    of
+    the form lb <= Ax <= ub.
+
+    Parameters
+    ----------
+    A : npt.NDArray or sparse.sparray
+        Matrix for linear systems
+    lb : npt.NDArray
+        The lower bounds for the hyperslab.
+    ub : npt.NDArray
+        The upper bounds for the hyperslab.
+    weights : None or List[float], optional
+        The weights for the constraints, by default None.
+    relaxation : float, optional
+        The outer relaxation parameter, by default 1.0.
+    proximity_flag : bool, optional
+        A flag indicating whether to use proximity measures, by default True.
+
+    References
+    ----------
+    - [1] https://doi.org/10.1515/jiip-2015-0082
+    """
+
+    def __init__(
+        self,
+        A: npt.NDArray | sparse.sparray,
+        lb: npt.NDArray,
+        ub: npt.NDArray,
+        weights: None | List[float] | npt.NDArray = None,
+        relaxation: float = 1.0,
+        proximity_flag: bool = True,
+    ):
+        super().__init__(A, lb, ub, 1.0, relaxation, weights, proximity_flag)
+
+    def _project(self, x: npt.NDArray) -> np.ndarray:
+        xp = cp if self._use_gpu else np
+        p = self.map(x)
+        res_l, res_u = self.bounds.residual(p)
+
+        # Weighted violation per row; zero where the constraint is satisfied.
+        r = self.weights * (xp.minimum(res_u, 0) - xp.minimum(res_l, 0))
+
+        if not r.any():
+            return x
+
+        g = self.A.T @ r  # negative gradient (same as u_diff)
+        Ag = self.A @ g
+        denom = Ag @ (self.weights * Ag)
+
+        if denom <= xp.finfo(x.dtype).tiny:
+            return x  # no usable descent direction
+
+        sig = (g @ g) / denom
+        x += sig * g  # or: return x + sig * g, to avoid mutation
         return x
 
 
@@ -346,7 +417,10 @@ class AdaptiveStepLandweberHyperslab2(SimultaneousAMSHyperslab):
         u_diff = self.weights[idx] * (res_u[idx] - res_l[idx]) @ self.A[idx, :]
 
         Au_t = self.A @ u_diff
-        sig = (u_diff @ u_diff) / (Au_t @ (self.weights * Au_t))
+        denom = Au_t @ (self.weights * Au_t)
+        if denom == 0:  # no usable step, e.g. underflow (float32) once the violations are tiny
+            return x
+        sig = (u_diff @ u_diff) / denom
         x += sig * u_diff
 
         return x

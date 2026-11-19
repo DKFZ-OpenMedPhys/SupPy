@@ -265,14 +265,14 @@ class BlockIterativeExtrapolatedLandweberHyperslab(ExtrapolatedLandweberHypersla
         self.ls = []
         self.us = []
         self.block_bounds = []
-        self.weight_norms = []
+        self.block_weights = []
         _lower_bound = 0
         for i in range(len(self.length_blocks)):
             self.As.append(A[_lower_bound : _lower_bound + self.length_blocks[i]])
             self.ls.append(lb[_lower_bound : _lower_bound + self.length_blocks[i]])
             self.us.append(ub[_lower_bound : _lower_bound + self.length_blocks[i]])
-            self.weight_norms.append(
-                self.weight_norm[_lower_bound : _lower_bound + self.length_blocks[i]]
+            self.block_weights.append(
+                self.weights[_lower_bound : _lower_bound + self.length_blocks[i]]
             )
             _lower_bound += self.length_blocks[i]
 
@@ -285,8 +285,8 @@ class BlockIterativeExtrapolatedLandweberHyperslab(ExtrapolatedLandweberHypersla
             c_idx = res_l < 0
             if not (xp.any(d_idx)) and not (xp.any(c_idx)):
                 continue
-            t_u = self.weight_norms[i][d_idx] * res_u[d_idx]
-            t_l = self.weight_norms[i][c_idx] * res_l[c_idx]
+            t_u = self.block_weights[i][d_idx] * res_u[d_idx]
+            t_l = self.block_weights[i][c_idx] * res_l[c_idx]
             t_u_2 = t_u @ A_block[d_idx, :]
             t_l_2 = t_l @ A_block[c_idx, :]
 

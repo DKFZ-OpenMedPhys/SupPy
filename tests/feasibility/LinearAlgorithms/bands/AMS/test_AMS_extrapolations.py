@@ -50,9 +50,12 @@ def get_AdaptiveStepLandweberHyperslab_input_sparse(get_sparse_variables):
 
 def test_ExtrapolatedLandweberHyperslab_project(get_ExtrapolatedLandweberHyperslab_input_full):
     alg, A, lb, ub = get_ExtrapolatedLandweberHyperslab_input_full
+    # weights 1/4, violated rows 0, 2, 3 with residuals -2, -1/2, -1/2:
+    # v = 1/4 * (-5/2, -5/2), sig = (1/4 * 9/2) / (25/32) = 36/25
+    # -> x = 2 + 36/25 * (-5/8) = 1.1
     x = np.array([2.0, 2.0])
     proj = alg.project(x)
-    assert np.array_equal(proj, np.array([7 / 6, 7 / 6]))
+    assert np.allclose(proj, np.array([1.1, 1.1]))
 
     x = np.array([0.0, 0.0])
     proj = alg.project(x)
@@ -65,7 +68,7 @@ def test_ExtrapolatedLandweberHyperslab_project_sparse(
     alg, A, lb, ub = get_ExtrapolatedLandweberHyperslab_input_sparse
     x = np.array([2.0, 2.0])
     proj = alg.project(x)
-    assert np.array_equal(proj, np.array([7 / 6, 7 / 6]))
+    assert np.allclose(proj, np.array([1.1, 1.1]))
 
     x = np.array([0.0, 0.0])
     proj = alg.project(x)
@@ -143,20 +146,17 @@ def test_BlockIterativeAdaptiveStepLandweberHyperslab_project_sparse(get_sparse_
 def test_ExtrapolatedLandweberHyperslab_constructor_state(get_full_variables):
     A, lb, ub = get_full_variables
     alg = ExtrapolatedLandweberHyperslab(A, lb, ub)
-    # a_i are the squared row norms; weight_norm = weights / a_i
-    assert np.allclose(alg.a_i, np.array([2.0, 2.0, 1.0, 1.0]))
-    assert np.allclose(alg.weight_norm, 0.25 / np.array([2.0, 2.0, 1.0, 1.0]))
+    # default weights are uniform and sum to 1; no row normalization is applied
+    assert np.allclose(alg.weights, np.full(4, 0.25))
 
 
 def test_ExtrapolatedLandweberHyperslab_zero_row():
-    # an all-zero row gets weight_norm 0 in the constructor; if that row's
-    # band is the only violated one there is no usable step (0/0), and the
-    # zero-denominator guard returns x unchanged
+    # if an all-zero row's band is the only violated one, v = 0 and there is
+    # no usable step (0/0); the zero-denominator guard returns x unchanged
     A = np.array([[1.0, 1.0], [0.0, 0.0]])
     lb = np.array([-2.0, 1.0])
     ub = np.array([2.0, 2.0])
     alg = ExtrapolatedLandweberHyperslab(A, lb, ub)
-    assert alg.weight_norm[1] == 0
 
     proj = alg.project(np.array([0.0, 0.0]))
     assert np.array_equal(proj, np.array([0.0, 0.0]))
@@ -179,9 +179,9 @@ def test_ExtrapolatedLandweberHyperslab_float32_underflow():
 def test_ExtrapolatedLandweberHyperslab_relaxation(get_full_variables):
     A, lb, ub = get_full_variables
     alg = ExtrapolatedLandweberHyperslab(A, lb, ub, relaxation=0.5)
-    # the outer relaxation halves the step: x + 0.5 * ([7/6, 7/6] - [2, 2])
+    # the outer relaxation halves the step: x + 0.5 * ([1.1, 1.1] - [2, 2])
     proj = alg.project(np.array([2.0, 2.0]))
-    assert np.allclose(proj, np.array([19 / 12, 19 / 12]))
+    assert np.allclose(proj, np.array([1.55, 1.55]))
 
 
 def test_ExtrapolatedLandweberHyperslab_proximity(get_ExtrapolatedLandweberHyperslab_input_full):

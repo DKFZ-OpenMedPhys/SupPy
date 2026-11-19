@@ -33,22 +33,22 @@ def test_BlockIterativeExtrapolatedLandweberHyperslab_constructor_state(get_full
     alg = BlockIterativeExtrapolatedLandweberHyperslab(A, lb, ub, length_blocks=[2, 2])
 
     assert alg.length_blocks == [2, 2]
-    # the blocks slice the rows of A, the bounds and the weight norms
+    # the blocks slice the rows of A, the bounds and the weights
     assert np.array_equal(alg.As[0], A[:2])
     assert np.array_equal(alg.As[1], A[2:])
     assert np.array_equal(alg.ls[0], lb[:2])
     assert np.array_equal(alg.us[1], ub[2:])
-    # weight_norm = weights / squared row norms = (1/4) / [2, 2, 1, 1]
-    assert np.allclose(alg.weight_norms[0], np.array([1 / 8, 1 / 8]))
-    assert np.allclose(alg.weight_norms[1], np.array([1 / 4, 1 / 4]))
+    # default weights are uniform 1/4 (no row normalization)
+    assert np.allclose(alg.block_weights[0], np.array([1 / 4, 1 / 4]))
+    assert np.allclose(alg.block_weights[1], np.array([1 / 4, 1 / 4]))
 
 
 def test_BlockIterativeExtrapolatedLandweberHyperslab_project(get_full_variables):
     A, lb, ub = get_full_variables
     alg = BlockIterativeExtrapolatedLandweberHyperslab(A, lb, ub, length_blocks=[2, 2])
     # block 1 (rows 0, 1): only row 0 violated with residual -2;
-    # t_u = 1/8*(-2) = -0.25, t_u_2 = [-0.25, -0.25],
-    # sig = ((-2)*(-0.25)) / 0.125 = 4 -> x += 4*[-0.25, -0.25] = [1, 1]
+    # t_u = 1/4*(-2) = -0.5, t_u_2 = [-0.5, -0.5],
+    # sig = ((-2)*(-0.5)) / 0.5 = 2 -> x += 2*[-0.5, -0.5] = [1, 1]
     # block 2 (rows 2, 3): feasible, continue
     x_n = alg.project(np.array([2.0, 2.0]))
     assert np.allclose(x_n, np.array([1.0, 1.0]))

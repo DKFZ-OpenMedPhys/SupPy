@@ -21,6 +21,31 @@ except ImportError:
     cp = np
 
 
+def _normalized_weights(weights: None | List[float] | npt.NDArray) -> None | npt.NDArray:
+    """
+    Validate nonnegative weights and renormalize them to sum to 1.
+
+    Parameters
+    ----------
+    weights : None, List[float] or npt.NDArray
+        One-dimensional, nonnegative weights, not all zero.
+
+    Returns
+    -------
+    None or npt.NDArray
+        The renormalized weights, None if `weights` is None.
+    """
+    if weights is None:
+        return None
+    xp = cp if (not NO_GPU and isinstance(weights, cp.ndarray)) else np
+    weights = xp.asarray(weights, dtype=float)
+    if weights.ndim != 1:
+        raise ValueError(f"weights must be one-dimensional, got shape {weights.shape}.")
+    if bool(xp.any(weights < 0)) or not float(weights.sum()) > 0:
+        raise ValueError("weights must be nonnegative and not all zero.")
+    return weights / weights.sum()
+
+
 class Feasibility(Projection, ABC):
     """
     Parameters
@@ -255,6 +280,90 @@ class LinearFeasibility(Feasibility, ABC):
             The result of applying the linear mapping to the input array at the specified index.
         """
         return self.A.single_map(x, i)
+
+    def _estimate_squared_spectral_norm(
+        self,
+        weights: npt.NDArray | None = None,
+        max_iter: int = 1000,
+        tol: float = 1e-6,
+    ) -> float:
+        """
+        Estimate lambda_max(A^T W A) by power iteration, W = diag(weights).
+
+        For weights=None this is ||A||_2^2. The estimate approaches
+        lambda_max from below.
+
+        Parameters
+        ----------
+        weights : npt.NDArray or None, optional
+            Nonnegative weights of the rows of A. If None, W = I. By default
+            None.
+        max_iter : int, optional
+            Maximum number of power iterations, by default 1000.
+        tol : float, optional
+            Relative tolerance on the change of the estimate, by default
+            1e-6.
+
+        Returns
+        -------
+        float
+            The estimate of lambda_max(A^T W A).
+        """
+        xp = cp if self._use_gpu else np
+        dtype = np.result_type(self.A.dtype, np.float32)
+        v = xp.asarray(np.random.default_rng(0).standard_normal(self.A.shape[1]), dtype=dtype)
+        v /= xp.linalg.norm(v)
+        lam = 0.0
+        lam_new = 0.0
+        for _ in range(max_iter):
+            # (A v) @ A instead of A.T @ (A v): avoids building the transpose of a sparse A
+            Av = self.map(v)
+            if weights is not None:
+                Av = weights * Av
+            u = Av @ self.A.A
+            lam_new = float(v @ u)
+            norm_u = float(xp.linalg.norm(u))
+            if norm_u == 0:
+                return 0.0
+            v = u / norm_u
+            if abs(lam_new - lam) <= tol * lam_new:
+                break
+            lam = lam_new
+        return lam_new
+
+    def _setup_landweber(
+        self, weights: None | List[float] | npt.NDArray, step_size: float | None
+    ) -> None:
+        """
+        Set the weights and the step size of a fixed-step Landweber method.
+
+        Parameters
+        ----------
+        weights : None, List[float] or npt.NDArray
+            Nonnegative weights w of the constraints, W = diag(w), used as
+            given. If None, W = I.
+        step_size : float or None
+            The step size. If None, it is set to 1 / lambda_max(A^T W A),
+            with lambda_max estimated by power iteration and increased by
+            1 %, since the estimate approaches it from below.
+        """
+        xp = cp if self._use_gpu else np
+        if weights is None:
+            self.landweber_weights = None
+        else:
+            weights = xp.asarray(weights, dtype=np.result_type(self.A.dtype, np.float32))
+            if weights.shape != (self.A.shape[0],):
+                raise ValueError(
+                    f"weights must have shape ({self.A.shape[0]},), got {weights.shape}."
+                )
+            if bool(xp.any(weights < 0)) or not float(weights.sum()) > 0:
+                raise ValueError("weights must be nonnegative and not all zero.")
+            self.landweber_weights = weights
+        if step_size is None:
+            step_size = 1 / (1.01 * self._estimate_squared_spectral_norm(self.landweber_weights))
+        if not step_size > 0:
+            raise ValueError("The step size must be positive.")
+        self.step_size = step_size
 
     def indexed_map(self, x: npt.NDArray, idx: List[int] | npt.NDArray) -> np.ndarray:
         """

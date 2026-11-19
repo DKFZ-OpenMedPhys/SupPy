@@ -1,3 +1,4 @@
+import math
 from typing import List
 import numpy as np
 import numpy.typing as npt
@@ -23,10 +24,12 @@ class FISTAHyperslab(SimultaneousAMSHyperslab):
     Each call of `project` performs one accelerated gradient step with step
     size 1/L on f(x) = 1/2 sum_i w_i d_i(x)^2, where d_i(x) is the distance
     of (Ax)_i to [lb_i, ub_i]. f is half the ("p_norm", 2) proximity of this
-    object and L = lambda_max(A^T W A) with W = diag(w). The momentum is
-    formed from the inputs of the current and the previous call; in
-    superiorization these are the perturbed iterates. It is cleared by
-    `reset`. Bounds on x (e.g. x >= 0) are added by combining with a
+    object and L = lambda_max(A^T W A) with W = diag(w). The momentum is the
+    one of Beck and Teboulle [1]: z_k = x_k + (t_{k-1} - 1) / t_k
+    (x_k - x_{k-1}) with t_1 = 1 and t_k = (1 + sqrt(1 + 4 t_{k-1}^2)) / 2,
+    where x_k and x_{k-1} are the inputs of the current and the previous
+    call; in superiorization these are the perturbed iterates. It is cleared
+    by `reset`. Bounds on x (e.g. x >= 0) are added by combining with a
     `BoxProjection` in a `SequentialProjection`.
 
     Parameters
@@ -57,8 +60,7 @@ class FISTAHyperslab(SimultaneousAMSHyperslab):
     References
     ----------
     - [1] https://doi.org/10.1137/080716542
-    - [2] https://doi.org/10.1007/s10957-015-0746-4
-    - [3] https://arxiv.org/abs/1109.2415
+    - [2] https://arxiv.org/abs/1109.2415
     """
 
     def __init__(
@@ -76,11 +78,13 @@ class FISTAHyperslab(SimultaneousAMSHyperslab):
         if not self.lipschitz > 0:
             raise ValueError("The Lipschitz constant must be positive.")
         self._k = 0
+        self._t = 1.0
         self._x_prev = None
 
     def reset(self) -> None:
         """Clear the momentum."""
         self._k = 0
+        self._t = 1.0
         self._x_prev = None
 
     def _weighted_residual_map(self, r: npt.NDArray) -> np.ndarray:
@@ -110,7 +114,9 @@ class FISTAHyperslab(SimultaneousAMSHyperslab):
         if self._x_prev is None:
             z = x
         else:
-            z = x + (self._k - 1) / (self._k + 2) * (x - self._x_prev)
+            t_next = (1 + math.sqrt(1 + 4 * self._t**2)) / 2
+            z = x + (self._t - 1) / t_next * (x - self._x_prev)
+            self._t = t_next
         self._x_prev = x.copy()
         self._k += 1
 

@@ -75,9 +75,12 @@ def test_FISTAHyperslab_momentum():
     # f(x) = x^2 / 2, step 1/L = 1/2: output = z / 2 with z the momentum point
     alg = FISTAHyperslab(np.array([[1.0]]), np.array([0.0]), np.array([0.0]), lipschitz=2.0)
     assert alg.project(np.array([4.0]))[0] == pytest.approx(2.0)  # z = x
-    assert alg.project(np.array([2.0]))[0] == pytest.approx(1.0)  # factor 0
-    # factor 1/4: z = 1 + 1/4 * (1 - 2) = 0.75
-    assert alg.project(np.array([1.0]))[0] == pytest.approx(0.375)
+    assert alg.project(np.array([2.0]))[0] == pytest.approx(1.0)  # factor (t_1 - 1) / t_2 = 0
+    # Beck-Teboulle: t_2 = (1 + sqrt(5)) / 2, t_3 = (1 + sqrt(1 + 4 t_2^2)) / 2
+    t2 = (1 + np.sqrt(5)) / 2
+    t3 = (1 + np.sqrt(1 + 4 * t2**2)) / 2
+    z = 1 + (t2 - 1) / t3 * (1 - 2)
+    assert alg.project(np.array([1.0]))[0] == pytest.approx(z / 2)
 
     alg.reset()
     assert alg.project(np.array([1.0]))[0] == pytest.approx(0.5)
@@ -113,7 +116,7 @@ def test_FISTAHyperslab_reset_in_sequential_projection(get_full_variables):
     seq.project(np.array([2.0, 2.0]))
     assert alg._x_prev is not None
     seq.reset()
-    assert alg._x_prev is None and alg._k == 0
+    assert alg._x_prev is None and alg._k == 0 and alg._t == 1.0
 
 
 def test_FISTAHyperslab_superiorization_resets(get_full_variables):

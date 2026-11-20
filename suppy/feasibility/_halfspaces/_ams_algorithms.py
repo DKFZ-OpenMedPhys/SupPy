@@ -259,10 +259,9 @@ class SimultaneousAMSHalfspace(HalfspaceAlgorithm):
         return x
 
     def _proximity(self, x: npt.NDArray, proximity_measures: List) -> list[float]:
-        p = self.map(x)
-        res = self.b - p
-        res[res > 0] = 0
-        res = -res
+        xp = cp if isinstance(x, cp.ndarray) else np
+        # violation of the constraints, 0 where they are met
+        res = xp.maximum(self.map(x) - self.b, 0)
 
         measures = []
         for measure in proximity_measures:
@@ -352,10 +351,9 @@ class BlockIterativeAMSHalfspace(HalfspaceAlgorithm):
         return x
 
     def _proximity(self, x: npt.NDArray, proximity_measures: List) -> list[float]:
-        p = self.map(x)
-        res = self.b - p
-        res[res > 0] = 0
-        res = -res
+        xp = cp if isinstance(x, cp.ndarray) else np
+        # violation of the constraints, 0 where they are met
+        res = xp.maximum(self.map(x) - self.b, 0)
 
         measures = []
         for measure in proximity_measures:

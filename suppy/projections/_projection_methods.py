@@ -17,6 +17,7 @@ except ImportError:
 
 from suppy.projections._projections import Projection, BasicProjection
 from suppy.utils import ensure_float_array
+from suppy.utils._array_helper import to_host_floats
 
 
 class ProjectionMethod(Projection, ABC):
@@ -187,10 +188,12 @@ class ProjectionMethod(Projection, ABC):
 
     def _stopping_criterion(self, prox_tol: float, del_prox_tol: float, del_prox_n: int) -> bool:
         """Returns True when convergence is detected, False otherwise."""
-        if self.proximities[-1][0] < prox_tol:
+        # one transfer to the host (a single device synchronization on the GPU)
+        current, previous = to_host_floats(self.proximities[-1][0], self.proximities[-2][0])
+        if current < prox_tol:
             return True
         else:  # check that last n proximity changes are below a threshold
-            if self.proximities[-2][0] - self.proximities[-1][0] < del_prox_tol:
+            if previous - current < del_prox_tol:
                 self._n_tol += 1
             else:
                 self._n_tol = 0

@@ -275,26 +275,34 @@ class SplitSuperiorization(FeasibilityPerturbation):
                 last_function_value_basic=self.all_function_values_basic[-1][1],
             )
 
+            f_input_perturbed = self.input_perturbation_scheme.func_value_after_step(x)
             self.storage(
                 x,
                 kind="function_reduction",
                 storage=storage and _should_store(self._k + 1),
                 f=[
-                    self.input_perturbation_scheme.func(x),
-                    self.target_perturbation_scheme.func(y),
+                    f_input_perturbed,
+                    self.target_perturbation_scheme.func_value_after_step(y),
                 ],
                 p=self.basic.proximity(x, proximity_measures),
             )
 
-            # perform basic step
+            # perform basic step (copy kept since the basic step may change x in place)
+            x_perturbed = x.copy()
             x, y = self.basic.step(x, y)
 
+            # reuse the input objective value if the basic step did not change x
+            xp = cp if isinstance(x, cp.ndarray) else np
+            if xp.array_equal(x, x_perturbed):
+                f_input = f_input_perturbed
+            else:
+                f_input = self.input_perturbation_scheme.func(x)
             self.storage(
                 x,
                 kind="basic",
                 storage=storage and _should_store(self._k + 1),
                 f=[
-                    self.input_perturbation_scheme.func(x),
+                    f_input,
                     self.target_perturbation_scheme.func(y),
                 ],
                 p=self.basic.proximity(x, proximity_measures),

@@ -349,9 +349,9 @@ class SimultaneousART3plus(ART3plusAlgorithm):
         p = self.map(x)
         # residuals are positive if constraints are met
         (res_l, res_u) = self.bounds.residual(p)
-        res_u[res_u > 0] = 0
-        res_l[res_l > 0] = 0
-        res = -res_u - res_l
+        xp = cp if isinstance(x, cp.ndarray) else np
+        # violation of the constraints, 0 where they are met
+        res = xp.maximum(-res_l, 0) + xp.maximum(-res_u, 0)
         measures = []
         for measure in proximity_measures:
             if isinstance(measure, tuple):

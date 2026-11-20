@@ -202,14 +202,21 @@ class Superiorization(FeasibilityPerturbation):
                 last_function_value_basic=self.all_function_values_basic[-1],
             )  # perform any pre-step actions of the perturbation scheme
 
+            # iterate at the start of the iteration, its objective value is known
+            x_start = x.copy()
+
             # perform the perturbation schemes update step
             x = self.perturbation_scheme.perturbation_step(x)
+            # objective value at the perturbed iterate (None if unknown and not stored)
+            f_perturbed = self.perturbation_scheme.func_value_after_step(
+                x, evaluate=store_function_reduction
+            )
             if store_function_reduction:
                 self.storage(
                     x,
                     kind="function_reduction",
                     storage=storage and _should_store(self._k + 1),
-                    f=self.perturbation_scheme.func(x),
+                    f=f_perturbed,
                     p=self.basic.proximity(x, proximity_measures),
                 )
 
@@ -222,16 +229,22 @@ class Superiorization(FeasibilityPerturbation):
                 last_function_value_basic=self.all_function_values_basic[-1],
             )  # perform any post-step actions of the perturbation scheme
 
+            # last iterate with known objective value, compared after the basic step
+            # (copied since the basic step may change x in place)
+            if f_perturbed is not None:
+                x_known, f_known = x.copy(), f_perturbed
+            else:
+                x_known, f_known = x_start, self.all_function_values_basic[-1]
+
             # perform basic step
             x = self.basic.step(x)
 
             # check current function and proximity values
-
             self.storage(
                 x,
                 kind="basic",
                 storage=storage and _should_store(self._k + 1),
-                f=self.perturbation_scheme.func(x),
+                f=self._func_after_basic_step(x, x_known, f_known),
                 p=self.basic.proximity(x, proximity_measures),
             )
 
@@ -336,6 +349,35 @@ class Superiorization(FeasibilityPerturbation):
         -------
         None
         """
+
+    def _func_after_basic_step(self, x: npt.NDArray, x_known: npt.NDArray, f_known):
+        """
+        Objective value after the basic step.
+
+        Reuses `f_known` if the iterate equals `x_known`, e.g. if the basic
+        step did not change the (already feasible) perturbed iterate or the
+        iteration returned to its starting point, otherwise evaluates the
+        objective. The comparison costs one device synchronization on the
+        GPU but can save an objective evaluation.
+
+        Parameters
+        ----------
+        x : npt.NDArray
+            The iterate after the basic step.
+        x_known : npt.NDArray
+            The last iterate whose objective value is known.
+        f_known : float
+            The objective value at `x_known`.
+
+        Returns
+        -------
+        float
+            The objective value at `x`.
+        """
+        xp = cp if isinstance(x, cp.ndarray) else np
+        if xp.array_equal(x, x_known):
+            return f_known
+        return self.perturbation_scheme.func(x)
 
     def _initial_storage(self, x, storage, f, p):
         """

@@ -168,16 +168,17 @@ class SimultaneousARM(ARMAlgorithm):
         p = self.map(x)
         d = p - self.bounds.center
         psi = self.bounds.half_distance
-        d_idx = xp.abs(d) > psi
+        # violated rows (determined once, one device sync)
+        idx = xp.flatnonzero(xp.abs(d) > psi)
+        if idx.size == 0:
+            return x
+        d = d[idx]
+        psi = psi[idx] if isinstance(psi, xp.ndarray) and psi.ndim > 0 else psi
         x -= (
             self.algorithmic_relaxation
             / 2
-            * (
-                self.weights[d_idx]
-                * self.inverse_row_norm[d_idx]
-                * (d[d_idx] - (psi[d_idx] ** 2) / d[d_idx])
-            )
-            @ self.A[d_idx, :]
+            * (self.weights[idx] * self.inverse_row_norm[idx] * (d - (psi**2) / d))
+            @ self.A[idx, :]
         )
 
         return x
@@ -185,9 +186,9 @@ class SimultaneousARM(ARMAlgorithm):
     def _proximity(self, x: npt.NDArray, proximity_measures: List) -> list[float]:
         p = self.map(x)
         (res_l, res_u) = self.bounds.residual(p)
-        res_u[res_u > 0] = 0
-        res_l[res_l > 0] = 0
-        res = -res_u - res_l
+        xp = cp if isinstance(x, cp.ndarray) else np
+        # violation of the constraints, 0 where they are met
+        res = xp.maximum(-res_l, 0) + xp.maximum(-res_u, 0)
         measures = []
         for measure in proximity_measures:
             if isinstance(measure, tuple):
@@ -256,16 +257,17 @@ class BIPARM(ARMAlgorithm):
         p = self.map(x)
         d = p - self.bounds.center
         psi = self.bounds.half_distance
-        d_idx = xp.abs(d) > psi
+        # violated rows (determined once, one device sync)
+        idx = xp.flatnonzero(xp.abs(d) > psi)
+        if idx.size == 0:
+            return x
+        d = d[idx]
+        psi = psi[idx] if isinstance(psi, xp.ndarray) and psi.ndim > 0 else psi
         x -= (
             self.algorithmic_relaxation
             / 2
-            * (
-                self.weights[d_idx]
-                * self.inverse_row_norm[d_idx]
-                * (d[d_idx] - (psi[d_idx] ** 2) / d[d_idx])
-            )
-            @ self.A[d_idx, :]
+            * (self.weights[idx] * self.inverse_row_norm[idx] * (d - (psi**2) / d))
+            @ self.A[idx, :]
         )
 
         return x
@@ -273,9 +275,9 @@ class BIPARM(ARMAlgorithm):
     def _proximity(self, x: npt.NDArray, proximity_measures: List) -> list[float]:
         p = self.map(x)
         (res_l, res_u) = self.bounds.residual(p)
-        res_u[res_u > 0] = 0
-        res_l[res_l > 0] = 0
-        res = -res_u - res_l
+        xp = cp if isinstance(x, cp.ndarray) else np
+        # violation of the constraints, 0 where they are met
+        res = xp.maximum(-res_l, 0) + xp.maximum(-res_u, 0)
         measures = []
         for measure in proximity_measures:
             if isinstance(measure, tuple):

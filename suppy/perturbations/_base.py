@@ -61,8 +61,22 @@ class ObjectivePerturbation(Perturbation, ABC):
         Keeps track of the number of performed perturbations.
     """
 
+    # Objective values that are already known, so that they are not evaluated
+    # again (None if unknown):
+    # - objective value at the input of the current reduction step, set by
+    #   `pre_step` (value from the driver) or by the previous reduction step
+    _known_func_value = None
+    # - objective value at the output of the current reduction step, reported
+    #   by the step through `_remember_func_value`
+    _result_func_value = None
+    # - objective value at the iterate returned by `perturbation_step`, handed
+    #   to the driver once through `func_value_after_step`
+    _last_func_value = None
+
     def __init__(self, func: Callable, func_args: List, n_red: int = 1):
-        self.func = FuncWrapper(func, func_args)
+        # no caching: known objective values are passed on explicitly instead
+        # (see `pre_step`), which avoids comparing and copying x on every call
+        self.func = FuncWrapper(func, func_args, cache=False)
         self.n_red = n_red
         self._k = 0
 
@@ -83,9 +97,77 @@ class ObjectivePerturbation(Perturbation, ABC):
         self._k += 1
         n = 0
         while n < self.n_red:
+            self._result_func_value = None
             x = self._function_reduction_step(x)
+            # the value at the output is the known value at the next input
+            self._known_func_value = self._result_func_value
             n += 1
+        self._last_func_value = self._known_func_value
+        self._known_func_value = None
+        self._result_func_value = None
         return x
+
+    def func_value_after_step(self, x: npt.NDArray, evaluate: bool = True):
+        """
+        Objective value at the iterate returned by `perturbation_step`.
+
+        Returns the value already computed during the perturbation if
+        available. Must be called with the unchanged iterate returned by the
+        last `perturbation_step`; the stored value is only returned once.
+
+        Parameters
+        ----------
+        x : npt.NDArray
+            The iterate returned by `perturbation_step`.
+        evaluate : bool, optional
+            If True, the objective is evaluated when no value is available,
+            otherwise None is returned in that case, by default True.
+
+        Returns
+        -------
+        float or None
+            The objective value at `x`, None if it is unknown and `evaluate`
+            is False.
+        """
+        value = None if x is None else self._last_func_value
+        self._last_func_value = None
+        if value is None and evaluate:
+            return self.func(x)
+        return value
+
+    def _initial_func_value(self, x: npt.NDArray):
+        """
+        Objective value at the input of the current reduction step.
+
+        Uses the known value (passed to `pre_step` by the superiorization
+        driver or reported by the previous reduction step) if available,
+        otherwise evaluates the objective once.
+
+        Parameters
+        ----------
+        x : npt.NDArray
+            The iterate at the start of the reduction step.
+
+        Returns
+        -------
+        float
+            The objective value at `x`.
+        """
+        if self._known_func_value is None:
+            self._known_func_value = self.func(x)
+        return self._known_func_value
+
+    def _remember_func_value(self, value) -> None:
+        """
+        Report the objective value at the iterate returned by the current
+        reduction step, so that it is not evaluated again.
+
+        Parameters
+        ----------
+        value : float or None
+            The objective value at the returned iterate, None if unknown.
+        """
+        self._result_func_value = value
 
     @abstractmethod
     def _function_reduction_step(self, x: npt.NDArray) -> np.ndarray:
@@ -110,14 +192,23 @@ class ObjectivePerturbation(Perturbation, ABC):
         If required perform any form of step previous to each
         perturbation in each iteration.
 
-        This method is intended to be overridden by subclasses to implement
-        specific pre-step logic. By default, it does nothing.
+        By default, it only stores the keyword argument
+        `last_function_value_basic`, the objective value at `x` computed by
+        the superiorization driver, so that the following perturbation does
+        not need to evaluate it again. Subclasses overriding this method
+        should call ``super().pre_step(x, *args, **kwargs)``; otherwise the
+        objective is simply evaluated again.
 
         Parameters
         ----------
         x : npt.NDArray
             Current iterate.
+        **kwargs
+            Values passed by the superiorization driver.
+            `last_function_value_basic` must be the objective value at `x`.
         """
+        self._known_func_value = None if x is None else kwargs.get("last_function_value_basic")
+        self._last_func_value = None
 
     def post_step(self, x: npt.NDArray, *args, **kwargs) -> None:
         """
@@ -136,6 +227,9 @@ class ObjectivePerturbation(Perturbation, ABC):
     def reset(self) -> None:
         """Reset the perturbation to its initial state."""
         self._k = 0
+        self._known_func_value = None
+        self._result_func_value = None
+        self._last_func_value = None
 
 
 class DummyPerturbation(ObjectivePerturbation):
@@ -148,7 +242,7 @@ class DummyPerturbation(ObjectivePerturbation):
 
         func_args = []
 
-        self.func = FuncWrapper(_dummy_func, func_args)
+        self.func = FuncWrapper(_dummy_func, func_args, cache=False)
         self.n_red = 1
         self._k = 0  # keeps track of the number of performed perturbations
 
@@ -195,7 +289,7 @@ class GradientPerturbation(ObjectivePerturbation, ABC):
         n_red: int = 1,
     ):
         super().__init__(func, func_args, n_red)
-        self.grad = FuncWrapper(grad, grad_args)
+        self.grad = FuncWrapper(grad, grad_args, cache=False)
 
 
 class AdaptiveStepGradientPerturbation(GradientPerturbation):
@@ -266,9 +360,10 @@ class AdaptiveStepGradientPerturbation(GradientPerturbation):
             The updated point after performing the reduction step.
         """
         grad_eval = self.grad(x)
-        func_eval = self.func(x)
+        func_eval = self._initial_func_value(x)
         if grad_eval @ grad_eval <= 0 or func_eval <= self.func_level:
             # if gradient is zero (or negative) or the function value is below alpha, skip
+            self._remember_func_value(func_eval)  # x unchanged
             return x
         return x - (func_eval - self.func_level) / (grad_eval @ grad_eval) * grad_eval
 
@@ -388,13 +483,15 @@ class PowerSeriesGradientPerturbation(GradientPerturbation):
         """
         # quick check if the step size is already zero, if so skip the rest of the calculations
         if self.step_size_modifier * self.step_size**self._l * self._last_grad_norm <= 1e-14:
+            self._remember_func_value(self._known_func_value)  # x unchanged
             return x
 
         xp = cp if isinstance(x, cp.ndarray) else np
         grad_eval = self.grad(x)
-        func_eval = self.func(x)
+        func_eval = self._initial_func_value(x)
 
         if grad_eval @ grad_eval <= 0:
+            self._remember_func_value(func_eval)  # x unchanged
             return x
 
         grad_norm = 1 if self.disable_gradient_scaling else xp.linalg.norm(grad_eval)
@@ -406,7 +503,11 @@ class PowerSeriesGradientPerturbation(GradientPerturbation):
                 x_ln = (
                     x - self.step_size_modifier * self.step_size**self._l * grad_eval / grad_norm
                 )
-                if self.bypass_objective_decrease or self.func(x_ln) <= func_eval:
+                if self.bypass_objective_decrease:
+                    return x_ln
+                func_ln = self.func(x_ln)
+                if func_ln <= func_eval:
+                    self._remember_func_value(func_ln)
                     return x_ln
         else:
             return (
@@ -421,7 +522,11 @@ class PowerSeriesGradientPerturbation(GradientPerturbation):
         ----------
         x : npt.NDArray
             Current iterate.
+        **kwargs
+            Values passed by the superiorization driver, see
+            `ObjectivePerturbation.pre_step`.
         """
+        super().pre_step(x, *args, **kwargs)
         if self._k <= 0:
             return
         if self._k % self.n_restart == 0 and self._n_restarts < self.max_restarts:

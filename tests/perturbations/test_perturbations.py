@@ -766,3 +766,210 @@ def test_AdaptiveStepGradientPerturbation_superiorization_integration():
     # post_step was called by the driver each iteration and raised the level
     assert len(pert.func_levels) > 1
     assert pert.func_levels[-1] >= 0.5
+
+
+# ---------------------------------------------------------------------------
+# Reuse of the objective value passed to pre_step by the driver
+# ---------------------------------------------------------------------------
+
+
+def _counting_quadratic():
+    calls = []
+
+    def func(x):
+        calls.append(1)
+        return np.sum(x**2)
+
+    def grad(x):
+        return 2 * x
+
+    return func, grad, calls
+
+
+def _make_schemes(func, grad):
+    from suppy.perturbations._variants import BarzilaiBorweinPerturbation
+
+    return [
+        PowerSeriesGradientPerturbation(func, grad, step_size=0.5),
+        AdaptiveStepGradientPerturbation(func, grad, func_level=0.1),
+        BarzilaiBorweinPerturbation(func, grad, step_size=0.5),
+    ]
+
+
+@pytest.mark.parametrize("idx", [0, 1, 2])
+def test_pre_step_known_value_saves_one_evaluation(idx):
+    x = np.array([1.0, -2.0, 3.0])
+
+    func, grad, calls = _counting_quadratic()
+    pert = _make_schemes(func, grad)[idx]
+    pert.pre_step(x.copy())  # no value passed: objective is evaluated
+    x_ref = pert.perturbation_step(x.copy())
+    n_ref = len(calls)
+
+    func, grad, calls = _counting_quadratic()
+    pert = _make_schemes(func, grad)[idx]
+    pert.pre_step(x.copy(), last_function_value_basic=np.sum(x**2))
+    x_new = pert.perturbation_step(x.copy())
+
+    assert np.array_equal(x_ref, x_new)
+    assert len(calls) == n_ref - 1
+
+
+def test_known_value_only_used_for_first_reduction_step():
+    x = np.array([1.0, -2.0, 3.0])
+    func, grad, calls = _counting_quadratic()
+    pert = PowerSeriesGradientPerturbation(func, grad, n_red=3, step_size=0.5)
+    pert.pre_step(x.copy())
+    x_ref = pert.perturbation_step(x.copy())
+
+    pert = PowerSeriesGradientPerturbation(func, grad, n_red=3, step_size=0.5)
+    pert.pre_step(x.copy(), last_function_value_basic=np.sum(x**2))
+    x_new = pert.perturbation_step(x.copy())
+
+    assert np.array_equal(x_ref, x_new)
+    assert pert._known_func_value is None
+
+
+def test_known_value_cleared_by_reset_and_ignored_for_none():
+    func, grad, _ = _counting_quadratic()
+    pert = PowerSeriesGradientPerturbation(func, grad)
+    pert.pre_step(np.array([1.0]), last_function_value_basic=1.0)
+    assert pert._known_func_value == 1.0
+    pert.reset()
+    assert pert._known_func_value is None
+
+    pert.pre_step(None, last_function_value_basic=1.0)
+    assert pert._known_func_value is None
+
+
+def test_superiorization_identical_with_value_reuse():
+    """Reusing the driver's objective value must not change the iterates."""
+
+    class NoReusePSGP(PowerSeriesGradientPerturbation):
+        def pre_step(self, x, *args, **kwargs):
+            super().pre_step(x, *args, **kwargs)
+            self._known_func_value = None  # force evaluation, as before
+
+    A = np.array([[1.0, 1.0], [1.0, -1.0], [0.5, 2.0]])
+    lb, ub = np.array([1.0, -1.0, 0.5]), np.array([2.0, 1.0, 3.0])
+    results = []
+    for cls in (NoReusePSGP, PowerSeriesGradientPerturbation):
+        func, grad, calls = _counting_quadratic()
+        sup = Superiorization(SequentialAMSHyperslab(A, lb, ub), cls(func, grad, step_size=0.8))
+        x = sup.solve(np.array([3.0, 3.0]), max_iter=15, prox_tol=0, del_prox_tol=-1)
+        results.append((x, sup.all_function_values, len(calls), sup._k))
+
+    (x_a, f_a, n_a, k_a), (x_b, f_b, n_b, k_b) = results
+    assert k_a == k_b
+    assert np.array_equal(x_a, x_b)
+    assert np.array_equal(f_a, f_b)
+    assert n_b == n_a - k_b  # one evaluation fewer per iteration
+
+
+def test_superiorization_fcount_equals_real_evaluations():
+    """Without the cache, fcount counts actual objective evaluations."""
+    A = np.array([[1.0, 1.0], [1.0, -1.0], [0.5, 2.0]])
+    lb, ub = np.array([1.0, -1.0, 0.5]), np.array([2.0, 1.0, 3.0])
+    func, grad, calls = _counting_quadratic()
+    pert = PowerSeriesGradientPerturbation(func, grad, step_size=0.8)
+    sup = Superiorization(SequentialAMSHyperslab(A, lb, ub), pert)
+    sup.solve(np.array([3.0, 3.0]), max_iter=15, prox_tol=0, del_prox_tol=-1)
+    assert pert.func.fcount == len(calls)
+
+
+def _old_behaviour(cls):
+    """
+    Comparison cache in the wrapper instead of passing known values on (the
+    driver is the same, so this only checks the perturbation side).
+    """
+
+    class Old(cls):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.func.cache = True
+
+        def pre_step(self, x, *args, **kwargs):
+            super().pre_step(x, *args, **kwargs)
+            self._known_func_value = None
+
+        def _remember_func_value(self, value):
+            pass
+
+    return Old
+
+
+@pytest.mark.parametrize("idx", [0, 1, 2])
+@pytest.mark.parametrize("n_red", [1, 3])
+def test_superiorization_store_function_reduction_no_extra_evaluations(idx, n_red):
+    """Passing values on needs no more evaluations than the cache, same
+    results.
+    """
+    from suppy.perturbations._variants import BarzilaiBorweinPerturbation
+
+    classes = [
+        PowerSeriesGradientPerturbation,
+        AdaptiveStepGradientPerturbation,
+        BarzilaiBorweinPerturbation,
+    ]
+    kwargs = [{"step_size": 0.8}, {"func_level": 0.1}, {"step_size": 0.8}][idx]
+    A = np.array([[1.0, 1.0], [1.0, -1.0], [0.5, 2.0]])
+    lb, ub = np.array([1.0, -1.0, 0.5]), np.array([2.0, 1.0, 3.0])
+
+    results = []
+    for cls in (_old_behaviour(classes[idx]), classes[idx]):
+        real = []
+
+        def func(x):
+            real.append(1)
+            return np.sum(x**2)
+
+        pert = (
+            cls(func, lambda x: 2 * x, n_red=n_red, **kwargs)
+            if idx != 1
+            else cls(func, lambda x: 2 * x, **kwargs)
+        )
+        sup = Superiorization(SequentialAMSHyperslab(A, lb, ub), pert)
+        x = sup.solve(
+            np.array([3.0, 3.0]),
+            max_iter=15,
+            prox_tol=0,
+            del_prox_tol=-1,
+            store_function_reduction=True,
+        )
+        results.append((x, sup.all_function_values, len(real)))
+
+    (x_old, f_old, n_old), (x_new, f_new, n_new) = results
+    assert np.array_equal(x_old, x_new)
+    assert np.array_equal(f_old, f_new)
+    assert n_new == n_old
+
+
+def test_func_value_after_step_returns_stored_value_once():
+    func, grad, calls = _counting_quadratic()
+    pert = PowerSeriesGradientPerturbation(func, grad, step_size=0.5)
+    x = np.array([1.0, -2.0, 3.0])
+    pert.pre_step(x, last_function_value_basic=np.sum(x**2))
+    x_new = pert.perturbation_step(x)
+    n = len(calls)
+    assert pert.func_value_after_step(x_new) == np.sum(x_new**2)
+    assert len(calls) == n  # value from the line search, no evaluation
+    assert pert.func_value_after_step(x_new) == np.sum(x_new**2)
+    assert len(calls) == n + 1  # second call evaluates
+
+
+def test_superiorization_reuses_value_at_fixed_point():
+    """
+    If the iteration returns to its starting point (perturbation moves x,
+    the
+    basic step projects it back), the objective is not evaluated again.
+    """
+    A = np.array([[1.0, 1.0], [1.0, -1.0], [0.5, 2.0]])
+    lb, ub = np.array([1.0, -1.0, 0.5]), np.array([2.0, 1.0, 3.0])
+    func, grad, calls = _counting_quadratic()
+    pert = AdaptiveStepGradientPerturbation(func, grad, func_level=0.1)
+    sup = Superiorization(SequentialAMSHyperslab(A, lb, ub), pert)
+    x = sup.solve(np.array([3.0, 3.0]), max_iter=40, prox_tol=0, del_prox_tol=-1)
+    # x reaches the fixed point [0.5, 0.5] after 3 iterations
+    assert np.allclose(x, [0.5, 0.5])
+    assert sup._k == 40
+    assert len(calls) == 4

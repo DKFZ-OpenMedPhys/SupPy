@@ -9,6 +9,7 @@ from scipy import sparse
 from suppy.utils import Bounds
 from suppy.utils import LinearMapping
 from suppy.utils import ensure_float_array
+from suppy.utils._array_helper import to_host_floats
 from suppy.projections._projections import Projection
 
 try:
@@ -193,10 +194,12 @@ class Feasibility(Projection, ABC):
 
     def _stopping_criterion(self, prox_tol: float, del_prox_tol: float, del_prox_n: float):
         """"""
-        if self.proximities[-1][0] < prox_tol:  # proximity below goal/tolerance
+        # one transfer to the host (a single device synchronization on the GPU)
+        current, previous = to_host_floats(self.proximities[-1][0], self.proximities[-2][0])
+        if current < prox_tol:  # proximity below goal/tolerance
             return True
         else:  # check that last n proximity changes are below a threshold
-            if self.proximities[-2][0] - self.proximities[-1][0] < del_prox_tol:
+            if previous - current < del_prox_tol:
                 self._n_tol += 1
             else:
                 self._n_tol = 0
@@ -511,10 +514,9 @@ class HalfspaceFeasibility(LinearFeasibility, ABC):
         self.b = b
 
     def _proximity(self, x: npt.NDArray, proximity_measures: List) -> list[float]:
-        p = self.map(x)
-        res = self.b - p
-        res[res > 0] = 0
-        res = -res
+        xp = cp if isinstance(x, cp.ndarray) else np
+        # violation of the constraints, 0 where they are met
+        res = xp.maximum(self.map(x) - self.b, 0)
 
         measures = []
         for measure in proximity_measures:
@@ -580,11 +582,10 @@ class HyperslabFeasibility(LinearFeasibility, ABC):
             raise ValueError("Matrix A and bound vector must have the same number of rows.")
 
     def _proximity(self, x: npt.NDArray, proximity_measures: List) -> list[float]:
-        p = self.map(x)
-        (res_l, res_u) = self.bounds.residual(p)
-        res_l[res_l > 0] = 0
-        res_u[res_u > 0] = 0
-        res = -res_l - res_u
+        xp = cp if isinstance(x, cp.ndarray) else np
+        (res_l, res_u) = self.bounds.residual(self.map(x))
+        # violation of the constraints, 0 where they are met
+        res = xp.maximum(-res_l, 0) + xp.maximum(-res_u, 0)
 
         measures = []
         for measure in proximity_measures:

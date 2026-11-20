@@ -231,9 +231,9 @@ class SequentialWeightedAMSHyperslab(SequentialAMSHyperslab):
         p = self.map(x)
         # residuals are positive if constraints are met
         (res_l, res_u) = self.bounds.residual(p)
-        res_u[res_u > 0] = 0
-        res_l[res_l > 0] = 0
-        res = -res_u - res_l
+        xp = cp if isinstance(x, cp.ndarray) else np
+        # violation of the constraints, 0 where they are met
+        res = xp.maximum(-res_l, 0) + xp.maximum(-res_u, 0)
         measures = []
         for measure in proximity_measures:
             if isinstance(measure, tuple):
@@ -298,14 +298,16 @@ class SimultaneousAMSHyperslab(HyperslabAlgorithm):
 
     def _project(self, x: npt.NDArray) -> np.ndarray:
         # simultaneous projection
-        p = self.map(x)
-        (res_l, res_u) = self.bounds.residual(p)
-        d_idx = res_u < 0
-        c_idx = res_l < 0
-        x += self.algorithmic_relaxation * (
-            (self.weights * self.inverse_row_norm)[d_idx] * res_u[d_idx] @ self.A[d_idx, :]
-            - (self.weights * self.inverse_row_norm)[c_idx] * res_l[c_idx] @ self.A[c_idx, :]
-        )
+        xp = cp if self._use_gpu else np
+        (res_l, res_u) = self.bounds.residual(self.map(x))
+        # signed violation: < 0 above the upper bound, > 0 below the lower bound
+        res = xp.minimum(res_u, 0) - xp.minimum(res_l, 0)
+        # only the violated rows enter the update (determined once, one device sync)
+        idx = xp.flatnonzero(res)
+        if idx.size > 0:
+            x += self.algorithmic_relaxation * (
+                self.weights[idx] * self.inverse_row_norm[idx] * res[idx] @ self.A[idx, :]
+            )
 
         return x
 
@@ -313,9 +315,9 @@ class SimultaneousAMSHyperslab(HyperslabAlgorithm):
         p = self.map(x)
         # residuals are positive if constraints are met
         (res_l, res_u) = self.bounds.residual(p)
-        res_u[res_u > 0] = 0
-        res_l[res_l > 0] = 0
-        res = -res_u - res_l
+        xp = cp if isinstance(x, cp.ndarray) else np
+        # violation of the constraints, 0 where they are met
+        res = xp.maximum(-res_l, 0) + xp.maximum(-res_u, 0)
         measures = []
         for measure in proximity_measures:
             if isinstance(measure, tuple):
@@ -370,22 +372,23 @@ class SARTHyperslab(SimultaneousAMSHyperslab):
 
     def _project(self, x: npt.NDArray) -> np.ndarray:
         # SART projection
-        p = self.map(x)
-        (res_l, res_u) = self.bounds.residual(p)
-        d_idx = res_u < 0
-        c_idx = res_l < 0
-        x += (
-            self.algorithmic_relaxation
-            * self.inverse_linear_column_norm
-            * (
-                (self.weights * self.inverse_linear_row_norm)[d_idx]
-                * res_u[d_idx]
-                @ self.A[d_idx, :]
-                - (self.weights * self.inverse_linear_row_norm)[c_idx]
-                * res_l[c_idx]
-                @ self.A[c_idx, :]
+        xp = cp if self._use_gpu else np
+        (res_l, res_u) = self.bounds.residual(self.map(x))
+        # signed violation: < 0 above the upper bound, > 0 below the lower bound
+        res = xp.minimum(res_u, 0) - xp.minimum(res_l, 0)
+        # only the violated rows enter the update (determined once, one device sync)
+        idx = xp.flatnonzero(res)
+        if idx.size > 0:
+            x += (
+                self.algorithmic_relaxation
+                * self.inverse_linear_column_norm
+                * (
+                    self.weights[idx]
+                    * self.inverse_linear_row_norm[idx]
+                    * res[idx]
+                    @ self.A[idx, :]
+                )
             )
-        )
 
         return x
 
@@ -451,23 +454,20 @@ class BlockIterativeAMSHyperslab(HyperslabAlgorithm):
 
     def _project(self, x: npt.NDArray) -> np.ndarray:
         # simultaneous projection
+        xp = cp if self._use_gpu else np
         for el, block_idx in zip(self.weights, self.block_idxs):  # get mask and associated weights
             p = self.indexed_map(x, block_idx)
             (res_l, res_u) = self.bounds.indexed_residual(p, block_idx)
-            d_idx = res_u < 0
-            c_idx = res_l < 0
-            full_d_idx = block_idx[d_idx]
-            full_c_idx = block_idx[c_idx]
+            # signed violation: < 0 above the upper bound, > 0 below the lower bound
+            res = xp.minimum(res_u, 0) - xp.minimum(res_l, 0)
+            # violated rows of the block (determined once, one device sync)
+            idx = xp.flatnonzero(res)
+            if idx.size == 0:
+                continue
+            full_idx = block_idx[idx]
 
             x += self.algorithmic_relaxation * (
-                self.inverse_row_norm[full_d_idx]
-                * el[d_idx]
-                * res_u[d_idx]
-                @ self.A[full_d_idx, :]
-                - self.inverse_row_norm[full_c_idx]
-                * el[c_idx]
-                * res_l[c_idx]
-                @ self.A[full_c_idx, :]
+                self.inverse_row_norm[full_idx] * el[idx] * res[idx] @ self.A[full_idx, :]
             )
 
         return x
@@ -476,9 +476,9 @@ class BlockIterativeAMSHyperslab(HyperslabAlgorithm):
         p = self.map(x)
         # residuals are positive if constraints are met
         (res_l, res_u) = self.bounds.residual(p)
-        res_u[res_u > 0] = 0
-        res_l[res_l > 0] = 0
-        res = -res_u - res_l
+        xp = cp if isinstance(x, cp.ndarray) else np
+        # violation of the constraints, 0 where they are met
+        res = xp.maximum(-res_l, 0) + xp.maximum(-res_u, 0)
         measures = []
         for measure in proximity_measures:
             if isinstance(measure, tuple):

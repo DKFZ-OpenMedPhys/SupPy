@@ -94,13 +94,15 @@ class BarzilaiBorweinPerturbation(GradientPerturbation):
         """
         # quick check if the step size is already zero, if so skip the rest of the calculations
         if self.step_size_modifier * self.step_size**self._l * self._last_grad_norm <= 1e-14:
+            self._remember_func_value(self._known_func_value)  # x unchanged
             return x
 
         xp = cp if isinstance(x, cp.ndarray) else np
         grad_eval = self.grad(x)
-        func_eval = self.func(x)
+        func_eval = self._initial_func_value(x)
 
         if grad_eval @ grad_eval <= 0:
+            self._remember_func_value(func_eval)  # x unchanged
             return x
 
         # TODO: Should the storage of last gradient norm be removed?
@@ -109,6 +111,7 @@ class BarzilaiBorweinPerturbation(GradientPerturbation):
         self._last_grad_norm = grad_norm
 
         if self.step_size_modifier * self.step_size**self._l * self._last_grad_norm <= 1e-14:
+            self._remember_func_value(func_eval)  # x unchanged
             return x
 
         # grad_norm = xp.linalg.norm(grad_eval) if not self.disable_gradient_scaling else 1
@@ -132,9 +135,11 @@ class BarzilaiBorweinPerturbation(GradientPerturbation):
         # alpha_k
         step_size_bb = xp.clip(step_size_bb, 0, self.max_step_size)
         x_bb = x_i1 - self.step_size**self._l * step_size_bb * new_grad
-        if self.func(x_bb) > func_val:
+        func_bb = self.func(x_bb)
+        if func_bb > func_val:
             print("BB step did not decrease the objective!")
 
+        self._remember_func_value(func_bb)
         return x_bb
 
     def pre_step(self, x: npt.NDArray, *args, **kwargs) -> None:
@@ -145,7 +150,11 @@ class BarzilaiBorweinPerturbation(GradientPerturbation):
         ----------
         x : npt.NDArray
             Current iterate.
+        **kwargs
+            Values passed by the superiorization driver, see
+            `ObjectivePerturbation.pre_step`.
         """
+        super().pre_step(x, *args, **kwargs)
         if self._k <= 0:
             return
         if self._k % self.n_restart == 0 and self._n_restarts < self.max_restarts:

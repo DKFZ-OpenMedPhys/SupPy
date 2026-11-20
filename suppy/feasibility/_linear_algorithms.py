@@ -47,6 +47,34 @@ def _normalized_weights(weights: None | List[float] | npt.NDArray) -> None | npt
     return weights / weights.sum()
 
 
+def _safe_step_size(xp, numerator, denominator):
+    """
+    Step size numerator / denominator, 0 if the denominator is not positive
+    (no usable step, e.g. once the violations underflow in float32).
+
+    Evaluated without a device synchronization, unlike an ``if`` on the
+    denominator.
+
+    Parameters
+    ----------
+    xp : module
+        The array module (numpy or cupy).
+    numerator : float or npt.NDArray
+        Numerator of the step size.
+    denominator : float or npt.NDArray
+        Denominator of the step size.
+
+    Returns
+    -------
+    npt.NDArray
+        The step size as 0-d array.
+    """
+    if xp is np:  # no device synchronization on the CPU, a plain branch is cheapest
+        return numerator / denominator if denominator > 0 else 0.0
+    positive = denominator > 0
+    return xp.where(positive, numerator / xp.where(positive, denominator, 1), 0)
+
+
 class Feasibility(Projection, ABC):
     """
     Parameters
@@ -582,10 +610,8 @@ class HyperslabFeasibility(LinearFeasibility, ABC):
             raise ValueError("Matrix A and bound vector must have the same number of rows.")
 
     def _proximity(self, x: npt.NDArray, proximity_measures: List) -> list[float]:
-        xp = cp if isinstance(x, cp.ndarray) else np
-        (res_l, res_u) = self.bounds.residual(self.map(x))
         # violation of the constraints, 0 where they are met
-        res = xp.maximum(-res_l, 0) + xp.maximum(-res_u, 0)
+        res = self.bounds.violation(self.map(x))
 
         measures = []
         for measure in proximity_measures:

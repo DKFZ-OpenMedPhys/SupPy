@@ -13,7 +13,7 @@ except ImportError:
     cp = np
 
 from suppy.feasibility._halfspaces._ams_algorithms import SimultaneousAMSHalfspace
-from suppy.feasibility._linear_algorithms import _normalized_weights
+from suppy.feasibility._linear_algorithms import _normalized_weights, _safe_step_size
 
 
 class LandweberHalfspace(SimultaneousAMSHalfspace):
@@ -120,20 +120,21 @@ class ExtrapolatedLandweberHalfspace(SimultaneousAMSHalfspace):
         # To avoid division by zero
         self.weight_norm = self.weights / self.a_i
         self.weight_norm[self.a_i == 0] = 0
-        # TODO: Division-by-zero guard above produces NaNs once all other criteria are met
         self.sigmas = []
 
     def _project(self, x: npt.NDArray) -> np.ndarray:
         xp = cp if self._use_gpu else np
-        p = self.map(x)
-        res = self.b - p
-        res_idx = res < 0
-        if not xp.any(res_idx):
+        res = self.b - self.map(x)
+        # only the violated rows enter the update (determined once, one device sync)
+        idx = xp.flatnonzero(res < 0)
+        res = res[idx]  # residual of the violated rows
+        if idx.size == 0:
             self.sigmas.append(0)
             return x
-        t = self.weight_norm[res_idx] * res[res_idx]
-        t_2 = t @ self.A[res_idx, :]
-        sig = (res[res_idx] @ t) / (t_2 @ t_2)
+        t = self.weight_norm[idx] * res
+        t_2 = t @ self.A[idx, :]
+        # step size 0 if t_2 @ t_2 underflows (float32) once the violations are tiny
+        sig = _safe_step_size(xp, res @ t, t_2 @ t_2)
         self.sigmas.append(sig)
         x += sig * t_2
 
@@ -179,16 +180,17 @@ class AdaptiveStepLandweberHalfspace(SimultaneousAMSHalfspace):
 
     def _project(self, x: npt.NDArray) -> np.ndarray:
         xp = cp if self._use_gpu else np
-        p = self.map(x)
-        res = self.b - p
-        res_idx = res < 0
-
-        if not xp.any(res_idx):
+        res = self.b - self.map(x)
+        # only the violated rows enter the update (determined once, one device sync)
+        idx = xp.flatnonzero(res < 0)
+        res = res[idx]  # residual of the violated rows
+        if idx.size == 0:
             return x
 
-        u_t = (self.weights[res_idx] * res[res_idx]) @ self.A[res_idx, :]
+        u_t = (self.weights[idx] * res) @ self.A[idx, :]
         Au_t = self.A @ u_t  # A*AT*res
-        sig = (u_t @ u_t) / (Au_t @ (self.weights * Au_t))
+        # step size 0 if there is no usable step, e.g. underflow (float32)
+        sig = _safe_step_size(xp, u_t @ u_t, Au_t @ (self.weights * Au_t))
         x += sig * u_t
 
         return x

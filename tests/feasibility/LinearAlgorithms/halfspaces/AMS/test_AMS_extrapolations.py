@@ -97,16 +97,16 @@ def test_ExtrapolatedLandweberHalfspace_constructor_state(get_full_variables):
 
 def test_ExtrapolatedLandweberHalfspace_zero_row():
     # an all-zero row gets weight_norm 0 in the constructor; if that row's
-    # halfspace is the only violated one the step degenerates to 0/0 and the
-    # NaN guard raises (current contract, cf. the TODO in _ams_extrapolations.py)
+    # halfspace is the only violated one the step degenerates to 0/0, which the
+    # step size guard turns into no step (as for the hyperslab variant)
     A = np.array([[1.0, 1.0], [0.0, 0.0]])
     b = np.array([2.0, -1.0])  # row 1: 0 <= -1 is never satisfiable
     alg = ExtrapolatedLandweberHalfspace(A, b)
     assert alg.weight_norm[1] == 0
 
-    with np.errstate(invalid="ignore"):
-        with pytest.raises(ValueError, match="NaN"):
-            alg.project(np.array([0.0, 0.0]))
+    proj = alg.project(np.array([0.0, 0.0]))
+    assert np.array_equal(proj, np.array([0.0, 0.0]))
+    assert alg.sigmas[-1] == 0
 
 
 def test_ExtrapolatedLandweberHalfspace_relaxation(get_full_variables):

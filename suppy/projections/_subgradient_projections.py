@@ -90,9 +90,12 @@ class SubgradientProjection(BasicProjection):
         xp = cp if isinstance(x, cp.ndarray) else np
         f_x = self.func_call(x)
         g_x = self.grad_call(x)
+        g_sq = g_x @ g_x
 
-        if f_x > self.level and xp.linalg.norm(g_x) > 0:
-            x[self.idx] -= (f_x - self.level) * g_x / (g_x @ g_x)
+        # step only if the level is exceeded and the gradient is nonzero,
+        # written without a branch on the GPU values
+        active = (f_x > self.level) & (g_sq > 0)
+        x[self.idx] -= xp.where(active, (f_x - self.level) / xp.where(active, g_sq, 1), 0) * g_x
         return x
 
     def level_diff(self, x: npt.NDArray) -> float:
@@ -109,8 +112,8 @@ class SubgradientProjection(BasicProjection):
         return self.func_call(x) - self.level
 
     def _proximity(self, x: npt.NDArray, proximity_measures: List) -> list[float]:
-        dist = self.level_diff(x)
-        dist = dist if dist > 0 else 0
+        xp = cp if isinstance(x, cp.ndarray) else np
+        dist = xp.maximum(self.level_diff(x), 0)
         measures = []
         for measure in proximity_measures:
             if isinstance(measure, tuple):

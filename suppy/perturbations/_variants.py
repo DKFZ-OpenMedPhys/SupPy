@@ -5,6 +5,7 @@ from typing import Callable, List
 import numpy as np
 import numpy.typing as npt
 from suppy.utils import FuncWrapper
+from suppy.utils._array_helper import to_host_floats
 
 try:
     import cupy as cp
@@ -101,13 +102,15 @@ class BarzilaiBorweinPerturbation(GradientPerturbation):
         grad_eval = self.grad(x)
         func_eval = self._initial_func_value(x)
 
-        if grad_eval @ grad_eval <= 0:
+        # gradient norm on the host (one transfer), also used for the checks
+        grad_norm_host = to_host_floats(xp.linalg.norm(grad_eval))[0]
+        if grad_norm_host <= 0:
             self._remember_func_value(func_eval)  # x unchanged
             return x
 
         # TODO: Should the storage of last gradient norm be removed?
 
-        grad_norm = 1 if self.disable_gradient_scaling else xp.linalg.norm(grad_eval)
+        grad_norm = 1 if self.disable_gradient_scaling else grad_norm_host
         self._last_grad_norm = grad_norm
 
         if self.step_size_modifier * self.step_size**self._l * self._last_grad_norm <= 1e-14:

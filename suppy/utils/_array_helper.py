@@ -45,6 +45,34 @@ def to_host_floats(*values) -> list[float]:
     return [float(v) for v in out]
 
 
+def to_host_list(values: list) -> list:
+    """
+    Host copies of a list of scalars or arrays with at most one
+    device-to-host transfer.
+
+    Parameters
+    ----------
+    values : list
+        Python, NumPy or CuPy scalars or arrays (of floating point type).
+
+    Returns
+    -------
+    list
+        The values with every CuPy array replaced by its NumPy counterpart.
+    """
+    out = list(values)
+    if not NO_GPU:
+        on_gpu = [i for i, v in enumerate(values) if isinstance(v, cp.ndarray)]
+        if on_gpu:
+            flat = cp.concatenate([values[i].ravel().astype(cp.float64) for i in on_gpu]).get()
+            start = 0
+            for i in on_gpu:
+                size = values[i].size
+                out[i] = flat[start : start + size].reshape(values[i].shape)
+                start += size
+    return out
+
+
 def stack_to_numpy(values: list) -> np.ndarray:
     """
     Stack a list of scalars or equally shaped arrays into one NumPy array.

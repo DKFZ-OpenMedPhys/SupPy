@@ -14,7 +14,7 @@ except ImportError:
 
 
 from suppy.feasibility._hyperplanes._kaczmarz_algorithms import SimultaneousKaczmarzMethod
-from suppy.feasibility._linear_algorithms import _normalized_weights
+from suppy.feasibility._linear_algorithms import _normalized_weights, _safe_step_size
 
 
 class LandweberHyperplane(SimultaneousKaczmarzMethod):
@@ -122,15 +122,11 @@ class ExtrapolatedLandweberHyperplane(SimultaneousKaczmarzMethod):
 
     def _project(self, x: npt.NDArray) -> np.ndarray:
         xp = cp if self._use_gpu else np
-        p = self.map(x)
-        res = self.b - p
-        res_idx = res != 0
-        if not xp.any(res_idx):
-            self.sigmas.append(0)
-            return x
+        res = self.b - self.map(x)
         t = self.weight_norm * res
         t_2 = t @ self.A
-        sig = (res @ t) / (t_2 @ t_2)
+        # step size 0 if all constraints are met (t_2 = 0) or t_2 @ t_2 underflows
+        sig = _safe_step_size(xp, res @ t, t_2 @ t_2)
         self.sigmas.append(sig)
         x += sig * t_2
 
@@ -174,15 +170,11 @@ class AdaptiveStepLandweberHyperplane(SimultaneousKaczmarzMethod):
 
     def _project(self, x: npt.NDArray) -> np.ndarray:
         xp = cp if self._use_gpu else np
-        p = self.map(x)
-        res = self.b - p
-        res_idx = res != 0
-        if not xp.any(res_idx):
-            self.sigmas.append(0)
-            return x
+        res = self.b - self.map(x)
         u_t = (self.weights * res) @ self.A
         Au_t = self.A @ u_t
-        sig = (u_t @ u_t) / (Au_t @ (self.weights * Au_t))
+        # step size 0 if all constraints are met (u_t = 0) or there is no usable step
+        sig = _safe_step_size(xp, u_t @ u_t, Au_t @ (self.weights * Au_t))
         self.sigmas.append(sig)
         x += sig * u_t
 

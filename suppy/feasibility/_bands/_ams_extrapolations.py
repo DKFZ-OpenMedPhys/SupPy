@@ -15,7 +15,7 @@ except ImportError:
 
 
 from suppy.feasibility._bands._ams_algorithms import SimultaneousAMSHyperslab
-from suppy.feasibility._linear_algorithms import _normalized_weights
+from suppy.feasibility._linear_algorithms import _normalized_weights, _safe_step_size
 
 
 class LandweberHyperslab(SimultaneousAMSHyperslab):
@@ -134,24 +134,18 @@ class ExtrapolatedSimultaneousProjectionHyperslab(SimultaneousAMSHyperslab):
 
     def _project(self, x: npt.NDArray) -> np.ndarray:
         xp = cp if self._use_gpu else np
-        p = self.map(x)
-        (res_l, res_u) = self.bounds.residual(p)
-        d_idx = res_u < 0
-        c_idx = res_l < 0
-        if not (xp.any(d_idx)) and not (xp.any(c_idx)):
+        (res_l, res_u) = self.bounds.residual(self.map(x))
+        # only the violated rows enter the update (determined once, one device sync)
+        idx = xp.flatnonzero((res_u < 0) | (res_l < 0))
+        # signed violation of these rows: < 0 above the upper bound, > 0 below the
+        # lower bound
+        res = xp.minimum(res_u[idx], 0) - xp.minimum(res_l[idx], 0)
+        if idx.size == 0:
             return x
-        t_u = self.weight_norm[d_idx] * res_u[d_idx]
-        t_l = self.weight_norm[c_idx] * res_l[c_idx]
-        t_u_2 = t_u @ self.A[d_idx, :]
-        t_l_2 = t_l @ self.A[c_idx, :]
-
-        v = t_u_2 - t_l_2
-        denom = v @ v
-        if (
-            denom == 0
-        ):  # no usable step, e.g. v @ v underflows (float32) once the violations are tiny
-            return x
-        sig = ((res_l[c_idx] @ t_l) + (res_u[d_idx] @ t_u)) / denom
+        t = self.weight_norm[idx] * res
+        v = t @ self.A[idx, :]
+        # step size 0 if v @ v underflows (float32) once the violations are tiny
+        sig = _safe_step_size(xp, res @ t, v @ v)
         x += sig * v
 
         if xp.isnan(x).any():
@@ -199,24 +193,18 @@ class ExtrapolatedLandweberHyperslab(SimultaneousAMSHyperslab):
 
     def _project(self, x: npt.NDArray) -> np.ndarray:
         xp = cp if self._use_gpu else np
-        p = self.map(x)
-        (res_l, res_u) = self.bounds.residual(p)
-        d_idx = res_u < 0
-        c_idx = res_l < 0
-        if not (xp.any(d_idx)) and not (xp.any(c_idx)):
+        (res_l, res_u) = self.bounds.residual(self.map(x))
+        # only the violated rows enter the update (determined once, one device sync)
+        idx = xp.flatnonzero((res_u < 0) | (res_l < 0))
+        # signed violation of these rows: < 0 above the upper bound, > 0 below the
+        # lower bound
+        res = xp.minimum(res_u[idx], 0) - xp.minimum(res_l[idx], 0)
+        if idx.size == 0:
             return x
-        t_u = self.weights[d_idx] * res_u[d_idx]
-        t_l = self.weights[c_idx] * res_l[c_idx]
-        t_u_2 = t_u @ self.A[d_idx, :]
-        t_l_2 = t_l @ self.A[c_idx, :]
-
-        v = t_u_2 - t_l_2
-        denom = v @ v
-        if (
-            denom == 0
-        ):  # no usable step, e.g. v @ v underflows (float32) once the violations are tiny
-            return x
-        sig = ((res_l[c_idx] @ t_l) + (res_u[d_idx] @ t_u)) / denom
+        t = self.weights[idx] * res
+        v = t @ self.A[idx, :]
+        # step size 0 if v @ v underflows (float32) once the violations are tiny
+        sig = _safe_step_size(xp, res @ t, v @ v)
         x += sig * v
 
         if xp.isnan(x).any():
@@ -281,21 +269,17 @@ class BlockIterativeExtrapolatedLandweberHyperslab(ExtrapolatedLandweberHypersla
         for i, A_block in enumerate(self.As):
             p = A_block @ x
             res_l, res_u = p - self.ls[i], self.us[i] - p
-            d_idx = res_u < 0
-            c_idx = res_l < 0
-            if not (xp.any(d_idx)) and not (xp.any(c_idx)):
+            # violated rows of the block (determined once, one device sync)
+            idx = xp.flatnonzero((res_u < 0) | (res_l < 0))
+            # signed violation of these rows: < 0 above the upper bound, > 0 below the
+            # lower bound
+            res = xp.minimum(res_u[idx], 0) - xp.minimum(res_l[idx], 0)
+            if idx.size == 0:
                 continue
-            t_u = self.block_weights[i][d_idx] * res_u[d_idx]
-            t_l = self.block_weights[i][c_idx] * res_l[c_idx]
-            t_u_2 = t_u @ A_block[d_idx, :]
-            t_l_2 = t_l @ A_block[c_idx, :]
-
-            v = t_u_2 - t_l_2
-            denom = v @ v
-            if denom == 0:  # no usable step for this block
-                continue
-            sig = ((res_l[c_idx] @ t_l) + (res_u[d_idx] @ t_u)) / denom
-            x += sig * v
+            t = self.block_weights[i][idx] * res
+            v = t @ A_block[idx, :]
+            # step size 0 if there is no usable step for this block
+            x += _safe_step_size(xp, res @ t, v @ v) * v
         return x
 
 
@@ -338,23 +322,19 @@ class AdaptiveStepLandweberHyperslab(SimultaneousAMSHyperslab):
 
     def _project(self, x: npt.NDArray) -> np.ndarray:
         xp = cp if self._use_gpu else np
-        p = self.map(x)
-        (res_l, res_u) = self.bounds.residual(p)
-        d_idx = res_u < 0
-        c_idx = res_l < 0
-
-        if not (xp.any(d_idx)) and not (xp.any(c_idx)):
+        (res_l, res_u) = self.bounds.residual(self.map(x))
+        # only the violated rows enter the update (determined once, one device sync)
+        idx = xp.flatnonzero((res_u < 0) | (res_l < 0))
+        # signed violation of these rows: < 0 above the upper bound, > 0 below the
+        # lower bound
+        res = xp.minimum(res_u[idx], 0) - xp.minimum(res_l[idx], 0)
+        if idx.size == 0:
             return x
 
-        u_t_u = (self.weights[d_idx] * res_u[d_idx]) @ self.A[d_idx, :]
-        u_t_l = (self.weights[c_idx] * res_l[c_idx]) @ self.A[c_idx, :]
-
-        u_diff = u_t_u - u_t_l
+        u_diff = (self.weights[idx] * res) @ self.A[idx, :]
         Au_t = self.A @ u_diff
-        denom = Au_t @ (self.weights * Au_t)
-        if denom == 0:  # no usable step, e.g. underflow (float32) once the violations are tiny
-            return x
-        sig = (u_diff @ u_diff) / denom
+        # step size 0 if there is no usable step, e.g. underflow (float32)
+        sig = _safe_step_size(xp, u_diff @ u_diff, Au_t @ (self.weights * Au_t))
         x += sig * u_diff
 
         return x
@@ -412,11 +392,9 @@ class AdaptiveStepLandweberHyperslab_new(SimultaneousAMSHyperslab):
         Ag = self.A @ g
         denom = Ag @ (self.weights * Ag)
 
-        if denom <= xp.finfo(x.dtype).tiny:
-            return x  # no usable descent direction
-
-        sig = (g @ g) / denom
-        x += sig * g  # or: return x + sig * g, to avoid mutation
+        # step size 0 if there is no usable descent direction
+        sig = _safe_step_size(xp, g @ g, xp.where(denom > xp.finfo(x.dtype).tiny, denom, 0))
+        x += sig * g
         return x
 
 
@@ -480,22 +458,19 @@ class BlockIterativeAdaptiveStepLandweberHyperslab(AdaptiveStepLandweberHypersla
         for i, A_block in enumerate(self.As):
             p = A_block @ x
             res_l, res_u = p - self.ls[i], self.us[i] - p
-            d_idx = res_u < 0
-            c_idx = res_l < 0
-            if not (xp.any(d_idx)) and not (xp.any(c_idx)):
+            # violated rows of the block (determined once, one device sync)
+            idx = xp.flatnonzero((res_u < 0) | (res_l < 0))
+            # signed violation of these rows: < 0 above the upper bound, > 0 below the
+            # lower bound
+            res = xp.minimum(res_u[idx], 0) - xp.minimum(res_l[idx], 0)
+            if idx.size == 0:
                 continue
 
             weights = self.block_weights[i]
-            u_t_u = (weights[d_idx] * res_u[d_idx]) @ A_block[d_idx, :]
-            u_t_l = (weights[c_idx] * res_l[c_idx]) @ A_block[c_idx, :]
-
-            u_diff = u_t_u - u_t_l
+            u_diff = (weights[idx] * res) @ A_block[idx, :]
             Au_t = A_block @ u_diff
-            denom = Au_t @ (weights * Au_t)
-            if denom == 0:
-                continue
-            sig = (u_diff @ u_diff) / denom
-            x += sig * u_diff
+            # step size 0 if there is no usable step for this block
+            x += _safe_step_size(xp, u_diff @ u_diff, Au_t @ (weights * Au_t)) * u_diff
 
         return x
 
@@ -538,16 +513,23 @@ class AdaptiveStepLandweberHyperslab2(SimultaneousAMSHyperslab):
 
     def _project(self, x: npt.NDArray) -> np.ndarray:
         xp = cp if self._use_gpu else np
-        p = self.map(x)
-        (res_l, res_u) = self.bounds.residual(p)
-        d_idx = res_u < 0
-        c_idx = res_l < 0
-
-        res_u[~d_idx] = 0
-        res_l[~c_idx] = 0
-
-        if not (xp.any(d_idx)) and not (xp.any(c_idx)):
+        (res_l, res_u) = self.bounds.residual(self.map(x))
+        # only the violated rows enter the update (determined once, one device sync)
+        idx = xp.flatnonzero((res_u < 0) | (res_l < 0))
+        # signed violation of these rows: < 0 above the upper bound, > 0 below the
+        # lower bound
+        res = xp.minimum(res_u[idx], 0) - xp.minimum(res_l[idx], 0)
+        if idx.size == 0:
             return x
+
+        u_diff = self.weights[idx] * res @ self.A[idx, :]
+
+        Au_t = self.A @ u_diff
+        # step size 0 if there is no usable step, e.g. underflow (float32)
+        sig = _safe_step_size(xp, u_diff @ u_diff, Au_t @ (self.weights * Au_t))
+        x += sig * u_diff
+
+        return x
 
         idx = d_idx | c_idx
         # Note: weights[idx] has shape (k,); result of @ has shape (n,).

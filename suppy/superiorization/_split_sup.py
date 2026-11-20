@@ -4,6 +4,7 @@ import numpy as np
 import numpy.typing as npt
 from suppy.feasibility._bands._ams_extrapolations import AdaptiveStepLandweberHyperslab
 from suppy.utils import ensure_float_array
+from suppy.utils._array_helper import to_host_list
 from suppy.perturbations import Perturbation, DummyPerturbation
 from ._sup import FeasibilityPerturbation
 
@@ -435,20 +436,9 @@ class SplitSuperiorization(FeasibilityPerturbation):
         self.proximities_basic = []
 
         # append initial values
-        f_temp = []
-        for el in f:
-            if not NO_GPU and isinstance(el, cp.ndarray):
-                f_temp.append(el.get())
-            else:
-                f_temp.append(el)
-
-        # modify proximities
-        p_temp = []
-        for el in p:
-            if not NO_GPU and isinstance(el, cp.ndarray):
-                p_temp.append(el.get())
-            else:
-                p_temp.append(el)
+        # function and proximity values to the host in one transfer
+        fp_temp = to_host_list(list(f) + list(p))
+        f_temp, p_temp = fp_temp[: len(f)], fp_temp[len(f) :]
 
         self.all_function_values.append(f_temp)
         self.all_function_values_basic.append(f_temp)
@@ -491,21 +481,11 @@ class SplitSuperiorization(FeasibilityPerturbation):
         """
 
         # always store all function and proximity values
-        f_temp = []
-        for el in f:
-            if not NO_GPU and isinstance(el, cp.ndarray):
-                f_temp.append(el.get())
-            else:
-                f_temp.append(el)
+        # function and proximity values to the host in one transfer
+        fp_temp = to_host_list(list(f) + list(p))
+        f_temp, p_temp = fp_temp[: len(f)], fp_temp[len(f) :]
         self.all_function_values.append(f_temp)
 
-        # modify proximities
-        p_temp = []
-        for el in p:
-            if not NO_GPU and isinstance(el, cp.ndarray):
-                p_temp.append(el.get())
-            else:
-                p_temp.append(el)
         self.proximities.append(p_temp)
 
         if storage and isinstance(x, np.ndarray):

@@ -75,6 +75,28 @@ class Bounds:
         """
         return x - self.l, self.u - x
 
+    def violation(self, x: npt.NDArray) -> npt.NDArray:
+        """
+        Calculate by how much `x` violates the bounds.
+
+        Parameters
+        ----------
+        x : npt.NDArray
+            Input vector for which the violation is to be calculated.
+
+        Returns
+        -------
+        npt.NDArray
+            The distance of each element of `x` to the interval
+            [`l`, `u`], 0 where the bounds are met.
+        """
+        xp = cp if isinstance(x, cp.ndarray) else np
+        # at most one of l - x and x - u is positive since l <= u
+        res = self.l - x
+        xp.maximum(res, x - self.u, out=res)
+        xp.maximum(res, 0, out=res)
+        return res
+
     def single_residual(self, x: float, i: int) -> tuple[float, float]:
         """
         Calculate the residuals for a given value for a specific constraint

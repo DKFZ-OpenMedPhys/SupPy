@@ -576,8 +576,10 @@ class SequentialMultiBallProjection(MultiBallProjection):
         for i in range(len(self.centers)):
             diff = x[self.idx] - self.centers[i]
             dist = xp.linalg.norm(diff)
-            if dist > self.radii[i]:
-                x[self.idx] = self.centers[i] + self.radii[i] * diff / dist
+            # project only if outside the ball, no branch on the GPU value
+            outside = dist > self.radii[i]
+            projected = self.centers[i] + self.radii[i] * diff / xp.where(outside, dist, 1)
+            x[self.idx] = xp.where(outside, projected, x[self.idx])
         return x
 
 
@@ -600,8 +602,10 @@ class SimultaneousMultiBallProjection(MultiBallProjection):
     def _project(self, x: npt.NDArray) -> np.ndarray:
         xp = cp if self._use_gpu else np
         dists = xp.linalg.norm(x[self.idx] - self.centers, axis=1)
-        idx = (dists - self.radii) > 0
-        x[self.idx] = x[self.idx] - (self.weights[idx] * (1 - self.radii[idx] / dists[idx])) @ (
-            x[self.idx] - self.centers[idx]
-        )
+        # balls that do not contain x (determined once, one device sync)
+        idx = xp.flatnonzero(dists > self.radii)
+        if idx.size > 0:
+            x[self.idx] = x[self.idx] - (
+                self.weights[idx] * (1 - self.radii[idx] / dists[idx])
+            ) @ (x[self.idx] - self.centers[idx])
         return x

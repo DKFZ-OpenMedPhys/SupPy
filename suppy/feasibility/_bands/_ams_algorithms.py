@@ -87,7 +87,8 @@ class SequentialAMSHyperslab(HyperslabAlgorithm):
         super().__init__(A, lb, ub, algorithmic_relaxation, relaxation, proximity_flag)
         xp = cp if self._use_gpu else np
         if cs is None:
-            self.cs = xp.arange(self.A.shape[0])
+            # row order on the host: GPU indices would need a device sync per row
+            self.cs = np.arange(self.A.shape[0])
         else:
             self.cs = cs
 
@@ -228,12 +229,8 @@ class SequentialWeightedAMSHyperslab(SequentialAMSHyperslab):
         return x
 
     def _proximity(self, x: npt.NDArray, proximity_measures: List) -> list[float]:
-        p = self.map(x)
-        # residuals are positive if constraints are met
-        (res_l, res_u) = self.bounds.residual(p)
-        xp = cp if isinstance(x, cp.ndarray) else np
         # violation of the constraints, 0 where they are met
-        res = xp.maximum(-res_l, 0) + xp.maximum(-res_u, 0)
+        res = self.bounds.violation(self.map(x))
         measures = []
         for measure in proximity_measures:
             if isinstance(measure, tuple):
@@ -300,24 +297,21 @@ class SimultaneousAMSHyperslab(HyperslabAlgorithm):
         # simultaneous projection
         xp = cp if self._use_gpu else np
         (res_l, res_u) = self.bounds.residual(self.map(x))
-        # signed violation: < 0 above the upper bound, > 0 below the lower bound
-        res = xp.minimum(res_u, 0) - xp.minimum(res_l, 0)
         # only the violated rows enter the update (determined once, one device sync)
-        idx = xp.flatnonzero(res)
+        idx = xp.flatnonzero((res_u < 0) | (res_l < 0))
+        # signed violation of these rows: < 0 above the upper bound, > 0 below the
+        # lower bound
+        res = xp.minimum(res_u[idx], 0) - xp.minimum(res_l[idx], 0)
         if idx.size > 0:
             x += self.algorithmic_relaxation * (
-                self.weights[idx] * self.inverse_row_norm[idx] * res[idx] @ self.A[idx, :]
+                self.weights[idx] * self.inverse_row_norm[idx] * res @ self.A[idx, :]
             )
 
         return x
 
     def _proximity(self, x: npt.NDArray, proximity_measures: List) -> list[float]:
-        p = self.map(x)
-        # residuals are positive if constraints are met
-        (res_l, res_u) = self.bounds.residual(p)
-        xp = cp if isinstance(x, cp.ndarray) else np
         # violation of the constraints, 0 where they are met
-        res = xp.maximum(-res_l, 0) + xp.maximum(-res_u, 0)
+        res = self.bounds.violation(self.map(x))
         measures = []
         for measure in proximity_measures:
             if isinstance(measure, tuple):
@@ -374,20 +368,16 @@ class SARTHyperslab(SimultaneousAMSHyperslab):
         # SART projection
         xp = cp if self._use_gpu else np
         (res_l, res_u) = self.bounds.residual(self.map(x))
-        # signed violation: < 0 above the upper bound, > 0 below the lower bound
-        res = xp.minimum(res_u, 0) - xp.minimum(res_l, 0)
         # only the violated rows enter the update (determined once, one device sync)
-        idx = xp.flatnonzero(res)
+        idx = xp.flatnonzero((res_u < 0) | (res_l < 0))
+        # signed violation of these rows: < 0 above the upper bound, > 0 below the
+        # lower bound
+        res = xp.minimum(res_u[idx], 0) - xp.minimum(res_l[idx], 0)
         if idx.size > 0:
             x += (
                 self.algorithmic_relaxation
                 * self.inverse_linear_column_norm
-                * (
-                    self.weights[idx]
-                    * self.inverse_linear_row_norm[idx]
-                    * res[idx]
-                    @ self.A[idx, :]
-                )
+                * (self.weights[idx] * self.inverse_linear_row_norm[idx] * res @ self.A[idx, :])
             )
 
         return x
@@ -458,27 +448,24 @@ class BlockIterativeAMSHyperslab(HyperslabAlgorithm):
         for el, block_idx in zip(self.weights, self.block_idxs):  # get mask and associated weights
             p = self.indexed_map(x, block_idx)
             (res_l, res_u) = self.bounds.indexed_residual(p, block_idx)
-            # signed violation: < 0 above the upper bound, > 0 below the lower bound
-            res = xp.minimum(res_u, 0) - xp.minimum(res_l, 0)
             # violated rows of the block (determined once, one device sync)
-            idx = xp.flatnonzero(res)
+            idx = xp.flatnonzero((res_u < 0) | (res_l < 0))
+            # signed violation of these rows: < 0 above the upper bound, > 0 below the
+            # lower bound
+            res = xp.minimum(res_u[idx], 0) - xp.minimum(res_l[idx], 0)
             if idx.size == 0:
                 continue
             full_idx = block_idx[idx]
 
             x += self.algorithmic_relaxation * (
-                self.inverse_row_norm[full_idx] * el[idx] * res[idx] @ self.A[full_idx, :]
+                self.inverse_row_norm[full_idx] * el[idx] * res @ self.A[full_idx, :]
             )
 
         return x
 
     def _proximity(self, x: npt.NDArray, proximity_measures: List) -> list[float]:
-        p = self.map(x)
-        # residuals are positive if constraints are met
-        (res_l, res_u) = self.bounds.residual(p)
-        xp = cp if isinstance(x, cp.ndarray) else np
         # violation of the constraints, 0 where they are met
-        res = xp.maximum(-res_l, 0) + xp.maximum(-res_u, 0)
+        res = self.bounds.violation(self.map(x))
         measures = []
         for measure in proximity_measures:
             if isinstance(measure, tuple):

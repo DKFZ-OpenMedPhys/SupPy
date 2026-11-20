@@ -84,7 +84,8 @@ class SequentialARM(ARMAlgorithm):
         super().__init__(A, lb, ub, algorithmic_relaxation, relaxation, proximity_flag)
         xp = cp if self._use_gpu else np
         if cs is None:
-            self.cs = xp.arange(self.A.shape[0])
+            # row order on the host: GPU indices would need a device sync per row
+            self.cs = np.arange(self.A.shape[0])
         else:
             self.cs = cs
 
@@ -184,11 +185,8 @@ class SimultaneousARM(ARMAlgorithm):
         return x
 
     def _proximity(self, x: npt.NDArray, proximity_measures: List) -> list[float]:
-        p = self.map(x)
-        (res_l, res_u) = self.bounds.residual(p)
-        xp = cp if isinstance(x, cp.ndarray) else np
         # violation of the constraints, 0 where they are met
-        res = xp.maximum(-res_l, 0) + xp.maximum(-res_u, 0)
+        res = self.bounds.violation(self.map(x))
         measures = []
         for measure in proximity_measures:
             if isinstance(measure, tuple):
@@ -273,11 +271,8 @@ class BIPARM(ARMAlgorithm):
         return x
 
     def _proximity(self, x: npt.NDArray, proximity_measures: List) -> list[float]:
-        p = self.map(x)
-        (res_l, res_u) = self.bounds.residual(p)
-        xp = cp if isinstance(x, cp.ndarray) else np
         # violation of the constraints, 0 where they are met
-        res = xp.maximum(-res_l, 0) + xp.maximum(-res_u, 0)
+        res = self.bounds.violation(self.map(x))
         measures = []
         for measure in proximity_measures:
             if isinstance(measure, tuple):

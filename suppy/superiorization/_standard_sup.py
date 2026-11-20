@@ -4,6 +4,7 @@ import numpy as np
 import time
 import numpy.typing as npt
 from suppy.utils import ensure_float_array
+from suppy.utils._array_helper import to_host_floats, stack_to_numpy
 from suppy.perturbations import Perturbation
 from ._sup import FeasibilityPerturbation
 from suppy.projections import Projection
@@ -299,15 +300,20 @@ class Superiorization(FeasibilityPerturbation):
             True if the stopping criteria are met, False otherwise.
         """
 
+        # all values needed below in one transfer to the host (a single device
+        # synchronization on the GPU)
+        f_prev, f_curr, p_prev, p_curr = to_host_floats(
+            self.all_function_values_basic[-2],
+            self.all_function_values_basic[-1],
+            self.proximities_basic[-2][0],
+            self.proximities_basic[-1][0],
+        )
+
         stop_objective = False  # variable to check if the objective function criteria is met
         # check objective function criteria f_(k+1)-f_k<= (delta f)* is met in last n_tol_objective iterations
         # the stopping criterion is based on the basic (post feasibility-step) iterates so that it
         # is independent of whether the intermediate function_reduction values are stored
-        if (
-            abs(self.all_function_values_basic[-2] - self.all_function_values_basic[-1])
-            / max(1, self.all_function_values_basic[-2])
-            < del_objective_tol
-        ):
+        if abs(f_prev - f_curr) / max(1, f_prev) < del_objective_tol:
             self._n_tol_objective += 1
         else:
             self._n_tol_objective = 0
@@ -318,15 +324,11 @@ class Superiorization(FeasibilityPerturbation):
 
         stop_prox = False  # variable to check if the proximity criteria is met
         # check if proximity values are below the threshold
-        if self.proximities_basic[-1][0] < prox_tol:  # proximity below goal/tolerance
+        if p_curr < prox_tol:  # proximity below goal/tolerance
             stop_prox = True
 
         # check if the proximity changes are below tolerance level
-        if (
-            abs(self.proximities_basic[-2][0] - self.proximities_basic[-1][0])
-            / max(1, self.proximities_basic[-2][0])
-            < del_prox_tol
-        ):
+        if abs(p_prev - p_curr) / max(1, p_prev) < del_prox_tol:
             self._n_tol_prox += 1
         else:
             self._n_tol_prox = 0
@@ -492,25 +494,12 @@ class Superiorization(FeasibilityPerturbation):
         self.all_x_function_reduction = np.array(self.all_x_function_reduction)
         self.all_x_basic = np.array(self.all_x_basic)
 
-        if isinstance(x, np.ndarray):
-            self.all_function_values = np.array(self.all_function_values)
-            self.all_function_values_function_reduction = np.array(
-                self.all_function_values_function_reduction
-            )
-            self.all_function_values_basic = np.array(self.all_function_values_basic)
-            self.proximities = np.array(self.proximities)
-            self.proximities_function_reduction = np.array(self.proximities_function_reduction)
-            self.proximities_basic = np.array(self.proximities_basic)
-        else:
-            self.all_function_values = np.array([el.get() for el in self.all_function_values])
-            self.all_function_values_function_reduction = np.array(
-                [el.get() for el in self.all_function_values_function_reduction]
-            )
-            self.all_function_values_basic = np.array(
-                [el.get() for el in self.all_function_values_basic]
-            )
-            self.proximities = np.array([el.get() for el in self.proximities])
-            self.proximities_function_reduction = np.array(
-                [el.get() for el in self.proximities_function_reduction]
-            )
-            self.proximities_basic = np.array([el.get() for el in self.proximities_basic])
+        # one transfer per list instead of one per stored value
+        self.all_function_values = stack_to_numpy(self.all_function_values)
+        self.all_function_values_function_reduction = stack_to_numpy(
+            self.all_function_values_function_reduction
+        )
+        self.all_function_values_basic = stack_to_numpy(self.all_function_values_basic)
+        self.proximities = stack_to_numpy(self.proximities)
+        self.proximities_function_reduction = stack_to_numpy(self.proximities_function_reduction)
+        self.proximities_basic = stack_to_numpy(self.proximities_basic)

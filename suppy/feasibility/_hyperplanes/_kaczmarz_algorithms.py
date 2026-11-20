@@ -78,7 +78,8 @@ class KaczmarzMethod(HyperplaneAlgorithm):
         super().__init__(A, b, algorithmic_relaxation, relaxation, proximity_flag)
         xp = cp if self._use_gpu else np
         if cs is None:
-            self.cs = xp.arange(self.A.shape[0])
+            # row order on the host: GPU indices would need a device sync per row
+            self.cs = np.arange(self.A.shape[0])
         else:
             self.cs = cs
 

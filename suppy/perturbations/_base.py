@@ -4,6 +4,7 @@ from typing import Callable, List
 import numpy as np
 import numpy.typing as npt
 from suppy.utils import FuncWrapper
+from suppy.utils._array_helper import to_host_floats
 
 try:
     import cupy as cp
@@ -361,7 +362,9 @@ class AdaptiveStepGradientPerturbation(GradientPerturbation):
         """
         grad_eval = self.grad(x)
         func_eval = self._initial_func_value(x)
-        if grad_eval @ grad_eval <= 0 or func_eval <= self.func_level:
+        # both checks with one transfer to the host
+        grad_sq_host, func_eval_host = to_host_floats(grad_eval @ grad_eval, func_eval)
+        if grad_sq_host <= 0 or func_eval_host <= self.func_level:
             # if gradient is zero (or negative) or the function value is below alpha, skip
             self._remember_func_value(func_eval)  # x unchanged
             return x
@@ -371,8 +374,11 @@ class AdaptiveStepGradientPerturbation(GradientPerturbation):
         """Update func_level after each step, capped at max_func_level."""
         if self.func_level >= self.max_func_level:
             return
-        last_proximity_function_reduction = kwargs.get("last_proximity_function_reduction")[0]
-        last_proximity_basic = kwargs.get("last_proximity_basic")[0]
+        # both values with one transfer to the host
+        last_proximity_function_reduction, last_proximity_basic = to_host_floats(
+            kwargs.get("last_proximity_function_reduction")[0],
+            kwargs.get("last_proximity_basic")[0],
+        )
 
         if last_proximity_basic < 1e-10 or last_proximity_function_reduction < 1e-10:
             desirability = 0
@@ -490,11 +496,13 @@ class PowerSeriesGradientPerturbation(GradientPerturbation):
         grad_eval = self.grad(x)
         func_eval = self._initial_func_value(x)
 
-        if grad_eval @ grad_eval <= 0:
+        # gradient norm on the host (one transfer), also used for the checks
+        grad_norm_host = to_host_floats(xp.linalg.norm(grad_eval))[0]
+        if grad_norm_host <= 0:
             self._remember_func_value(func_eval)  # x unchanged
             return x
 
-        grad_norm = 1 if self.disable_gradient_scaling else xp.linalg.norm(grad_eval)
+        grad_norm = 1 if self.disable_gradient_scaling else grad_norm_host
         self._last_grad_norm = grad_norm
 
         if not self.iterative_scaling:

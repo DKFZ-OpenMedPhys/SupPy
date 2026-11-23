@@ -31,6 +31,8 @@ Testing/_ignore/
 notebooks/
 scripts/
 scripts_paper/
+scripts_thesis/
+scripts_paper_final/
 
 # PyInstaller
 #  Usually these files are written by a python script from a template

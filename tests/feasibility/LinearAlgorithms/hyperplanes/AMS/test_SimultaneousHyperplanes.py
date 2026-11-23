@@ -286,3 +286,94 @@ def test_SimultaneousKaczmarzMethod_proximity(get_full_variables):
 
     assert np.abs(prox_5[0] - 77 / 12) < 1e-10
     assert np.abs(prox_5[1] - 4) < 1e-10
+
+
+# ---------------------------------------------------------------------------
+# SimultaneousKaczmarzMethod: options and branches
+# ---------------------------------------------------------------------------
+
+
+def test_SimultaneousKaczmarzMethod_plain_list_weights(get_full_variables):
+    # plain lists are allowed per the type hint; weights summing to 1 are
+    # stored unchanged
+    A, b = get_full_variables
+    alg = SimultaneousKaczmarzMethod(A, b, weights=[0.5, 0.25, 0.25])
+    assert np.allclose(alg.weights, np.array([0.5, 0.25, 0.25]))
+
+    # x = [2, 2]: residuals b - Ax = [-1, 0, -1], row norms^2 = [1, 0.5, 1]:
+    # x += 0.5*(-1)*[1, 0] + 0.25*(-1)*[0, 1] = [1.5, 1.75]
+    x_n = alg.step(np.array([2.0, 2.0]))
+    assert np.allclose(x_n, np.array([1.5, 1.75]))
+
+
+def test_SimultaneousKaczmarzMethod_plain_list_weights_renormalized(get_full_variables):
+    # a plain list that does not sum to 1 is renormalized with a warning
+    # (used to crash on list.sum() before weights were coerced to an array)
+    A, b = get_full_variables
+    with pytest.warns(UserWarning, match="Renormalizing"):
+        alg = SimultaneousKaczmarzMethod(A, b, weights=[1.0, 1.0, 1.0])
+    assert np.allclose(alg.weights, np.ones(3) / 3)
+
+    alg_default = SimultaneousKaczmarzMethod(A, b)
+    x = np.array([2.0, 2.0])
+    assert np.allclose(alg.project(x.copy()), alg_default.project(x.copy()))
+
+
+def test_SimultaneousKaczmarzMethod_proximity_flag_false(get_full_variables):
+    A, b = get_full_variables
+    alg = SimultaneousKaczmarzMethod(A, b, proximity_flag=False)
+    prox = alg.proximity(np.array([100.0, 100.0]), [("p_norm", 2), "max_norm"])
+    assert np.array_equal(prox, np.zeros(2))
+
+
+# ---------------------------------------------------------------------------
+# Property / invariant tests
+# ---------------------------------------------------------------------------
+
+
+def test_SimultaneousKaczmarzMethod_solve_converges_to_solution(get_full_variables):
+    # the system is consistent with unique solution [1, 1]
+    A, b = get_full_variables
+    rng = np.random.default_rng(42)
+    for _ in range(3):
+        alg = SimultaneousKaczmarzMethod(A, b)
+        x = 4 * rng.standard_normal(2)
+        x_n = alg.solve(x, max_iter=1000)
+        assert np.allclose(x_n, np.array([1.0, 1.0]), atol=1e-2)
+        assert alg.proximities[-1][0] < alg.proximities[0][0]
+
+
+def test_SimultaneousKaczmarzMethod_project_idempotent_on_solution(get_full_variables):
+    A, b = get_full_variables
+    alg = SimultaneousKaczmarzMethod(A, b)
+    x = np.array([1.0, 1.0])  # the solution point
+    assert np.allclose(alg.project(x.copy()), x)
+
+
+# ---------------------------------------------------------------------------
+# Backend / dtype
+# ---------------------------------------------------------------------------
+
+
+def test_SimultaneousKaczmarzMethod_solve_int_input(get_full_variables):
+    A, b = get_full_variables
+    alg = SimultaneousKaczmarzMethod(A, b)
+    # @ensure_float_array coerces the integer starting point to float64
+    x_n = alg.solve(np.array([2, 2]), max_iter=100)
+    assert np.issubdtype(x_n.dtype, np.floating)
+
+
+def test_SimultaneousKaczmarzMethod_cupy_backend(get_full_variables):
+    cp = pytest.importorskip("cupy")
+    try:
+        cp.zeros(1)  # cupy can be installed without a usable GPU
+    except Exception:
+        pytest.skip("cupy installed but no usable GPU")
+
+    A, b = get_full_variables
+    x_np = SimultaneousKaczmarzMethod(A, b).step(np.array([2.0, 2.0]))
+
+    alg_cp = SimultaneousKaczmarzMethod(cp.asarray(A), cp.asarray(b))
+    x_cp = alg_cp.step(cp.asarray([2.0, 2.0]))
+    assert isinstance(x_cp, cp.ndarray)  # no silent device -> host transfer
+    assert np.allclose(cp.asnumpy(x_cp), x_np)

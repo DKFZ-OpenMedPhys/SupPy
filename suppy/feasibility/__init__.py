@@ -11,10 +11,14 @@ from ._bands._ams_algorithms import (
 
 
 from ._bands._ams_extrapolations import (
+    LandweberHyperslab,
     ExtrapolatedLandweberHyperslab,
+    ExtrapolatedSimultaneousProjectionHyperslab,
     AdaptiveStepLandweberHyperslab,
     BlockIterativeExtrapolatedLandweberHyperslab,
+    BlockIterativeAdaptiveStepLandweberHyperslab,
 )
+from ._bands._fista import FISTAHyperslab
 from ._bands._arm_algorithms import SequentialARM, SimultaneousARM, StringAveragedARM
 from ._bands._art3_algorithms import SequentialART3plus
 
@@ -28,6 +32,7 @@ from ._halfspaces._ams_algorithms import (
 )
 
 from ._halfspaces._ams_extrapolations import (
+    LandweberHalfspace,
     ExtrapolatedLandweberHalfspace,
     AdaptiveStepLandweberHalfspace,
 )
@@ -43,6 +48,7 @@ from ._hyperplanes._kaczmarz_algorithms import (
 from ._hyperplanes._variants import DROPHyperplane
 
 from ._hyperplanes._kaczmarz_extrapolations import (
+    LandweberHyperplane,
     ExtrapolatedLandweberHyperplane,
     AdaptiveStepLandweberHyperplane,
 )
@@ -55,14 +61,19 @@ __all__ = [
     "SimultaneousAMSHyperslab",
     "StringAveragedAMSHyperslab",
     "BlockIterativeAMSHyperslab",
+    "LandweberHyperslab",
     "ExtrapolatedLandweberHyperslab",
+    "ExtrapolatedSimultaneousProjectionHyperslab",
     "AdaptiveStepLandweberHyperslab",
     "BlockIterativeExtrapolatedLandweberHyperslab",
+    "BlockIterativeAdaptiveStepLandweberHyperslab",
+    "FISTAHyperslab",
     "SequentialAMSHalfspace",
     "SequentialWeightedAMSHalfspace",
     "SimultaneousAMSHalfspace",
     "StringAveragedAMSHalfspace",
     "BlockIterativeAMSHalfspace",
+    "LandweberHalfspace",
     "ExtrapolatedLandweberHalfspace",
     "AdaptiveStepLandweberHalfspace",
     "KaczmarzMethod",
@@ -70,6 +81,7 @@ __all__ = [
     "SimultaneousKaczmarzMethod",
     "StringAveragedKaczmarz",
     "BlockIterativeKaczmarz",
+    "LandweberHyperplane",
     "ExtrapolatedLandweberHyperplane",
     "AdaptiveStepLandweberHyperplane",
     "SequentialARM",

@@ -9,6 +9,7 @@ from scipy import sparse
 from suppy.utils import Bounds
 from suppy.utils import LinearMapping
 from suppy.utils import ensure_float_array
+from suppy.utils._array_helper import to_host_floats
 from suppy.projections._projections import Projection
 
 try:
@@ -19,6 +20,59 @@ try:
 except ImportError:
     NO_GPU = True
     cp = np
+
+
+def _normalized_weights(weights: None | List[float] | npt.NDArray) -> None | npt.NDArray:
+    """
+    Validate nonnegative weights and renormalize them to sum to 1.
+
+    Parameters
+    ----------
+    weights : None, List[float] or npt.NDArray
+        One-dimensional, nonnegative weights, not all zero.
+
+    Returns
+    -------
+    None or npt.NDArray
+        The renormalized weights, None if `weights` is None.
+    """
+    if weights is None:
+        return None
+    xp = cp if (not NO_GPU and isinstance(weights, cp.ndarray)) else np
+    weights = xp.asarray(weights, dtype=float)
+    if weights.ndim != 1:
+        raise ValueError(f"weights must be one-dimensional, got shape {weights.shape}.")
+    if bool(xp.any(weights < 0)) or not float(weights.sum()) > 0:
+        raise ValueError("weights must be nonnegative and not all zero.")
+    return weights / weights.sum()
+
+
+def _safe_step_size(xp, numerator, denominator):
+    """
+    Step size numerator / denominator, 0 if the denominator is not positive
+    (no usable step, e.g. once the violations underflow in float32).
+
+    Evaluated without a device synchronization, unlike an ``if`` on the
+    denominator.
+
+    Parameters
+    ----------
+    xp : module
+        The array module (numpy or cupy).
+    numerator : float or npt.NDArray
+        Numerator of the step size.
+    denominator : float or npt.NDArray
+        Denominator of the step size.
+
+    Returns
+    -------
+    npt.NDArray
+        The step size as 0-d array.
+    """
+    if xp is np:  # no device synchronization on the CPU, a plain branch is cheapest
+        return numerator / denominator if denominator > 0 else 0.0
+    positive = denominator > 0
+    return xp.where(positive, numerator / xp.where(positive, denominator, 1), 0)
 
 
 class Feasibility(Projection, ABC):
@@ -72,6 +126,7 @@ class Feasibility(Projection, ABC):
         proximity_measures: List | None = None,
         alternative_stopping_criterion: Callable | None = None,
         alternative_stopping_criterion_initial_call: Callable | None = None,
+        callback: Callable | None = None,
     ) -> np.ndarray:
         """
         Solves the optimization problem using an iterative approach.
@@ -100,6 +155,11 @@ class Feasibility(Projection, ABC):
             Alternative stopping criterion
         alternative_stopping_criterion_initial_call : callable, optional
             Initial call for an alternative stopping criterion
+        callback : callable, optional
+            User-defined function called after each iteration as
+            ``callback(x, k)``, where ``x`` is the current iterate and ``k`` the
+            completed iteration index. If it returns a truthy value, the
+            iteration stops. By default None.
 
         Returns
         -------
@@ -108,6 +168,7 @@ class Feasibility(Projection, ABC):
         """
         xp = cp if isinstance(x, cp.ndarray) else np
         self._n_tol = 0
+        self.reset()
 
         if proximity_measures is None:
             proximity_measures = [("p_norm", 2)]
@@ -147,6 +208,9 @@ class Feasibility(Projection, ABC):
             else:
                 stop = self._stopping_criterion(prox_tol, del_prox_tol, del_prox_n)
 
+            if callback is not None and callback(x, i + 1):
+                stop = True
+
             i += 1
 
         if self.all_x is not None:
@@ -158,10 +222,12 @@ class Feasibility(Projection, ABC):
 
     def _stopping_criterion(self, prox_tol: float, del_prox_tol: float, del_prox_n: float):
         """"""
-        if self.proximities[-1][0] < prox_tol:  # proximity below goal/tolerance
+        # one transfer to the host (a single device synchronization on the GPU)
+        current, previous = to_host_floats(self.proximities[-1][0], self.proximities[-2][0])
+        if current < prox_tol:  # proximity below goal/tolerance
             return True
         else:  # check that last n proximity changes are below a threshold
-            if self.proximities[-2][0] - self.proximities[-1][0] < del_prox_tol:
+            if previous - current < del_prox_tol:
                 self._n_tol += 1
             else:
                 self._n_tol = 0
@@ -245,6 +311,90 @@ class LinearFeasibility(Feasibility, ABC):
             The result of applying the linear mapping to the input array at the specified index.
         """
         return self.A.single_map(x, i)
+
+    def _estimate_squared_spectral_norm(
+        self,
+        weights: npt.NDArray | None = None,
+        max_iter: int = 1000,
+        tol: float = 1e-6,
+    ) -> float:
+        """
+        Estimate lambda_max(A^T W A) by power iteration, W = diag(weights).
+
+        For weights=None this is ||A||_2^2. The estimate approaches
+        lambda_max from below.
+
+        Parameters
+        ----------
+        weights : npt.NDArray or None, optional
+            Nonnegative weights of the rows of A. If None, W = I. By default
+            None.
+        max_iter : int, optional
+            Maximum number of power iterations, by default 1000.
+        tol : float, optional
+            Relative tolerance on the change of the estimate, by default
+            1e-6.
+
+        Returns
+        -------
+        float
+            The estimate of lambda_max(A^T W A).
+        """
+        xp = cp if self._use_gpu else np
+        dtype = np.result_type(self.A.dtype, np.float32)
+        v = xp.asarray(np.random.default_rng(0).standard_normal(self.A.shape[1]), dtype=dtype)
+        v /= xp.linalg.norm(v)
+        lam = 0.0
+        lam_new = 0.0
+        for _ in range(max_iter):
+            # (A v) @ A instead of A.T @ (A v): avoids building the transpose of a sparse A
+            Av = self.map(v)
+            if weights is not None:
+                Av = weights * Av
+            u = Av @ self.A.A
+            lam_new = float(v @ u)
+            norm_u = float(xp.linalg.norm(u))
+            if norm_u == 0:
+                return 0.0
+            v = u / norm_u
+            if abs(lam_new - lam) <= tol * lam_new:
+                break
+            lam = lam_new
+        return lam_new
+
+    def _setup_landweber(
+        self, weights: None | List[float] | npt.NDArray, step_size: float | None
+    ) -> None:
+        """
+        Set the weights and the step size of a fixed-step Landweber method.
+
+        Parameters
+        ----------
+        weights : None, List[float] or npt.NDArray
+            Nonnegative weights w of the constraints, W = diag(w), used as
+            given. If None, W = I.
+        step_size : float or None
+            The step size. If None, it is set to 1 / lambda_max(A^T W A),
+            with lambda_max estimated by power iteration and increased by
+            1 %, since the estimate approaches it from below.
+        """
+        xp = cp if self._use_gpu else np
+        if weights is None:
+            self.landweber_weights = None
+        else:
+            weights = xp.asarray(weights, dtype=np.result_type(self.A.dtype, np.float32))
+            if weights.shape != (self.A.shape[0],):
+                raise ValueError(
+                    f"weights must have shape ({self.A.shape[0]},), got {weights.shape}."
+                )
+            if bool(xp.any(weights < 0)) or not float(weights.sum()) > 0:
+                raise ValueError("weights must be nonnegative and not all zero.")
+            self.landweber_weights = weights
+        if step_size is None:
+            step_size = 1 / (1.01 * self._estimate_squared_spectral_norm(self.landweber_weights))
+        if not step_size > 0:
+            raise ValueError("The step size must be positive.")
+        self.step_size = step_size
 
     def indexed_map(self, x: npt.NDArray, idx: List[int] | npt.NDArray) -> np.ndarray:
         """
@@ -392,10 +542,9 @@ class HalfspaceFeasibility(LinearFeasibility, ABC):
         self.b = b
 
     def _proximity(self, x: npt.NDArray, proximity_measures: List) -> list[float]:
-        p = self.map(x)
-        res = self.b - p
-        res[res > 0] = 0
-        res = -res
+        xp = cp if isinstance(x, cp.ndarray) else np
+        # violation of the constraints, 0 where they are met
+        res = xp.maximum(self.map(x) - self.b, 0)
 
         measures = []
         for measure in proximity_measures:
@@ -461,11 +610,8 @@ class HyperslabFeasibility(LinearFeasibility, ABC):
             raise ValueError("Matrix A and bound vector must have the same number of rows.")
 
     def _proximity(self, x: npt.NDArray, proximity_measures: List) -> list[float]:
-        p = self.map(x)
-        (res_l, res_u) = self.bounds.residual(p)
-        res_l[res_l > 0] = 0
-        res_u[res_u > 0] = 0
-        res = -res_l - res_u
+        # violation of the constraints, 0 where they are met
+        res = self.bounds.violation(self.map(x))
 
         measures = []
         for measure in proximity_measures:

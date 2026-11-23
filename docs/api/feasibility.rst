@@ -20,9 +20,13 @@ Hyperslab algorithms :math:`(lb \leq Ax \leq ub)`
    BlockIterativeAMSHyperslab
    SequentialWeightedAMSHyperslab
    SARTHyperslab
+   LandweberHyperslab
    ExtrapolatedLandweberHyperslab
+   ExtrapolatedSimultaneousProjectionHyperslab
    BlockIterativeExtrapolatedLandweberHyperslab
    AdaptiveStepLandweberHyperslab
+   BlockIterativeAdaptiveStepLandweberHyperslab
+   FISTAHyperslab
 
 
 Hyperplane algorithms :math:`( Ax \leq b)`
@@ -34,6 +38,7 @@ Hyperplane algorithms :math:`( Ax \leq b)`
    SimultaneousKaczmarzMethod
    StringAveragedKaczmarz
    BlockIterativeKaczmarz
+   LandweberHyperplane
    ExtrapolatedLandweberHyperplane
    AdaptiveStepLandweberHyperplane
    DROPHyperplane
@@ -50,6 +55,7 @@ Halfspace algorithms :math:`( Ax = b)`
    StringAveragedAMSHalfspace
    BlockIterativeAMSHalfspace
    SequentialWeightedAMSHalfspace
+   LandweberHalfspace
    ExtrapolatedLandweberHalfspace
    AdaptiveStepLandweberHalfspace
 

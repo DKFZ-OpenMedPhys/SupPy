@@ -302,7 +302,6 @@ def test_SimultaneousAMSHalfspace_proximity_weighted(get_full_variables):
     assert no_prox.size == 0
 
     prox_measures = [("p_norm", 2), "max_norm"]
-    print(alg.A, alg.b, alg.weights)
     prox_1 = alg.proximity(x_1, prox_measures)
     prox_2 = alg.proximity(x_2, prox_measures)
     prox_3 = alg.proximity(x_3, prox_measures)
@@ -311,7 +310,6 @@ def test_SimultaneousAMSHalfspace_proximity_weighted(get_full_variables):
 
     assert np.abs(prox_1[0] - 0.04) < 1e-10
     assert np.abs(prox_1[1] - 0.4) < 1e-10
-    print(prox_2)
     assert np.abs(prox_2[0] - 33 / 32) < 1e-10
     assert np.abs(prox_2[1] - 2) < 1e-10
 
@@ -323,3 +321,103 @@ def test_SimultaneousAMSHalfspace_proximity_weighted(get_full_variables):
 
     assert np.abs(prox_5[0] - 17 / 32) < 1e-10
     assert np.abs(prox_5[1] - 2) < 1e-10
+
+
+# ---------------------------------------------------------------------------
+# SimultaneousAMSHalfspace: options and branches
+# ---------------------------------------------------------------------------
+
+
+def test_SimultaneousAMSHalfspace_weights_renormalization_warning(get_full_variables):
+    A, b = get_full_variables
+    with pytest.warns(UserWarning, match="Renormalizing"):
+        alg = SimultaneousAMSHalfspace(A, b, weights=np.ones(8))
+    assert np.allclose(alg.weights, np.ones(8) / 8)
+    assert np.isclose(alg.weights.sum(), 1.0)
+
+
+def test_SimultaneousAMSHalfspace_weights_list_input(get_full_variables):
+    # plain Python lists are allowed per the type hint and converted to arrays
+    A, b = get_full_variables
+    alg = SimultaneousAMSHalfspace(A, b, weights=[1 / 8] * 8)
+    assert np.allclose(alg.weights, np.ones(8) / 8)
+
+
+def test_SimultaneousAMSHalfspace_custom_weights_step(get_full_variables):
+    A, b = get_full_variables
+    weights = np.array([0.3, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1])
+    alg = SimultaneousAMSHalfspace(A, b, weights=weights)
+    # x = [2, 2]: violated rows 0 (res -2, ||a||^2 = 2), 4 and 6 (res -0.5,
+    # ||a||^2 = 1): update = 0.3*0.5*(-2)*[1,1] + 0.1*(-0.5)*[1,0]
+    # + 0.1*(-0.5)*[0,1] = [-0.35, -0.35]
+    x_n = alg.step(np.array([2.0, 2.0]))
+    assert np.all(abs(x_n - np.array([1.65, 1.65])) < 1e-10)
+
+
+def test_SimultaneousAMSHalfspace_proximity_flag_false(get_full_variables):
+    A, b = get_full_variables
+    alg = SimultaneousAMSHalfspace(A, b, proximity_flag=False)
+    prox = alg.proximity(np.array([100.0, 100.0]), [("p_norm", 2), "max_norm"])
+    assert np.array_equal(prox, np.zeros(2))
+
+
+# ---------------------------------------------------------------------------
+# Property / invariant tests
+# ---------------------------------------------------------------------------
+
+
+def test_SimultaneousAMSHalfspace_fejer_monotone(get_full_variables):
+    A, b = get_full_variables
+    alg = SimultaneousAMSHalfspace(A, b)
+    z = np.zeros(2)
+    rng = np.random.default_rng(42)
+    for _ in range(5):
+        x = 4 * rng.standard_normal(2)
+        for _ in range(10):
+            d_before = np.linalg.norm(x - z)
+            x = alg.project(x)
+            assert np.linalg.norm(x - z) <= d_before + 1e-12
+
+
+def test_SimultaneousAMSHalfspace_project_idempotent_on_feasible(get_full_variables):
+    A, b = get_full_variables
+    alg = SimultaneousAMSHalfspace(A, b)
+    x = np.array([0.5, 0.5])
+    assert np.array_equal(alg.project(x.copy()), x)
+
+
+def test_SimultaneousAMSHalfspace_solve_reduces_proximity(get_full_variables):
+    A, b = get_full_variables
+    alg = SimultaneousAMSHalfspace(A, b)
+    alg.solve(np.array([2.0, 2.0]), max_iter=200)
+    assert alg.proximities[-1][0] < alg.proximities[0][0]
+    assert alg.proximities[-1][0] < 1e-6
+
+
+# ---------------------------------------------------------------------------
+# Backend / dtype
+# ---------------------------------------------------------------------------
+
+
+def test_SimultaneousAMSHalfspace_solve_int_input(get_full_variables):
+    A, b = get_full_variables
+    alg = SimultaneousAMSHalfspace(A, b)
+    # @ensure_float_array coerces the integer starting point to float64
+    x_n = alg.solve(np.array([2, 2]), max_iter=200)
+    assert np.issubdtype(x_n.dtype, np.floating)
+
+
+def test_SimultaneousAMSHalfspace_cupy_backend(get_full_variables):
+    cp = pytest.importorskip("cupy")
+    try:
+        cp.zeros(1)  # cupy can be installed without a usable GPU
+    except Exception:
+        pytest.skip("cupy installed but no usable GPU")
+
+    A, b = get_full_variables
+    x_np = SimultaneousAMSHalfspace(A, b).step(np.array([2.0, 2.0]))
+
+    alg_cp = SimultaneousAMSHalfspace(cp.asarray(A), cp.asarray(b))
+    x_cp = alg_cp.step(cp.asarray([2.0, 2.0]))
+    assert isinstance(x_cp, cp.ndarray)  # no silent device -> host transfer
+    assert np.allclose(cp.asnumpy(x_cp), x_np)

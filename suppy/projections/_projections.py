@@ -80,6 +80,13 @@ class Projection(ABC):
     def _project(self, x: npt.NDArray) -> np.ndarray:
         """Internal method to project the point x onto the set."""
 
+    def reset(self) -> None:
+        """
+        Reset internal state that is carried over between calls of
+        `project` (e.g. momentum). Called at the start of every `solve` and
+        of `Superiorization.solve`. Does nothing for stateless projections.
+        """
+
     def proximity(self, x: npt.NDArray, proximity_measures: list) -> float:
         """
         Calculate proximity measures of point `x` to the set.

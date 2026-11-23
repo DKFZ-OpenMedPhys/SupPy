@@ -410,10 +410,11 @@ class HalfspaceProjection(BasicProjection):
         """
 
         # TODO: dtype check!
+        xp = cp if isinstance(x, cp.ndarray) else np
         y = self._linear_map(x[self.idx])
 
-        if y > self.b:
-            x[self.idx] -= (y - self.b) * self.a_norm
+        # violation (0 if the constraint is met), no branch on the GPU value
+        x[self.idx] -= xp.maximum(y - self.b, 0) * self.a_norm
 
         return x
 
@@ -584,12 +585,12 @@ class BandProjection(BasicProjection):
         -----
         This method modifies the input array `x` in place.
         """
+        xp = cp if isinstance(x, cp.ndarray) else np
         y = self.a @ x[self.idx]
 
-        if y > self.ub:
-            x[self.idx] -= (y - self.ub) * self.a_norm
-        elif y < self.lb:
-            x[self.idx] -= (y - self.lb) * self.a_norm
+        # violation of the upper or lower bound (0 if the constraint is met),
+        # no branch on the GPU value
+        x[self.idx] -= (xp.maximum(y - self.ub, 0) + xp.minimum(y - self.lb, 0)) * self.a_norm
 
         return x
 
@@ -734,10 +735,11 @@ class BallProjection(BasicProjection):
             The projected array.
         """
         xp = cp if isinstance(x, cp.ndarray) else np
-        if xp.linalg.norm(x[self.idx] - self.center) > self.radius:
-            x[self.idx] -= (x[self.idx] - self.center) * (
-                1 - self.radius / xp.linalg.norm(x[self.idx] - self.center)
-            )
+        diff = x[self.idx] - self.center
+        dist = xp.linalg.norm(diff)
+        # scaling 0 inside the ball, no branch on the GPU value
+        outside = dist > self.radius
+        x[self.idx] -= diff * xp.where(outside, 1 - self.radius / xp.where(outside, dist, 1), 0)
 
         return x
 
@@ -869,7 +871,7 @@ class MaxDVHProjection(BasicProjection):
         n = len(x)
         am = math.floor(self.max_percentage * n)
 
-        l = (x > self.d_max).sum()
+        l = int((x > self.d_max).sum())  # one transfer to the host
 
         z = l - am
 
@@ -883,7 +885,7 @@ class MaxDVHProjection(BasicProjection):
 
         am = math.floor(self.max_percentage * n)
 
-        l = (x[self.idx] > self.d_max).sum()
+        l = int((x[self.idx] > self.d_max).sum())  # one transfer to the host
 
         z = l - am  # number of elements that need to be reduced
 
@@ -952,7 +954,7 @@ class MaxDVHProjection(BasicProjection):
         n = len(x)
         am = math.floor(self.max_percentage * n)
 
-        l = (x > self.d_max).sum()
+        l = int((x > self.d_max).sum())  # one transfer to the host
 
         z = l - am
 
@@ -979,7 +981,7 @@ class MaxDVHProjection(BasicProjection):
 
         am = math.floor(self.max_percentage * n)
 
-        l = (x[self.idx] > self.d_max).sum()
+        l = int((x[self.idx] > self.d_max).sum())  # one transfer to the host
 
         z = l - am  # number of elements that need to be reduced
 
@@ -1053,7 +1055,7 @@ class MinDVHProjection(BasicProjection):
         n = len(x)
         am = math.ceil(self.min_percentage * n)
 
-        l = (x < self.d_min).sum()
+        l = int((x < self.d_min).sum())  # one transfer to the host
 
         z = l - n + am
 
@@ -1067,7 +1069,7 @@ class MinDVHProjection(BasicProjection):
 
         am = math.ceil(self.min_percentage * n)
 
-        l = (x[self.idx] < self.d_min).sum()
+        l = int((x[self.idx] < self.d_min).sum())  # one transfer to the host
 
         z = l - n + am  # number of elements that need to be reduced
 
@@ -1116,7 +1118,7 @@ class MinDVHProjection(BasicProjection):
         n = len(x)
         am = math.ceil(self.min_percentage * n)
 
-        l = (x < self.d_min).sum()
+        l = int((x < self.d_min).sum())  # one transfer to the host
 
         z = l - n + am
 
@@ -1157,7 +1159,7 @@ class MinDVHProjection(BasicProjection):
 
         am = math.ceil(self.min_percentage * n)
 
-        l = (x[self.idx] < self.d_min).sum()
+        l = int((x[self.idx] < self.d_min).sum())  # one transfer to the host
 
         z = l - n + am  # number of elements that need to be reduced
 
@@ -1327,7 +1329,8 @@ class MMUProjectionMinMMUPercentage(MMUProjection):
             self.min_percentage * n
         )  # find number of elements that need to be at least mmu
 
-        l = (x < self.mmu).sum()  # number of elements not fullfilling the mmu requirement
+        # number of elements not fullfilling the mmu requirement (one transfer to the host)
+        l = int((x < self.mmu).sum())
 
         z = l - n + am
 
@@ -1348,7 +1351,7 @@ class MMUProjectionMinMMUPercentage(MMUProjection):
 
         am = math.ceil(self.min_percentage * n)
 
-        l = (x[self.idx] < self.mmu).sum()
+        l = int((x[self.idx] < self.mmu).sum())  # one transfer to the host
 
         z = l - n + am  # number of elements that need to be reduced
 
@@ -1410,7 +1413,8 @@ class MMUProjectionMinZeroPercentage(MMUProjection):
         n = len(x)
         am = math.ceil(self.min_percentage * n)  # find number of elements that need to be 0
 
-        l = (x > 0).sum()  # number of elements that are above the requirement
+        # number of elements that are above the requirement (one transfer to the host)
+        l = int((x > 0).sum())
 
         z = l - n + am
 
@@ -1431,7 +1435,8 @@ class MMUProjectionMinZeroPercentage(MMUProjection):
 
         am = math.ceil(self.min_percentage * n)
 
-        l = (x[self.idx] > 0).sum()  # number of elements that are above the requirement
+        # number of elements that are above the requirement (one transfer to the host)
+        l = int((x[self.idx] > 0).sum())
 
         z = l - n + am  # number of elements that need to be reduced
 

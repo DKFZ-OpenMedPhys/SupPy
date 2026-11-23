@@ -30,3 +30,14 @@ Linear Mapping
    :members:
    :undoc-members:
    :show-inheritance:
+
+
+Slice Plotting
+-------------------------
+.. autofunction:: suppy.utils.plot_slice
+
+.. autofunction:: suppy.utils.scroll_slices
+
+.. autofunction:: suppy.utils.matrad_to_zyx
+
+.. autofunction:: suppy.utils.matrad_indices_to_mask

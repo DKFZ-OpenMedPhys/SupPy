@@ -78,7 +78,8 @@ class KaczmarzMethod(HyperplaneAlgorithm):
         super().__init__(A, b, algorithmic_relaxation, relaxation, proximity_flag)
         xp = cp if self._use_gpu else np
         if cs is None:
-            self.cs = xp.arange(self.A.shape[0])
+            # row order on the host: GPU indices would need a device sync per row
+            self.cs = np.arange(self.A.shape[0])
         else:
             self.cs = cs
 
@@ -232,11 +233,13 @@ class SimultaneousKaczmarzMethod(HyperplaneAlgorithm):
 
         if weights is None:
             self.weights = xp.ones(self.A.shape[0]) / self.A.shape[0]
-        elif xp.abs((weights.sum() - 1)) > 1e-10:
-            warnings.warn("Weights do not add up to 1! Renormalizing to 1...", stacklevel=2)
-            self.weights = weights / weights.sum()
         else:
-            self.weights = weights
+            weights = xp.asarray(weights)  # allow plain lists, per the type hint
+            if xp.abs(weights.sum() - 1) > 1e-10:
+                warnings.warn("Weights do not add up to 1! Renormalizing to 1...", stacklevel=2)
+                self.weights = weights / weights.sum()
+            else:
+                self.weights = weights
 
     def _project(self, x: npt.NDArray) -> np.ndarray:
         # simultaneous projection

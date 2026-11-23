@@ -4,6 +4,7 @@ import numpy as np
 import numpy.typing as npt
 from suppy.feasibility._bands._ams_extrapolations import AdaptiveStepLandweberHyperslab
 from suppy.utils import ensure_float_array
+from suppy.utils._array_helper import to_host_list
 from suppy.perturbations import Perturbation, DummyPerturbation
 from ._sup import FeasibilityPerturbation
 
@@ -124,6 +125,7 @@ class SplitSuperiorization(FeasibilityPerturbation):
         storage_iters: List[int] | int | None = None,
         alternative_stopping_criterion: Callable | None = None,
         alternative_stopping_criterion_initial_call: Callable | None = None,
+        callback: Callable | None = None,
     ) -> np.ndarray:
         """
         Solves the optimization problem using the superiorization method.
@@ -160,6 +162,9 @@ class SplitSuperiorization(FeasibilityPerturbation):
             Alternative stopping criterion
         alternative_stopping_criterion_initial_call : callable, optional
             Initial call for an alternative stopping criterion
+        callback : callable, optional
+            User-defined function called after each iteration as
+            ``callback(x, k)``, where ``x`` is the current iterate and ``k`` the completed iteration index. If it returns a truthy value, the iteration stops. By default None.
 
         Returns
         -------
@@ -271,26 +276,34 @@ class SplitSuperiorization(FeasibilityPerturbation):
                 last_function_value_basic=self.all_function_values_basic[-1][1],
             )
 
+            f_input_perturbed = self.input_perturbation_scheme.func_value_after_step(x)
             self.storage(
                 x,
                 kind="function_reduction",
                 storage=storage and _should_store(self._k + 1),
                 f=[
-                    self.input_perturbation_scheme.func(x),
-                    self.target_perturbation_scheme.func(y),
+                    f_input_perturbed,
+                    self.target_perturbation_scheme.func_value_after_step(y),
                 ],
                 p=self.basic.proximity(x, proximity_measures),
             )
 
-            # perform basic step
+            # perform basic step (copy kept since the basic step may change x in place)
+            x_perturbed = x.copy()
             x, y = self.basic.step(x, y)
 
+            # reuse the input objective value if the basic step did not change x
+            xp = cp if isinstance(x, cp.ndarray) else np
+            if xp.array_equal(x, x_perturbed):
+                f_input = f_input_perturbed
+            else:
+                f_input = self.input_perturbation_scheme.func(x)
             self.storage(
                 x,
                 kind="basic",
                 storage=storage and _should_store(self._k + 1),
                 f=[
-                    self.input_perturbation_scheme.func(x),
+                    f_input,
                     self.target_perturbation_scheme.func(y),
                 ],
                 p=self.basic.proximity(x, proximity_measures),
@@ -311,6 +324,9 @@ class SplitSuperiorization(FeasibilityPerturbation):
                     del_prox_tol,
                     del_prox_n,
                 )
+
+            if callback is not None and callback(x, self._k):
+                stop = True
 
             self._additional_action(x, y)
 
@@ -420,20 +436,9 @@ class SplitSuperiorization(FeasibilityPerturbation):
         self.proximities_basic = []
 
         # append initial values
-        f_temp = []
-        for el in f:
-            if not NO_GPU and isinstance(el, cp.ndarray):
-                f_temp.append(el.get())
-            else:
-                f_temp.append(el)
-
-        # modify proximities
-        p_temp = []
-        for el in p:
-            if not NO_GPU and isinstance(el, cp.ndarray):
-                p_temp.append(el.get())
-            else:
-                p_temp.append(el)
+        # function and proximity values to the host in one transfer
+        fp_temp = to_host_list(list(f) + list(p))
+        f_temp, p_temp = fp_temp[: len(f)], fp_temp[len(f) :]
 
         self.all_function_values.append(f_temp)
         self.all_function_values_basic.append(f_temp)
@@ -476,21 +481,11 @@ class SplitSuperiorization(FeasibilityPerturbation):
         """
 
         # always store all function and proximity values
-        f_temp = []
-        for el in f:
-            if not NO_GPU and isinstance(el, cp.ndarray):
-                f_temp.append(el.get())
-            else:
-                f_temp.append(el)
+        # function and proximity values to the host in one transfer
+        fp_temp = to_host_list(list(f) + list(p))
+        f_temp, p_temp = fp_temp[: len(f)], fp_temp[len(f) :]
         self.all_function_values.append(f_temp)
 
-        # modify proximities
-        p_temp = []
-        for el in p:
-            if not NO_GPU and isinstance(el, cp.ndarray):
-                p_temp.append(el.get())
-            else:
-                p_temp.append(el)
         self.proximities.append(p_temp)
 
         if storage and isinstance(x, np.ndarray):

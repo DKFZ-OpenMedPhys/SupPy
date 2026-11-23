@@ -171,3 +171,79 @@ def test_proximity(get_func_grad_no_args):
     x = np.array([1.0, 1.0, 1.0])
     assert np.abs(subgrad.proximity(x, proximity_measures)[0] - 0) < 1e-8
     assert np.abs(subgrad.proximity(x, proximity_measures)[1] - 0) < 1e-8
+
+
+# ---------------------------------------------------------------------------
+# SubgradientProjection: options and branches
+# ---------------------------------------------------------------------------
+
+
+def test_subgradientProjection_relaxed_project(get_func_grad_no_args):
+    func, grad = get_func_grad_no_args
+    # the unrelaxed projection (level 0) maps x to the origin; the outer
+    # relaxation halves the step: x + 0.5 * (0 - x) = 0.5 * x
+    subgrad = SubgradientProjection(func, grad, relaxation=0.5)
+    x = np.array([1.0, 2.0, 3.0])
+    x_n = subgrad.project(x)
+    assert np.allclose(x_n, 0.5 * np.array([1.0, 2.0, 3.0]))
+
+
+def test_subgradientProjection_zero_gradient_guard():
+    # func is above the level but the gradient vanishes: the guard skips the
+    # (undefined) step and returns x unchanged
+    subgrad = SubgradientProjection(lambda x: 1.0, lambda x: np.zeros_like(x))
+    x = np.array([1.0, 2.0, 3.0])
+    x_n = subgrad.project(x)
+    assert np.array_equal(x_n, np.array([1.0, 2.0, 3.0]))
+
+
+def test_subgradientProjection_proximity_flag_false(get_func_grad_no_args):
+    func, grad = get_func_grad_no_args
+    subgrad = SubgradientProjection(func, grad, level=3, proximity_flag=False)
+    prox = subgrad.proximity(np.array([100.0, 100.0]), [("p_norm", 2), "max_norm"])
+    assert np.array_equal(prox, np.zeros(2))
+
+
+# ---------------------------------------------------------------------------
+# Property / invariant tests
+# ---------------------------------------------------------------------------
+
+
+def test_subgradientProjection_lands_on_level_set(get_func_grad_no_args):
+    # for the norm objective the subgradient step maps any exterior point
+    # exactly onto the level set
+    func, grad = get_func_grad_no_args
+    subgrad = SubgradientProjection(func, grad, level=3)
+    rng = np.random.default_rng(42)
+    for _ in range(5):
+        x = rng.standard_normal(3)
+        x *= 6 / np.linalg.norm(x)  # scale to norm 6 (outside the level set)
+        x_n = subgrad.project(x)
+        assert np.abs(np.linalg.norm(x_n) - 3) < 1e-10
+
+
+# ---------------------------------------------------------------------------
+# Backend / dtype
+# ---------------------------------------------------------------------------
+
+
+def test_subgradientProjection_cupy_backend():
+    cp = pytest.importorskip("cupy")
+    try:
+        cp.zeros(1)  # cupy can be installed without a usable GPU
+    except Exception:
+        pytest.skip("cupy installed but no usable GPU")
+
+    # backend-agnostic norm (works on numpy and cupy arrays)
+    def func(x):
+        return (x @ x) ** 0.5
+
+    def grad(x):
+        return x / (x @ x) ** 0.5
+
+    x_np = SubgradientProjection(func, grad, level=3).project(np.array([1.0, 2.0, 3.0]))
+
+    subgrad_cp = SubgradientProjection(func, grad, level=3)
+    x_cp = subgrad_cp.project(cp.asarray([1.0, 2.0, 3.0]))
+    assert isinstance(x_cp, cp.ndarray)  # no silent device -> host transfer
+    assert np.allclose(cp.asnumpy(x_cp), x_np)

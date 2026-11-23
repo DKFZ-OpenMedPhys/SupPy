@@ -78,7 +78,8 @@ class SequentialAMSHalfspace(HalfspaceAlgorithm):
         super().__init__(A, b, algorithmic_relaxation, relaxation, proximity_flag)
         xp = cp if self._use_gpu else np
         if cs is None:
-            self.cs = xp.arange(self.A.shape[0])
+            # row order on the host: GPU indices would need a device sync per row
+            self.cs = np.arange(self.A.shape[0])
         else:
             self.cs = cs
 
@@ -237,30 +238,31 @@ class SimultaneousAMSHalfspace(HalfspaceAlgorithm):
 
         if weights is None:
             self.weights = xp.ones(self.A.shape[0]) / self.A.shape[0]
-        elif xp.abs((weights.sum() - 1)) > 1e-10:
-            warnings.warn("Weights do not add up to 1! Renormalizing to 1...", stacklevel=2)
-            self.weights = weights / weights.sum()
         else:
-            self.weights = weights
+            weights = xp.asarray(weights)  # allow plain lists, per the type hint
+            if xp.abs(weights.sum() - 1) > 1e-10:
+                warnings.warn("Weights do not add up to 1! Renormalizing to 1...", stacklevel=2)
+                self.weights = weights / weights.sum()
+            else:
+                self.weights = weights
 
     def _project(self, x: npt.NDArray) -> np.ndarray:
         # simultaneous projection
-        p = self.map(x)
-        res = self.b - p
-        res_idx = res < 0
-        x += self.algorithmic_relaxation * (
-            self.weights[res_idx]
-            * self.inverse_row_norm[res_idx]
-            * res[res_idx]
-            @ self.A[res_idx, :]
-        )
+        xp = cp if self._use_gpu else np
+        res = self.b - self.map(x)
+        # only the violated rows enter the update (determined once, one device sync)
+        idx = xp.flatnonzero(res < 0)
+        res = res[idx]  # residual of the violated rows
+        if idx.size > 0:
+            x += self.algorithmic_relaxation * (
+                self.weights[idx] * self.inverse_row_norm[idx] * res @ self.A[idx, :]
+            )
         return x
 
     def _proximity(self, x: npt.NDArray, proximity_measures: List) -> list[float]:
-        p = self.map(x)
-        res = self.b - p
-        res[res > 0] = 0
-        res = -res
+        xp = cp if isinstance(x, cp.ndarray) else np
+        # violation of the constraints, 0 where they are met
+        res = xp.maximum(self.map(x) - self.b, 0)
 
         measures = []
         for measure in proximity_measures:
@@ -336,24 +338,26 @@ class BlockIterativeAMSHalfspace(HalfspaceAlgorithm):
 
     def _project(self, x: npt.NDArray) -> np.ndarray:
         # simultaneous projection
+        xp = cp if self._use_gpu else np
         for el, block_idx in zip(self.weights, self.block_idxs):
-            p = self.indexed_map(x, block_idx)
-            res = self.b[block_idx] - p
-
-            res_idx = res < 0
-            full_idx = block_idx[res_idx]
+            res = self.b[block_idx] - self.indexed_map(x, block_idx)
+            # violated rows of the block (determined once, one device sync)
+            idx = xp.flatnonzero(res < 0)
+            res = res[idx]  # residual of the violated rows
+            if idx.size == 0:
+                continue
+            full_idx = block_idx[idx]
 
             x += self.algorithmic_relaxation * (
-                el[res_idx] * self.inverse_row_norm[full_idx] * res[res_idx] @ self.A[full_idx, :]
+                el[idx] * self.inverse_row_norm[full_idx] * res @ self.A[full_idx, :]
             )
 
         return x
 
     def _proximity(self, x: npt.NDArray, proximity_measures: List) -> list[float]:
-        p = self.map(x)
-        res = self.b - p
-        res[res > 0] = 0
-        res = -res
+        xp = cp if isinstance(x, cp.ndarray) else np
+        # violation of the constraints, 0 where they are met
+        res = xp.maximum(self.map(x) - self.b, 0)
 
         measures = []
         for measure in proximity_measures:

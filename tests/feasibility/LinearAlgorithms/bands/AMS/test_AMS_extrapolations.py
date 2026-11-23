@@ -1,7 +1,11 @@
 import numpy as np
 import pytest
 import scipy.sparse as sparse
-from suppy.feasibility import ExtrapolatedLandweberHyperslab, AdaptiveStepLandweberHyperslab
+from suppy.feasibility import (
+    ExtrapolatedLandweberHyperslab,
+    AdaptiveStepLandweberHyperslab,
+    BlockIterativeAdaptiveStepLandweberHyperslab,
+)
 
 
 @pytest.fixture
@@ -46,9 +50,12 @@ def get_AdaptiveStepLandweberHyperslab_input_sparse(get_sparse_variables):
 
 def test_ExtrapolatedLandweberHyperslab_project(get_ExtrapolatedLandweberHyperslab_input_full):
     alg, A, lb, ub = get_ExtrapolatedLandweberHyperslab_input_full
+    # weights 1/4, violated rows 0, 2, 3 with residuals -2, -1/2, -1/2:
+    # v = 1/4 * (-5/2, -5/2), sig = (1/4 * 9/2) / (25/32) = 36/25
+    # -> x = 2 + 36/25 * (-5/8) = 1.1
     x = np.array([2.0, 2.0])
     proj = alg.project(x)
-    assert np.array_equal(proj, np.array([7 / 6, 7 / 6]))
+    assert np.allclose(proj, np.array([1.1, 1.1]))
 
     x = np.array([0.0, 0.0])
     proj = alg.project(x)
@@ -61,7 +68,7 @@ def test_ExtrapolatedLandweberHyperslab_project_sparse(
     alg, A, lb, ub = get_ExtrapolatedLandweberHyperslab_input_sparse
     x = np.array([2.0, 2.0])
     proj = alg.project(x)
-    assert np.array_equal(proj, np.array([7 / 6, 7 / 6]))
+    assert np.allclose(proj, np.array([1.1, 1.1]))
 
     x = np.array([0.0, 0.0])
     proj = alg.project(x)
@@ -90,3 +97,169 @@ def test_AdaptiveStepLandweberHyperslab_project_sparse(
     x = np.array([0.0, 0.0])
     proj = alg.project(x)
     assert np.array_equal(proj, np.array([0.0, 0.0]))
+
+
+def test_BlockIterativeAdaptiveStepLandweberHyperslab_single_block(get_full_variables):
+    # with a single block the algorithm is identical to the simultaneous version
+    A, lb, ub = get_full_variables
+    alg = BlockIterativeAdaptiveStepLandweberHyperslab(A, lb, ub, length_blocks=[4])
+    x = np.array([2.0, 2.0])
+    proj = alg.project(x)
+    assert np.allclose(proj, np.array([7 / 6, 7 / 6]))
+
+    x = np.array([0.0, 0.0])
+    proj = alg.project(x)
+    assert np.array_equal(proj, np.array([0.0, 0.0]))
+
+
+def test_BlockIterativeAdaptiveStepLandweberHyperslab_project(get_full_variables):
+    A, lb, ub = get_full_variables
+    alg = BlockIterativeAdaptiveStepLandweberHyperslab(A, lb, ub, length_blocks=[2, 2])
+    # block 1 (rows 0, 1): only row 0 is violated, u = (-0.5, -0.5), sig = 2 -> x = (1, 1)
+    # block 2 (rows 2, 3): feasible, no step
+    x = np.array([2.0, 2.0])
+    proj = alg.project(x)
+    assert np.allclose(proj, np.array([1.0, 1.0]))
+
+    x = np.array([0.0, 0.0])
+    proj = alg.project(x)
+    assert np.array_equal(proj, np.array([0.0, 0.0]))
+
+
+def test_BlockIterativeAdaptiveStepLandweberHyperslab_project_sparse(get_sparse_variables):
+    A, lb, ub = get_sparse_variables
+    alg = BlockIterativeAdaptiveStepLandweberHyperslab(A, lb, ub, length_blocks=[2, 2])
+    x = np.array([2.0, 2.0])
+    proj = alg.project(x)
+    assert np.allclose(proj, np.array([1.0, 1.0]))
+
+    x = np.array([0.0, 0.0])
+    proj = alg.project(x)
+    assert np.array_equal(proj, np.array([0.0, 0.0]))
+
+
+# ---------------------------------------------------------------------------
+# ExtrapolatedLandweberHyperslab: options and branches
+# ---------------------------------------------------------------------------
+
+
+def test_ExtrapolatedLandweberHyperslab_constructor_state(get_full_variables):
+    A, lb, ub = get_full_variables
+    alg = ExtrapolatedLandweberHyperslab(A, lb, ub)
+    # default weights are uniform and sum to 1; no row normalization is applied
+    assert np.allclose(alg.weights, np.full(4, 0.25))
+
+
+def test_ExtrapolatedLandweberHyperslab_zero_row():
+    # if an all-zero row's band is the only violated one, v = 0 and there is
+    # no usable step (0/0); the zero-denominator guard returns x unchanged
+    A = np.array([[1.0, 1.0], [0.0, 0.0]])
+    lb = np.array([-2.0, 1.0])
+    ub = np.array([2.0, 2.0])
+    alg = ExtrapolatedLandweberHyperslab(A, lb, ub)
+
+    proj = alg.project(np.array([0.0, 0.0]))
+    assert np.array_equal(proj, np.array([0.0, 0.0]))
+
+
+def test_ExtrapolatedLandweberHyperslab_float32_underflow():
+    # nearly feasible problem in float32 (incl. the weights): the violation is
+    # 2e-25, so v @ v (~1e-50) underflows to 0; the guard returns x unchanged
+    # instead of the 0/0 step (NaN)
+    A = np.array([[1.0, 1.0]], dtype=np.float32)
+    lb = np.array([0.0], dtype=np.float32)
+    ub = np.array([1.0], dtype=np.float32)
+    alg = ExtrapolatedLandweberHyperslab(A, lb, ub, weights=np.array([1.0], dtype=np.float32))
+    x = np.array([-1e-25, -1e-25], dtype=np.float32)
+    with np.errstate(under="ignore"):
+        proj = alg.project(x.copy())
+    assert np.array_equal(proj, x)
+
+
+def test_ExtrapolatedLandweberHyperslab_relaxation(get_full_variables):
+    A, lb, ub = get_full_variables
+    alg = ExtrapolatedLandweberHyperslab(A, lb, ub, relaxation=0.5)
+    # the outer relaxation halves the step: x + 0.5 * ([1.1, 1.1] - [2, 2])
+    proj = alg.project(np.array([2.0, 2.0]))
+    assert np.allclose(proj, np.array([1.55, 1.55]))
+
+
+def test_ExtrapolatedLandweberHyperslab_proximity(get_ExtrapolatedLandweberHyperslab_input_full):
+    # the proximity is inherited from SimultaneousAMSHyperslab (weights 1/4):
+    # x = [2, 2] -> residuals [2, 0, 0.5, 0.5] -> 1/4 * 4.5 = 9/8
+    alg, _, _, _ = get_ExtrapolatedLandweberHyperslab_input_full
+    prox = alg.proximity(np.array([2.0, 2.0]), [("p_norm", 2), "max_norm"])
+    assert np.abs(prox[0] - 9 / 8) < 1e-10
+    assert np.abs(prox[1] - 2.0) < 1e-10
+
+
+# ---------------------------------------------------------------------------
+# Property / invariant tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "make_alg",
+    [
+        lambda A, lb, ub: ExtrapolatedLandweberHyperslab(A, lb, ub),
+        lambda A, lb, ub: AdaptiveStepLandweberHyperslab(A, lb, ub),
+        lambda A, lb, ub: BlockIterativeAdaptiveStepLandweberHyperslab(
+            A, lb, ub, length_blocks=[2, 2]
+        ),
+    ],
+    ids=["extrapolated", "adaptive_step", "block_iterative_adaptive"],
+)
+def test_Landweber_solve_converges(make_alg, get_full_variables):
+    A, lb, ub = get_full_variables
+    alg = make_alg(A, lb, ub)
+    rng = np.random.default_rng(42)
+    for _ in range(3):
+        x = 4 * rng.standard_normal(2)
+        alg.solve(x, max_iter=200)
+        assert alg.proximities[-1][0] < alg.proximities[0][0]
+        assert alg.proximities[-1][0] < 1e-6
+
+
+@pytest.mark.parametrize(
+    "make_alg",
+    [
+        lambda A, lb, ub: ExtrapolatedLandweberHyperslab(A, lb, ub),
+        lambda A, lb, ub: AdaptiveStepLandweberHyperslab(A, lb, ub),
+    ],
+    ids=["extrapolated", "adaptive_step"],
+)
+def test_Landweber_project_idempotent_on_feasible(make_alg, get_full_variables):
+    # feasible points take the early-return branch and stay untouched
+    A, lb, ub = get_full_variables
+    alg = make_alg(A, lb, ub)
+    x = np.array([0.5, 0.5])
+    assert np.array_equal(alg.project(x.copy()), x)
+
+
+# ---------------------------------------------------------------------------
+# Backend / dtype
+# ---------------------------------------------------------------------------
+
+
+def test_Landweber_solve_int_input(get_full_variables):
+    A, lb, ub = get_full_variables
+    alg = ExtrapolatedLandweberHyperslab(A, lb, ub)
+    # @ensure_float_array coerces the integer starting point to float64
+    x_n = alg.solve(np.array([2, 2]), max_iter=100)
+    assert np.issubdtype(x_n.dtype, np.floating)
+
+
+def test_Landweber_cupy_backend(get_full_variables):
+    cp = pytest.importorskip("cupy")
+    try:
+        cp.zeros(1)  # cupy can be installed without a usable GPU
+    except Exception:
+        pytest.skip("cupy installed but no usable GPU")
+
+    A, lb, ub = get_full_variables
+    for make_alg in (ExtrapolatedLandweberHyperslab, AdaptiveStepLandweberHyperslab):
+        x_np = make_alg(A, lb, ub).project(np.array([2.0, 2.0]))
+        alg_cp = make_alg(cp.asarray(A), cp.asarray(lb), cp.asarray(ub))
+        x_cp = alg_cp.project(cp.asarray([2.0, 2.0]))
+        assert isinstance(x_cp, cp.ndarray)  # no silent device -> host transfer
+        assert np.allclose(cp.asnumpy(x_cp), x_np)

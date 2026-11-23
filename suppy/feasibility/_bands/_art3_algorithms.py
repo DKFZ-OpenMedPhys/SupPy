@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import List
+from typing import Callable, List
 import numpy as np
 import numpy.typing as npt
 
@@ -14,6 +14,11 @@ except ImportError:
 
 from suppy.utils import ensure_float_array
 from suppy.feasibility._linear_algorithms import HyperslabFeasibility
+
+
+def _to_numpy(a):
+    """Host copy of a (possibly GPU) array or scalar."""
+    return a.get() if (not NO_GPU and isinstance(a, cp.ndarray)) else a
 
 
 class ART3plusAlgorithm(HyperslabFeasibility, ABC):
@@ -93,48 +98,46 @@ class SequentialART3plus(ART3plusAlgorithm):
     ):
 
         super().__init__(A, lb, ub, 1, 1, proximity_flag)
-        xp = cp if self.A.gpu else np
         if cs is None:
-            self.initial_cs = xp.arange(self.A.shape[0])
+            # row order on the host: GPU indices would need a device sync per row
+            self.initial_cs = np.arange(self.A.shape[0])
         else:
             self.initial_cs = cs
 
         self.cs = self.initial_cs.copy()
 
+        # host copies of the bounds, so that the case distinction for each row
+        # needs only one transfer to the host (the value of the row product)
+        m = self.A.shape[0]
+        self._l_host = np.broadcast_to(np.asarray(_to_numpy(self.bounds.l), dtype=float), (m,))
+        self._u_host = np.broadcast_to(np.asarray(_to_numpy(self.bounds.u), dtype=float), (m,))
+
+    def reset(self) -> None:
+        """Restore the full set of constraints to be checked."""
+        self.cs = self.initial_cs.copy()
+
     def _project(self, x: npt.NDArray) -> np.ndarray:
-        to_remove = []
+        l, u = self._l_host, self._u_host
+        to_remove = set()
         for i in self.cs:
             # TODO: add a boolean variable that skips this if the projection did not move the point?
-            p_i = self.single_map(x, i)
-            # should be precomputed
-            if (
-                3 / 2 * self.bounds.l[i] - 1 / 2 * self.bounds.u[i] <= p_i < self.bounds.l[i]
-            ):  # lowe bound reflection
-                self.A.update_step(
-                    x, 2 * self.inverse_row_norm[i] * (self.bounds.l[i] - p_i), i
-                )  # reflection
+            # one transfer to the host per row, the comparisons below are on the host
+            p_i = float(self.single_map(x, i))
+            if 3 / 2 * l[i] - 1 / 2 * u[i] <= p_i < l[i]:  # lower bound reflection
+                self.A.update_step(x, 2 * self.inverse_row_norm[i] * (l[i] - p_i), i)
 
-            elif (
-                self.bounds.u[i] < p_i <= 3 / 2 * self.bounds.u[i] - 1 / 2 * self.bounds.l[i]
-            ):  # upper bound reflection
-                self.A.update_step(
-                    x, 2 * self.inverse_row_norm[i] * (self.bounds.u[i] - p_i), i
-                )  # reflection
+            elif u[i] < p_i <= 3 / 2 * u[i] - 1 / 2 * l[i]:  # upper bound reflection
+                self.A.update_step(x, 2 * self.inverse_row_norm[i] * (u[i] - p_i), i)
 
-            elif self.bounds.u[i] - self.bounds.l[i] < abs(
-                p_i - (self.bounds.l[i] + self.bounds.u[i]) / 2
-            ):
-                self.A.update_step(
-                    x,
-                    self.inverse_row_norm[i] * ((self.bounds.l[i] + self.bounds.u[i]) / 2 - p_i),
-                    i,
-                )  # projection onto center of hyperslab
+            elif u[i] - l[i] < abs(p_i - (l[i] + u[i]) / 2):
+                # projection onto center of hyperslab
+                self.A.update_step(x, self.inverse_row_norm[i] * ((l[i] + u[i]) / 2 - p_i), i)
 
             else:  # constraint is already met
-                to_remove.append(i)
+                to_remove.add(i)
 
-        # after loop remove constraints that are already met
-        self.cs = [i for i in self.cs if i not in to_remove]  # is this fast?
+        # after loop remove constraints that are already met (set: linear in the rows)
+        self.cs = [i for i in self.cs if i not in to_remove]
         return x
 
     @ensure_float_array
@@ -148,6 +151,7 @@ class SequentialART3plus(ART3plusAlgorithm):
         storage: bool = False,
         storage_iters: List[int] | int | None = None,
         proximity_measures: List | None = None,
+        callback: Callable | None = None,
     ) -> np.ndarray:
         """
         Solves the optimization problem using an iterative approach.
@@ -172,13 +176,18 @@ class SequentialART3plus(ART3plusAlgorithm):
             Controls which iterations are stored (when storage=True). If None, all iterations are stored.
             If a list of ints, only those iteration indices are stored (0 = initial point).
             If an int, storage occurs every that many iterations.
+        callback : callable, optional
+            User-defined function called after each iteration as
+            ``callback(x, k)``, where ``x`` is the current iterate and ``k`` the
+            completed iteration index. If it returns a truthy value, the
+            iteration stops. By default None.
 
         Returns
         -------
         npt.NDArray
             The solution after the iterative process.
         """
-        self.cs = self.initial_cs.copy()
+        self.reset()
         xp = cp if isinstance(x, cp.ndarray) else np
 
         if proximity_measures is None:
@@ -223,6 +232,9 @@ class SequentialART3plus(ART3plusAlgorithm):
 
             # TODO: If proximity changes x some potential issues!
             stop = self._stopping_criterion(prox_tol, del_prox_tol, del_prox_n)
+
+            if callback is not None and callback(x, i + 1):
+                stop = True
 
             i += 1
 
@@ -304,8 +316,8 @@ class SimultaneousART3plus(ART3plusAlgorithm):
         idx_4 = p > u_redux + (u_redux - l_redux) / 2
 
         # sets on subarrays
-        set_1 = idx_1 & (not idx_3)  # idxs for lower bound reflection
-        set_2 = idx_2 & (not idx_4)  # idxs for upper bound reflection
+        set_1 = idx_1 & ~idx_3  # idxs for lower bound reflection
+        set_2 = idx_2 & ~idx_4  # idxs for upper bound reflection
         set_3 = idx_3 | idx_4  # idxs for projections
         # there should be no overlap between the different regions here!
         x += (
@@ -333,12 +345,8 @@ class SimultaneousART3plus(ART3plusAlgorithm):
         return x
 
     def _proximity(self, x: npt.NDArray, proximity_measures: List[str]) -> float:
-        p = self.map(x)
-        # residuals are positive if constraints are met
-        (res_l, res_u) = self.bounds.residual(p)
-        res_u[res_u > 0] = 0
-        res_l[res_l > 0] = 0
-        res = -res_u - res_l
+        # violation of the constraints, 0 where they are met
+        res = self.bounds.violation(self.map(x))
         measures = []
         for measure in proximity_measures:
             if isinstance(measure, tuple):

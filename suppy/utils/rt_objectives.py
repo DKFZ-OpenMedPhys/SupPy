@@ -4,7 +4,6 @@ import numpy as np
 import numpy.typing as npt
 import scipy
 
-from Testing._ignore.aaaaa import grad
 
 try:
     import cupy as cp
@@ -74,16 +73,15 @@ class SquaredOverdosing:
 
     def objective_value(self, x: npt.ArrayLike) -> float:
         """Return the mean squared overdosing at dose vector *x*."""
-        d_diff = x[self.idxs] - self.d_ref
-        d_diff[d_diff < 0] = 0
+        xp = cp if isinstance(x, cp.ndarray) else np
+        d_diff = xp.maximum(x[self.idxs] - self.d_ref, 0)  # no masked assignment (device sync)
         return 1 / self.length * (d_diff @ d_diff)
 
     def objective_gradient(self, x: npt.ArrayLike) -> npt.ArrayLike:
         """Return the gradient of the objective with respect to *x*."""
         xp = cp if isinstance(x, cp.ndarray) else np
         grad = xp.zeros(x.shape[0])
-        d_diff = x[self.idxs] - self.d_ref
-        d_diff[d_diff < 0] = 0
+        d_diff = xp.maximum(x[self.idxs] - self.d_ref, 0)  # no masked assignment (device sync)
         grad[self.idxs] = 2 * d_diff
         return 1 / self.length * grad
 
@@ -195,7 +193,8 @@ class MaxDVH:
         d_max = xp.percentile(
             d, 100 - self.max_v_percent
         )  # , method = 'interpolated_inverted_cdf')
-        d_diff[(d < self.d_ref) | (d > d_max)] = 0
+        # no masked assignment (it would force a device sync)
+        d_diff = xp.where((d < self.d_ref) | (d > d_max), 0, d_diff)
         return 1 / self.length * (d_diff @ d_diff)
 
     def objective_gradient(self, x: npt.ArrayLike) -> npt.ArrayLike:
@@ -208,7 +207,8 @@ class MaxDVH:
         d_max = xp.percentile(
             d, 100 - self.max_v_percent
         )  # , method = 'interpolated_inverted_cdf')
-        d_diff[(d < self.d_ref) | (d > d_max)] = 0
+        # no masked assignment (it would force a device sync)
+        d_diff = xp.where((d < self.d_ref) | (d > d_max), 0, d_diff)
         grad[self.idxs] = (2 / self.length) * d_diff
 
         return grad
@@ -248,7 +248,8 @@ class MinDVH:
 
         # calculate the D_min_percent value
         d_min = xp.percentile(d, self.min_v_percent)  # , method = 'interpolated_inverted_cdf')
-        d_diff[(d > self.d_ref) | (d < d_min)] = 0
+        # no masked assignment (it would force a device sync)
+        d_diff = xp.where((d > self.d_ref) | (d < d_min), 0, d_diff)
         return 1 / self.length * (d_diff @ d_diff)
 
     def objective_gradient(self, x: npt.ArrayLike) -> npt.ArrayLike:
@@ -259,7 +260,8 @@ class MinDVH:
         d_diff = d - self.d_ref
 
         d_min = xp.percentile(d, self.min_v_percent)  # , method = 'interpolated_inverted_cdf')
-        d_diff[(d > self.d_ref) | (d < d_min)] = 0
+        # no masked assignment (it would force a device sync)
+        d_diff = xp.where((d > self.d_ref) | (d < d_min), 0, d_diff)
         grad[self.idxs] = (2 / self.length) * d_diff
 
         return grad
@@ -304,24 +306,43 @@ class objectives:
         if self.store_csc_copy:
             self.dij_csc = cp.sparse.csc_matrix(dij).copy()
 
+        # potentially skip matrix multiplication if calculation with same x
+        self.x = None
+        self.d = None
+
     def objective_value(self, x: npt.ArrayLike) -> float:
         """Return the weighted sum of objective values at fluence vector
         *x*.
         """
-        d = self.dij @ x
-        return sum([f.objective_value(d) * p for f, p in zip(self.objectives, self.penalties)])
+        xp = cp if isinstance(x, cp.ndarray) else np
+        if self.x is None or not xp.all(self.x == x):
+            self.d = self.dij @ x
+            self.x = x.copy()
+        return sum(
+            [f.objective_value(self.d) * p for f, p in zip(self.objectives, self.penalties)]
+        )
 
     def objective_gradient(self, x: npt.ArrayLike) -> npt.ArrayLike:
         """Return the gradient of the weighted sum with respect to *x*."""
-        d = self.dij @ x
+        xp = cp if isinstance(x, cp.ndarray) else np
+        if self.x is None or not xp.all(self.x == x):
+            self.d = self.dij @ x
+            self.x = x.copy()
 
         if self.store_csc_copy:
             return (
-                sum([f.objective_gradient(d) * p for f, p in zip(self.objectives, self.penalties)])
+                sum(
+                    [
+                        f.objective_gradient(self.d) * p
+                        for f, p in zip(self.objectives, self.penalties)
+                    ]
+                )
                 @ self.dij_csc
             )
 
         return (
-            sum([f.objective_gradient(d) * p for f, p in zip(self.objectives, self.penalties)])
+            sum(
+                [f.objective_gradient(self.d) * p for f, p in zip(self.objectives, self.penalties)]
+            )
             @ self.dij
         )

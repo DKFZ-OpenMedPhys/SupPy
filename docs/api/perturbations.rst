@@ -13,6 +13,19 @@ Public perturbation strategies
 
    PowerSeriesGradientPerturbation
 
+Experimental perturbation strategies
+------------------------------------
+
+These strategies are not part of the public API and may change without
+notice. Import them from ``suppy.perturbations._variants``.
+
+.. currentmodule:: suppy.perturbations._variants
+
+.. autosummary::
+   :toctree: generated/Privateperturbations/
+
+   BarzilaiBorweinPerturbation
+
 Underlying base classes
 -----------------------------
 .. currentmodule:: suppy.perturbations._base

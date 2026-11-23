@@ -4,6 +4,7 @@ import numpy as np
 import time
 import numpy.typing as npt
 from suppy.utils import ensure_float_array
+from suppy.utils._array_helper import to_host_floats, stack_to_numpy
 from suppy.perturbations import Perturbation
 from ._sup import FeasibilityPerturbation
 from suppy.projections import Projection
@@ -94,8 +95,10 @@ class Superiorization(FeasibilityPerturbation):
         proximity_measures: List | None = None,
         storage: bool = False,
         storage_iters: List[int] | int | None = None,
+        store_function_reduction: bool = False,
         alternative_stopping_criterion: Callable | None = None,
         alternative_stopping_criterion_initial_call: Callable | None = None,
+        callback: Callable | None = None,
     ) -> np.ndarray:
         """
         Solve the optimization problem using the superiorization method.
@@ -124,10 +127,21 @@ class Superiorization(FeasibilityPerturbation):
             Controls which iterations are stored (when storage=True). If None, all iterations are stored.
             If a list of ints, only those iteration indices are stored (0 = initial point).
             If an int, storage occurs every that many iterations.
+        store_function_reduction : bool, optional
+            If True, store the intermediate iterate, function and proximity values
+            obtained right after the perturbation (function reduction) step. If False, this
+            intermediate snapshot is skipped; only the basic (post feasibility-step) values are
+            recorded each iteration. The stopping criterion is unaffected as it is based on the
+            basic iterates.
         alternative_stopping_criterion : callable, optional
             Alternative stopping criterion
         alternative_stopping_criterion_initial_call : callable, optional
             Initial call for an alternative stopping criterion
+        callback : callable, optional
+            User-defined function called after each iteration as
+            ``callback(x, k)``, where ``x`` is the current iterate and ``k`` the
+            completed iteration index. If it returns a truthy value, the
+            iteration stops. By default None.
 
         Returns
         -------
@@ -150,6 +164,7 @@ class Superiorization(FeasibilityPerturbation):
         # initialization of variables
 
         self.perturbation_scheme.reset()  # reset the perturbation scheme
+        self.basic.reset()  # reset state of the basic algorithm (e.g. momentum)
 
         self._n_tol_objective = 0
         self._n_tol_prox = 0
@@ -172,7 +187,9 @@ class Superiorization(FeasibilityPerturbation):
         else:
             stop = False  # criterion for stopping the algorithm
 
-        self.t.append(0)
+        # reset timing storage so repeated solve calls do not accumulate
+        self.t = [0]
+        self.t_it = []
         t_current = time.time()
         t_init = t_current
 
@@ -186,15 +203,23 @@ class Superiorization(FeasibilityPerturbation):
                 last_function_value_basic=self.all_function_values_basic[-1],
             )  # perform any pre-step actions of the perturbation scheme
 
+            # iterate at the start of the iteration, its objective value is known
+            x_start = x.copy()
+
             # perform the perturbation schemes update step
             x = self.perturbation_scheme.perturbation_step(x)
-            self.storage(
-                x,
-                kind="function_reduction",
-                storage=storage and _should_store(self._k + 1),
-                f=self.perturbation_scheme.func(x),
-                p=self.basic.proximity(x, proximity_measures),
+            # objective value at the perturbed iterate (None if unknown and not stored)
+            f_perturbed = self.perturbation_scheme.func_value_after_step(
+                x, evaluate=store_function_reduction
             )
+            if store_function_reduction:
+                self.storage(
+                    x,
+                    kind="function_reduction",
+                    storage=storage and _should_store(self._k + 1),
+                    f=f_perturbed,
+                    p=self.basic.proximity(x, proximity_measures),
+                )
 
             self.perturbation_scheme.post_step(
                 x,
@@ -205,16 +230,22 @@ class Superiorization(FeasibilityPerturbation):
                 last_function_value_basic=self.all_function_values_basic[-1],
             )  # perform any post-step actions of the perturbation scheme
 
+            # last iterate with known objective value, compared after the basic step
+            # (copied since the basic step may change x in place)
+            if f_perturbed is not None:
+                x_known, f_known = x.copy(), f_perturbed
+            else:
+                x_known, f_known = x_start, self.all_function_values_basic[-1]
+
             # perform basic step
             x = self.basic.step(x)
 
             # check current function and proximity values
-
             self.storage(
                 x,
                 kind="basic",
                 storage=storage and _should_store(self._k + 1),
-                f=self.perturbation_scheme.func(x),
+                f=self._func_after_basic_step(x, x_known, f_known),
                 p=self.basic.proximity(x, proximity_measures),
             )
 
@@ -227,6 +258,8 @@ class Superiorization(FeasibilityPerturbation):
                 stop = self._stopping_criterion(
                     del_objective_tol, del_objective_n, prox_tol, del_prox_tol, del_prox_n
                 )
+            if callback is not None and callback(x, self._k):
+                stop = True
 
             self._additional_action(x)
             self.t.append(time.time() - t_init)
@@ -267,13 +300,20 @@ class Superiorization(FeasibilityPerturbation):
             True if the stopping criteria are met, False otherwise.
         """
 
+        # all values needed below in one transfer to the host (a single device
+        # synchronization on the GPU)
+        f_prev, f_curr, p_prev, p_curr = to_host_floats(
+            self.all_function_values_basic[-2],
+            self.all_function_values_basic[-1],
+            self.proximities_basic[-2][0],
+            self.proximities_basic[-1][0],
+        )
+
         stop_objective = False  # variable to check if the objective function criteria is met
         # check objective function criteria f_(k+1)-f_k<= (delta f)* is met in last n_tol_objective iterations
-        if (
-            abs(self.all_function_values[-3] - self.all_function_values[-1])
-            / max(1, self.all_function_values[-3])
-            < del_objective_tol
-        ):
+        # the stopping criterion is based on the basic (post feasibility-step) iterates so that it
+        # is independent of whether the intermediate function_reduction values are stored
+        if abs(f_prev - f_curr) / max(1, f_prev) < del_objective_tol:
             self._n_tol_objective += 1
         else:
             self._n_tol_objective = 0
@@ -284,15 +324,11 @@ class Superiorization(FeasibilityPerturbation):
 
         stop_prox = False  # variable to check if the proximity criteria is met
         # check if proximity values are below the threshold
-        if self.proximities[-1][0] < prox_tol:  # proximity below goal/tolerance
+        if p_curr < prox_tol:  # proximity below goal/tolerance
             stop_prox = True
 
         # check if the proximity changes are below tolerance level
-        if (
-            abs(self.proximities[-3][0] - self.proximities[-1][0])
-            / max(1, self.proximities[-3][0])
-            < del_prox_tol
-        ):
+        if abs(p_prev - p_curr) / max(1, p_prev) < del_prox_tol:
             self._n_tol_prox += 1
         else:
             self._n_tol_prox = 0
@@ -315,6 +351,35 @@ class Superiorization(FeasibilityPerturbation):
         -------
         None
         """
+
+    def _func_after_basic_step(self, x: npt.NDArray, x_known: npt.NDArray, f_known):
+        """
+        Objective value after the basic step.
+
+        Reuses `f_known` if the iterate equals `x_known`, e.g. if the basic
+        step did not change the (already feasible) perturbed iterate or the
+        iteration returned to its starting point, otherwise evaluates the
+        objective. The comparison costs one device synchronization on the
+        GPU but can save an objective evaluation.
+
+        Parameters
+        ----------
+        x : npt.NDArray
+            The iterate after the basic step.
+        x_known : npt.NDArray
+            The last iterate whose objective value is known.
+        f_known : float
+            The objective value at `x_known`.
+
+        Returns
+        -------
+        float
+            The objective value at `x`.
+        """
+        xp = cp if isinstance(x, cp.ndarray) else np
+        if xp.array_equal(x, x_known):
+            return f_known
+        return self.perturbation_scheme.func(x)
 
     def _initial_storage(self, x, storage, f, p):
         """
@@ -429,25 +494,12 @@ class Superiorization(FeasibilityPerturbation):
         self.all_x_function_reduction = np.array(self.all_x_function_reduction)
         self.all_x_basic = np.array(self.all_x_basic)
 
-        if isinstance(x, np.ndarray):
-            self.all_function_values = np.array(self.all_function_values)
-            self.all_function_values_function_reduction = np.array(
-                self.all_function_values_function_reduction
-            )
-            self.all_function_values_basic = np.array(self.all_function_values_basic)
-            self.proximities = np.array(self.proximities)
-            self.proximities_function_reduction = np.array(self.proximities_function_reduction)
-            self.proximities_basic = np.array(self.proximities_basic)
-        else:
-            self.all_function_values = np.array([el.get() for el in self.all_function_values])
-            self.all_function_values_function_reduction = np.array(
-                [el.get() for el in self.all_function_values_function_reduction]
-            )
-            self.all_function_values_basic = np.array(
-                [el.get() for el in self.all_function_values_basic]
-            )
-            self.proximities = np.array([el.get() for el in self.proximities])
-            self.proximities_function_reduction = np.array(
-                [el.get() for el in self.proximities_function_reduction]
-            )
-            self.proximities_basic = np.array([el.get() for el in self.proximities_basic])
+        # one transfer per list instead of one per stored value
+        self.all_function_values = stack_to_numpy(self.all_function_values)
+        self.all_function_values_function_reduction = stack_to_numpy(
+            self.all_function_values_function_reduction
+        )
+        self.all_function_values_basic = stack_to_numpy(self.all_function_values_basic)
+        self.proximities = stack_to_numpy(self.proximities)
+        self.proximities_function_reduction = stack_to_numpy(self.proximities_function_reduction)
+        self.proximities_basic = stack_to_numpy(self.proximities_basic)

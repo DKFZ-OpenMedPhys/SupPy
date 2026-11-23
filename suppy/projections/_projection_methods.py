@@ -17,6 +17,7 @@ except ImportError:
 
 from suppy.projections._projections import Projection, BasicProjection
 from suppy.utils import ensure_float_array
+from suppy.utils._array_helper import to_host_floats
 
 
 class ProjectionMethod(Projection, ABC):
@@ -68,6 +69,11 @@ class ProjectionMethod(Projection, ABC):
         for proj in self.projections:
             proj.visualize(ax)
 
+    def reset(self) -> None:
+        """Reset the internal state of all projections."""
+        for proj in self.projections:
+            proj.reset()
+
     @ensure_float_array
     def solve(
         self,
@@ -81,6 +87,7 @@ class ProjectionMethod(Projection, ABC):
         storage_iters: List[int] | int | None = None,
         alternative_stopping_criterion: Callable | None = None,
         alternative_stopping_criterion_initial_call: Callable | None = None,
+        callback: Callable | None = None,
     ) -> np.ndarray:
         """
         Solves the optimization problem using an iterative approach.
@@ -109,6 +116,9 @@ class ProjectionMethod(Projection, ABC):
             Alternative stopping criterion
         alternative_stopping_criterion_initial_call : callable, optional
             Initial call for an alternative stopping criterion
+        callback : callable, optional
+            User-defined function called after each iteration as
+            ``callback(x, k)``, where ``x`` is the current iterate and ``k`` the completed iteration index. If it returns a truthy value, the iteration stops. By default None.
 
         Returns
         -------
@@ -116,6 +126,7 @@ class ProjectionMethod(Projection, ABC):
             The solution after the iterative process.
         """
         xp = cp if isinstance(x, cp.ndarray) else np
+        self.reset()
 
         if proximity_measures is None:
             proximity_measures = [("p_norm", 2)]
@@ -164,6 +175,9 @@ class ProjectionMethod(Projection, ABC):
             else:
                 stop = self._stopping_criterion(prox_tol, del_prox_tol, del_prox_n)
 
+            if callback is not None and callback(x, i + 1):
+                stop = True
+
             i += 1
 
         if self.all_x is not None:
@@ -174,10 +188,12 @@ class ProjectionMethod(Projection, ABC):
 
     def _stopping_criterion(self, prox_tol: float, del_prox_tol: float, del_prox_n: int) -> bool:
         """Returns True when convergence is detected, False otherwise."""
-        if self.proximities[-1][0] < prox_tol:
+        # one transfer to the host (a single device synchronization on the GPU)
+        current, previous = to_host_floats(self.proximities[-1][0], self.proximities[-2][0])
+        if current < prox_tol:
             return True
         else:  # check that last n proximity changes are below a threshold
-            if self.proximities[-2][0] - self.proximities[-1][0] < del_prox_tol:
+            if previous - current < del_prox_tol:
                 self._n_tol += 1
             else:
                 self._n_tol = 0
@@ -343,7 +359,8 @@ class SimultaneousProjection(ProjectionMethod):
         for i, measure in enumerate(proximity_measures):
             if isinstance(measure, tuple):
                 if measure[0] == "p_norm":
-                    measures.append(self.weights @ (proxs[:, i]))
+                    # weights are stored as numpy; proxs follow the backend of x
+                    measures.append(xp.asarray(self.weights) @ (proxs[:, i]))
                 else:
                     raise ValueError("Invalid proximity measure")
             elif isinstance(measure, str) and measure == "max_norm":
@@ -476,6 +493,7 @@ class BlockIterativeProjection(ProjectionMethod):
         super().__init__(projections, relaxation, proximity_flag)
         xp = cp if self._use_gpu else np
         # check if weights has the correct format
+        weights = [xp.asarray(el) for el in weights]  # allow plain lists, per the type hint
         for el in weights:
             if len(el) != len(projections):
                 raise ValueError("Weights do not match the number of projections!")
@@ -513,7 +531,8 @@ class BlockIterativeProjection(ProjectionMethod):
         for i, measure in enumerate(proximity_measures):
             if isinstance(measure, tuple):
                 if measure[0] == "p_norm":
-                    measures.append(self.total_weights @ (proxs[:, i]))
+                    # weights are stored as numpy; proxs follow the backend of x
+                    measures.append(xp.asarray(self.total_weights) @ (proxs[:, i]))
                 else:
                     raise ValueError("Invalid proximity measure")
             elif isinstance(measure, str) and measure == "max_norm":
@@ -557,8 +576,10 @@ class SequentialMultiBallProjection(MultiBallProjection):
         for i in range(len(self.centers)):
             diff = x[self.idx] - self.centers[i]
             dist = xp.linalg.norm(diff)
-            if dist > self.radii[i]:
-                x[self.idx] = self.centers[i] + self.radii[i] * diff / dist
+            # project only if outside the ball, no branch on the GPU value
+            outside = dist > self.radii[i]
+            projected = self.centers[i] + self.radii[i] * diff / xp.where(outside, dist, 1)
+            x[self.idx] = xp.where(outside, projected, x[self.idx])
         return x
 
 
@@ -581,8 +602,10 @@ class SimultaneousMultiBallProjection(MultiBallProjection):
     def _project(self, x: npt.NDArray) -> np.ndarray:
         xp = cp if self._use_gpu else np
         dists = xp.linalg.norm(x[self.idx] - self.centers, axis=1)
-        idx = (dists - self.radii) > 0
-        x[self.idx] = x[self.idx] - (self.weights[idx] * (1 - self.radii[idx] / dists[idx])) @ (
-            x[self.idx] - self.centers[idx]
-        )
+        # balls that do not contain x (determined once, one device sync)
+        idx = xp.flatnonzero(dists > self.radii)
+        if idx.size > 0:
+            x[self.idx] = x[self.idx] - (
+                self.weights[idx] * (1 - self.radii[idx] / dists[idx])
+            ) @ (x[self.idx] - self.centers[idx])
         return x

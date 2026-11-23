@@ -13,6 +13,7 @@ from ._bands._ams_algorithms import (
 from ._bands._ams_extrapolations import (
     LandweberHyperslab,
     ExtrapolatedLandweberHyperslab,
+    ExtrapolatedSimultaneousProjectionHyperslab,
     AdaptiveStepLandweberHyperslab,
     BlockIterativeExtrapolatedLandweberHyperslab,
     BlockIterativeAdaptiveStepLandweberHyperslab,
@@ -62,6 +63,7 @@ __all__ = [
     "BlockIterativeAMSHyperslab",
     "LandweberHyperslab",
     "ExtrapolatedLandweberHyperslab",
+    "ExtrapolatedSimultaneousProjectionHyperslab",
     "AdaptiveStepLandweberHyperslab",
     "BlockIterativeExtrapolatedLandweberHyperslab",
     "BlockIterativeAdaptiveStepLandweberHyperslab",

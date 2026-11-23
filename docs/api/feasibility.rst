@@ -22,6 +22,7 @@ Hyperslab algorithms :math:`(lb \leq Ax \leq ub)`
    SARTHyperslab
    LandweberHyperslab
    ExtrapolatedLandweberHyperslab
+   ExtrapolatedSimultaneousProjectionHyperslab
    BlockIterativeExtrapolatedLandweberHyperslab
    AdaptiveStepLandweberHyperslab
    BlockIterativeAdaptiveStepLandweberHyperslab

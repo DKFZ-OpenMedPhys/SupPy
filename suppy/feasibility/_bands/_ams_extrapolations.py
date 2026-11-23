@@ -92,8 +92,13 @@ class LandweberHyperslab(SimultaneousAMSHyperslab):
 
 class ExtrapolatedSimultaneousProjectionHyperslab(SimultaneousAMSHyperslab):
     """
-    Extrapolated Landweber algorithm for solving linear inequalities of the
-    form lb <= Ax <= ub.
+    Extrapolated simultaneous projection algorithm for solving linear
+    inequalities of the form lb <= Ax <= ub.
+
+    Like `ExtrapolatedLandweberHyperslab`, but the constraint weights are
+    normalized by the squared row norms, i.e. the update direction is a
+    weighted average of the projections onto the violated hyperslabs. This
+    corresponds to the `ExtrapolatedLandweberHyperslab` of suppy 0.4.0.
 
     Parameters
     ----------
